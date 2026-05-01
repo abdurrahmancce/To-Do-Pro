@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>To-Do App Pro</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+</head>
+<body>
+
+  <!-- Toast Notification -->
+  <div id="toast-container" aria-live="polite"></div>
+
+  <!-- App Wrapper -->
+  <div class="app-wrapper">
+
+    <!-- Background Orbs -->
+    <div class="bg-orb orb-1"></div>
+    <div class="bg-orb orb-2"></div>
+    <div class="bg-orb orb-3"></div>
+
+    <!-- ===== HEADER ===== -->
+    <header class="app-header">
+      <div class="header-left">
+        <div class="logo">
+          <i class="fa-solid fa-list-check logo-icon"></i>
+          <span class="logo-text">To-Do <span class="logo-accent">Pro</span></span>
+        </div>
+        <p class="header-date" id="header-date"></p>
+      </div>
+      <div class="header-right">
+        <!-- Keyboard Shortcut Hint -->
+        <button class="icon-btn shortcut-hint" title="Press Ctrl+K to focus search, Ctrl+N for new task, Delete to remove selected" aria-label="Keyboard shortcuts">
+          <i class="fa-solid fa-keyboard"></i>
+        </button>
+        <!-- Theme Toggle -->
+        <button class="icon-btn theme-toggle" id="theme-toggle" title="Toggle light/dark mode" aria-label="Toggle theme">
+          <i class="fa-solid fa-moon" id="theme-icon"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- ===== STATS BAR ===== -->
+    <section class="stats-bar" aria-label="Task statistics">
+      <div class="stat-card">
+        <span class="stat-num" id="stat-total">0</span>
+        <span class="stat-label">Total</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card">
+        <span class="stat-num accent-green" id="stat-completed">0</span>
+        <span class="stat-label">Done</span>
+      </div>
+      <div class="stat-divider"></div>
+      <div class="stat-card">
+        <span class="stat-num accent-amber" id="stat-pending">0</span>
+        <span class="stat-label">Pending</span>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-wrap" title="Completion progress">
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <span class="progress-pct" id="progress-pct">0%</span>
+      </div>
+    </section>
+
+    <!-- ===== ADD TASK PANEL ===== -->
+    <section class="add-panel glass-card" aria-label="Add new task">
+      <div class="add-panel-top">
+        <div class="input-group">
+          <i class="fa-solid fa-plus input-icon"></i>
+          <input
+            type="text"
+            id="task-input"
+            class="task-input"
+            placeholder="What needs to be done?"
+            maxlength="200"
+            autocomplete="off"
+            aria-label="New task title"
+          />
+        </div>
+        <button class="add-btn" id="add-btn" title="Add task (Enter)" aria-label="Add task">
+          <i class="fa-solid fa-arrow-up"></i>
+        </button>
+      </div>
+
+      <!-- Extra Fields Row -->
+      <div class="extra-fields">
+        <!-- Due Date -->
+        <div class="field-wrap">
+          <label for="task-date" class="field-label">
+            <i class="fa-regular fa-calendar"></i> Due Date
+          </label>
+          <input type="date" id="task-date" class="field-input" aria-label="Due date" />
+        </div>
+
+        <!-- Priority -->
+        <div class="field-wrap">
+          <label class="field-label">
+            <i class="fa-solid fa-flag"></i> Priority
+          </label>
+          <div class="priority-btns" role="radiogroup" aria-label="Priority level">
+            <button class="priority-btn" data-priority="low" aria-pressed="false">Low</button>
+            <button class="priority-btn active" data-priority="medium" aria-pressed="true">Medium</button>
+            <button class="priority-btn" data-priority="high" aria-pressed="false">High</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CONTROLS BAR ===== -->
+    <div class="controls-bar">
+      <!-- Search -->
+      <div class="search-wrap">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input
+          type="text"
+          id="search-input"
+          class="search-input"
+          placeholder="Search tasks…"
+          aria-label="Search tasks"
+        />
+        <button class="clear-search" id="clear-search" aria-label="Clear search" style="display:none">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Filter Tabs -->
+      <div class="filter-tabs" role="tablist" aria-label="Filter tasks">
+        <button class="filter-tab active" data-filter="all" role="tab" aria-selected="true">
+          <i class="fa-solid fa-layer-group"></i> All
+        </button>
+        <button class="filter-tab" data-filter="pending" role="tab" aria-selected="false">
+          <i class="fa-regular fa-clock"></i> Pending
+        </button>
+        <button class="filter-tab" data-filter="completed" role="tab" aria-selected="false">
+          <i class="fa-solid fa-check-double"></i> Done
+        </button>
+      </div>
+
+      <!-- Clear Completed -->
+      <button class="clear-btn" id="clear-completed-btn" title="Clear all completed tasks" aria-label="Clear completed tasks">
+        <i class="fa-solid fa-trash-can"></i>
+        <span>Clear Done</span>
+      </button>
+    </div>
+
+    <!-- ===== TASK LIST ===== -->
+    <main class="task-list-wrap">
+      <ul id="task-list" class="task-list" aria-label="Task list">
+        <!-- Tasks are injected here by JS -->
+      </ul>
+
+      <!-- Empty State -->
+      <div class="empty-state" id="empty-state" aria-hidden="true">
+        <div class="empty-icon">
+          <i class="fa-solid fa-inbox"></i>
+        </div>
+        <h3 class="empty-title">Nothing here yet</h3>
+        <p class="empty-sub">Add a task above to get started on your day.</p>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>Drag tasks to reorder &nbsp;·&nbsp; <kbd>Ctrl+N</kbd> new &nbsp;·&nbsp; <kbd>Ctrl+K</kbd> search &nbsp;·&nbsp; <kbd>Del</kbd> remove selected</span>
+    </footer>
+
+  </div><!-- /app-wrapper -->
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true" aria-label="Edit task" style="display:none">
+    <div class="modal glass-card">
+      <div class="modal-header">
+        <h2 class="modal-title"><i class="fa-solid fa-pen-to-square"></i> Edit Task</h2>
+        <button class="icon-btn modal-close" id="modal-close" aria-label="Close modal">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="edit-input" class="task-input" maxlength="200" aria-label="Edit task title" />
+        <div class="extra-fields" style="margin-top:1rem">
+          <div class="field-wrap">
+            <label for="edit-date" class="field-label">
+              <i class="fa-regular fa-calendar"></i> Due Date
+            </label>
+            <input type="date" id="edit-date" class="field-input" aria-label="Edit due date" />
+          </div>
+          <div class="field-wrap">
+            <label class="field-label">
+              <i class="fa-solid fa-flag"></i> Priority
+            </label>
+            <div class="priority-btns" id="edit-priority-btns" role="radiogroup" aria-label="Edit priority level">
+              <button class="priority-btn" data-priority="low" aria-pressed="false">Low</button>
+              <button class="priority-btn" data-priority="medium" aria-pressed="false">Medium</button>
+              <button class="priority-btn" data-priority="high" aria-pressed="false">High</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="modal-cancel">Cancel</button>
+        <button class="btn btn-primary" id="modal-save">
+          <i class="fa-solid fa-check"></i> Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
