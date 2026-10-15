@@ -255,6 +255,20 @@
     <div class="acc-box" id="acc-box"></div>
 
     <div class="acc-section">
+      <h3>Reminder sound</h3>
+      <p class="muted">How long the alarm rings when a reminder fires.</p>
+      <div class="row">
+        <select id="sound-secs" aria-label="Alarm duration">
+          <option value="3">3 seconds</option>
+          <option value="5">5 seconds</option>
+          <option value="10">10 seconds</option>
+          <option value="0">Until I dismiss it</option>
+        </select>
+        <button type="button" class="btn btn-ghost" id="btn-test-sound"><svg class="i"><use href="#i-bell"/></svg> Test sound</button>
+      </div>
+    </div>
+
+    <div class="acc-section">
       <h3>Backup</h3>
       <p class="muted">Download all your tasks as a file, or restore from one.</p>
       <div class="row">

@@ -11,6 +11,7 @@ const LS = {
   theme: 'theme',
   view: 'tp-view',
   collapsed: 'tp-collapsed',
+  alarmSecs: 'tp-alarm-secs',   // how long the reminder sound rings (0 = until dismissed)
 };
 
 /* ---------- helpers ---------- */
@@ -545,7 +546,7 @@ function showNextAlarm() {
   popup.hidden = false;
   playAlarmSound();
 }
-const closeAlarm = () => { popup.hidden = true; activeAlarm = null; setTimeout(showNextAlarm, 400); };
+const closeAlarm = () => { stopAlarmSound(); popup.hidden = true; activeAlarm = null; setTimeout(showNextAlarm, 400); };
 $('#alarm-dismiss').addEventListener('click', closeAlarm);
 $('#alarm-snooze').addEventListener('click', () => {
   const t = activeAlarm && state.tasks.find((x) => x.id === activeAlarm.id);
@@ -558,21 +559,42 @@ $('#alarm-done').addEventListener('click', () => {
   closeAlarm();
 });
 
-let audioCtx;
-function playAlarmSound() {
+let audioCtx, master = null, alarmTimer = null, alarmEnd = 0;
+const alarmSecs = () => { const n = Number(lsGet(LS.alarmSecs, '5')); return [0, 3, 5, 10].includes(n) ? n : 5; };
+
+function beepCycle() {
+  const t0 = audioCtx.currentTime;
+  [880, 660, 880, 660, 880].forEach((f, i) => {
+    const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+    o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(master);
+    const t = t0 + i * 0.2;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.5, t + 0.02); g.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
+    o.start(t); o.stop(t + 0.18);
+  });
+}
+/* Rings in repeating cycles for the chosen duration, until stopAlarmSound() */
+function startAlarmSound(secs = alarmSecs()) {
+  stopAlarmSound();
   try {
     audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    [880, 660, 880, 660, 880].forEach((f, i) => {
-      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(audioCtx.destination);
-      const t = audioCtx.currentTime + i * 0.2;
-      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(0.2, t + 0.03); g.gain.exponentialRampToValueAtTime(0.001, t + 0.17);
-      o.start(t); o.stop(t + 0.18);
-    });
-  } catch { /* audio blocked until user interacts */ }
-  if (navigator.vibrate && navigator.userActivation?.hasBeenActive) navigator.vibrate([200, 100, 200]);
+    master = audioCtx.createGain(); master.gain.value = 1; master.connect(audioCtx.destination);
+  } catch { return; /* audio unavailable */ }
+  alarmEnd = secs ? Date.now() + secs * 1000 : Infinity;
+  const tick = () => {
+    if (Date.now() >= alarmEnd) { alarmTimer = null; return; }
+    try { beepCycle(); } catch { /* ignore */ }
+    if (navigator.vibrate && navigator.userActivation?.hasBeenActive) navigator.vibrate([200, 100, 200]);
+    alarmTimer = setTimeout(tick, 1100);
+  };
+  tick();
 }
+function stopAlarmSound() {
+  clearTimeout(alarmTimer); alarmTimer = null; alarmEnd = 0;
+  if (master) { try { master.gain.cancelScheduledValues(0); master.gain.value = 0; master.disconnect(); } catch { /* ignore */ } master = null; }
+  if (navigator.vibrate) navigator.vibrate(0);
+}
+const playAlarmSound = startAlarmSound;
 function ensureNotifyPermission() {
   if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission();
 }
@@ -662,6 +684,16 @@ async function signInClick() {
   }
 }
 $$('[data-open-account]').forEach((b) => b.addEventListener('click', () => { renderAccount(); $('#account').showModal(); }));
+
+/* reminder sound setting */
+const soundSel = $('#sound-secs');
+soundSel.value = String(alarmSecs());
+soundSel.addEventListener('change', () => { lsSet(LS.alarmSecs, soundSel.value); });
+$('#btn-test-sound').addEventListener('click', () => {
+  if (alarmTimer) { stopAlarmSound(); return; }
+  startAlarmSound(Number(soundSel.value) || 5); // "until dismissed" previews for 5s
+});
+$('#account').addEventListener('close', stopAlarmSound);
 
 /* backup */
 $('#btn-export').addEventListener('click', () => {

@@ -1,5 +1,5 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v2';
+const VERSION = 'v3';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CORE = [
