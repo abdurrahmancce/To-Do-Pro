@@ -1,5 +1,5 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v3';
+const VERSION = 'v4';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CORE = [
@@ -66,6 +66,25 @@ function networkFirst(req, cacheName) {
     .then((res) => { const copy = res.clone(); caches.open(cacheName).then((c) => c.put(req, copy)); return res; })
     .catch(() => caches.match(req));
 }
+
+/* Background push from the reminder worker (FCM data message) */
+self.addEventListener('push', (e) => {
+  let p = {};
+  try { p = e.data ? e.data.json() : {}; } catch { /* ignore */ }
+  const d = p.data || p;
+  const title = d.title || 'Reminder';
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const visible = wins.filter((c) => c.visibilityState === 'visible');
+    if (visible.length) { visible.forEach((c) => c.postMessage({ type: 'reminder', data: d })); return; } // app is open: in-app alarm
+    await self.registration.showNotification('\u23f0 ' + title, {
+      body: d.body || 'Time to get this done!',
+      icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png',
+      tag: 'task-' + (d.taskId || 'x'), renotify: true, requireInteraction: true,
+      vibrate: [400, 200, 400, 200, 800], data: d,
+    });
+  })());
+});
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();

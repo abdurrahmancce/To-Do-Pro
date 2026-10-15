@@ -100,6 +100,7 @@ function upsert(task, { silent = false } = {}) {
   if (cloudOn()) {
     setSync('syncing');
     cloud.save(state.user.uid, task).catch(onCloudError);
+    mirrorReminder(task);
   }
   if (!silent) render();
 }
@@ -109,8 +110,23 @@ function removeTask(id) {
   if (cloudOn()) {
     setSync('syncing');
     cloud.remove(state.user.uid, id).catch(onCloudError);
+    cloud.deleteReminder(id).catch(() => {});
   }
   render();
+}
+
+/* Mirror upcoming alarms to reminders/{taskId} so the push worker can find them */
+function mirrorReminder(t) {
+  if (!cloudOn() || !window.FIREBASE_VAPID_KEY) return;
+  const warn = (e) => console.warn('reminder mirror failed', e?.message || e);
+  if (t.alarm && !t.completed && !t.alarmFired) {
+    cloud.saveReminder({
+      id: t.id, uid: state.user.uid, title: t.title.slice(0, 120),
+      body: (t.notes || '').slice(0, 140), alarm: t.alarm, repeat: t.alarmRepeat,
+    }).catch(warn);
+  } else {
+    cloud.deleteReminder(t.id).catch(() => {});
+  }
 }
 function topOrder() {
   return state.tasks.length ? Math.min(...state.tasks.map((t) => t.order)) - 1 : 0;
@@ -523,7 +539,9 @@ function checkAlarms() {
   const now = Date.now();
   state.tasks.filter((t) => t.alarm && !t.completed && !t.alarmFired && new Date(t.alarm).getTime() <= now).forEach(fireAlarm);
 }
+const rung = new Set(); // `${taskId}|${alarmISO}` already shown on this device (dedupes push vs in-app)
 function fireAlarm(task) {
+  rung.add(`${task.id}|${task.alarm}`);
   const next = { ...task };
   if (task.alarmRepeat === 'daily' || task.alarmRepeat === 'weekly') {
     const step = task.alarmRepeat === 'daily' ? 1 : 7;
@@ -608,6 +626,17 @@ async function notify(task) {
   } catch { /* ignore */ }
 }
 
+/* A push arrived while the app is open: show the in-app popup + sound */
+navigator.serviceWorker?.addEventListener('message', (e) => {
+  if (e.data?.type !== 'reminder') return;
+  const d = e.data.data || {};
+  const key = `${d.taskId}|${d.alarm}`;
+  if (rung.has(key)) return;
+  rung.add(key);
+  alarmQueue.push(state.tasks.find((x) => x.id === d.taskId) || { id: d.taskId, title: d.title || 'Reminder', notes: d.body || '' });
+  if (!activeAlarm) showNextAlarm();
+});
+
 /* =====================================================
    TOASTS
    ===================================================== */
@@ -671,11 +700,52 @@ function renderAccount() {
       <button type="button" class="btn btn-ghost" id="btn-signout">${icon('logout')} Sign out</button>`;
     $('#btn-signout').onclick = async () => { await cloud.logout(); toast('Signed out'); };
   }
+  renderPush();
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   $('#install-section').hidden = standalone || (!installEvent && !isIOS);
   $('#install-text').textContent = installEvent ? 'Install To-Do Pro as an app on this device.' : 'On iPhone/iPad: tap the Share button, then “Add to Home Screen”.';
 }
+/* ---------- background push (account dialog) ---------- */
+const PUSH_KEY = 'tp-push-token';
+let pushOK = null;
+async function renderPush() {
+  const sec = $('#push-section');
+  const configured = !!(window.FIREBASE_VAPID_KEY && cloud && state.user);
+  sec.hidden = !configured;
+  if (!configured) return;
+  if (pushOK === null) pushOK = await cloud.pushSupported();
+  const iosBrowser = /iphone|ipad|ipod/i.test(navigator.userAgent) && !(matchMedia('(display-mode: standalone)').matches || navigator.standalone);
+  const on = !!lsGet(PUSH_KEY, '') && Notification.permission === 'granted';
+  const btn = $('#btn-push'), txt = $('#push-text');
+  $('#btn-push-test').hidden = !on;
+  if (iosBrowser) { txt.textContent = 'On iPhone/iPad, first add this app to your Home Screen (Share \u2192 Add to Home Screen), then open it from there.'; btn.hidden = true; return; }
+  if (!pushOK) { txt.textContent = 'This browser does not support background notifications.'; btn.hidden = true; return; }
+  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') { txt.textContent = 'Notifications are blocked for this site. Allow them in your browser/site settings, then try again.'; btn.hidden = true; return; }
+  btn.hidden = false;
+  txt.textContent = on ? 'On: you will get reminders on this device even when the app is closed or the screen is off.' : 'Get reminders on this device even when the app is closed or the screen is off.';
+  btn.textContent = on ? 'Turn off' : 'Turn on for this device';
+}
+$('#btn-push').addEventListener('click', async () => {
+  const btn = $('#btn-push'); btn.disabled = true;
+  try {
+    if (lsGet(PUSH_KEY, '')) {
+      await cloud.disablePush(state.user.uid, lsGet(PUSH_KEY, '')); lsSet(PUSH_KEY, ''); toast('Background notifications turned off');
+    } else {
+      const token = await cloud.enablePush(state.user.uid, window.FIREBASE_VAPID_KEY);
+      lsSet(PUSH_KEY, token); toast('Background notifications turned on');
+      state.tasks.forEach(mirrorReminder);
+    }
+  } catch (e) { console.error(e); toast(e.message || 'Could not change notification setting'); }
+  btn.disabled = false; renderPush();
+});
+$('#btn-push-test').addEventListener('click', async () => {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('\u23f0 Test notification', { body: 'If you can see this, notifications work on this device.', icon: 'icons/icon-192.png', vibrate: [400, 200, 400] });
+  } catch { toast('Could not show a test notification'); }
+});
+
 async function signInClick() {
   try { await cloud.signIn(); }
   catch (e) {
@@ -767,9 +837,11 @@ async function handleAuth(user) {
     });
   }
 
+  let mirrored = false;
   unsubscribe = cloud.subscribe(user.uid, (docs, meta) => {
     state.tasks = docs.map((d, i) => normalize(d, i));
     persist();
+    if (!mirrored && !meta.fromCache) { mirrored = true; state.tasks.forEach(mirrorReminder); }
     setSync(!navigator.onLine ? 'offline' : meta.hasPendingWrites || meta.fromCache ? 'syncing' : 'synced');
     render(); checkAlarms();
   }, onCloudError);

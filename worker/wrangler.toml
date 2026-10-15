@@ -1,0 +1,7 @@
+name = "todo-pro-reminders"
+main = "index.js"
+compatibility_date = "2024-11-01"
+
+# Run every minute (free plan allows cron triggers)
+[triggers]
+crons = ["* * * * *"]

@@ -12,3 +12,7 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "164487477381",
   appId: "1:164487477381:web:647543ca981ce595ae91ec"
 };
+
+/* Web Push certificate key (Firebase Console -> Project settings -> Cloud Messaging -> Web Push certificates -> Generate key pair).
+   Paste the public key below to enable background notifications (see PUSH-SETUP.md). */
+window.FIREBASE_VAPID_KEY = 'BLWu3H6Oic6FrS3TG4lzN8qF6dTRfX5pnA18t4kTFoUIKyTrVMZHaYaIi_1EVmj_lnXEr5UbLduOG3mexU0-LKI';

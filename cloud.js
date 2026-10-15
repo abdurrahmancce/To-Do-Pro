@@ -76,3 +76,41 @@ export async function saveMany(uid, tasks) {
     await batch.commit();
   }
 }
+
+/* =====================================================
+   Background push (Firebase Cloud Messaging)
+   - reminders/{taskId}  : mirror of upcoming alarms, read by the Cloudflare Worker
+   - users/{uid}/devices : FCM tokens of the devices that enabled notifications
+   Messaging SDK is imported lazily so a failure here never breaks task sync.
+   ===================================================== */
+const MSG_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging.js';
+
+export async function pushSupported() {
+  try {
+    if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+    const m = await import(MSG_URL);
+    return await m.isSupported();
+  } catch { return false; }
+}
+
+export async function enablePush(uid, vapidKey) {
+  const perm = await Notification.requestPermission();
+  if (perm !== 'granted') throw new Error('Notification permission was not granted');
+  const m = await import(MSG_URL);
+  const reg = await navigator.serviceWorker.ready;
+  const token = await m.getToken(m.getMessaging(app), { vapidKey, serviceWorkerRegistration: reg });
+  if (!token) throw new Error('Could not get a push token');
+  await setDoc(doc(db, 'users', uid, 'devices', token), { token, ua: navigator.userAgent.slice(0, 140), createdAt: Date.now() });
+  return token;
+}
+
+export async function disablePush(uid, token) {
+  try {
+    const m = await import(MSG_URL);
+    await m.deleteToken(m.getMessaging(app));
+  } catch { /* ignore */ }
+  if (token) await deleteDoc(doc(db, 'users', uid, 'devices', token));
+}
+
+export const saveReminder = (r) => setDoc(doc(db, 'reminders', r.id), r);
+export const deleteReminder = (id) => deleteDoc(doc(db, 'reminders', id));
