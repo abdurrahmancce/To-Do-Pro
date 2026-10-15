@@ -59,6 +59,7 @@ async function run(env) {
   });
   if (!qRes.ok) throw new Error('Query failed: ' + qRes.status + ' ' + (await qRes.text()));
   const due = (await qRes.json()).filter((r) => r.document).map((r) => r.document);
+  console.log(`[run] ${nowISO} due reminders: ${due.length}`);
 
   for (const d of due) {
     try {
@@ -72,11 +73,15 @@ async function run(env) {
       const tRes = await call(taskUrl);
       const task = tRes.ok ? (await tRes.json()).fields : null;
       const stale = !task || task.completed?.booleanValue || task.alarmFired?.booleanValue || str(task, 'alarm') !== alarm;
-      if (stale) { await call(reminderUrl, { method: 'DELETE' }); continue; }
+      if (stale) {
+        console.log(`[skip] ${id} stale: task=${!!task} completed=${!!task?.completed?.booleanValue} fired=${!!task?.alarmFired?.booleanValue} taskAlarm=${task ? str(task, 'alarm') : '-'} reminderAlarm=${alarm}`);
+        await call(reminderUrl, { method: 'DELETE' }); continue;
+      }
 
       // Send to every registered device
       const dRes = await call(`${fs}/users/${uid}/devices?pageSize=20`);
       const devices = dRes.ok ? ((await dRes.json()).documents || []) : [];
+      console.log(`[send] ${id} "${str(f, 'title')}" -> ${devices.length} device(s)`);
       for (const dev of devices) {
         const tok = str(dev.fields, 'token');
         if (!tok) continue;
@@ -88,6 +93,7 @@ async function run(env) {
             webpush: { headers: { Urgency: 'high', TTL: '3600' } },
           } }),
         });
+        console.log(`[fcm] ${id} device ${dev.name.split('/').pop().slice(0, 8)}... status ${r.status}${r.ok ? '' : ' ' + (await r.clone().text()).slice(0, 200)}`);
         if (r.status === 404 || r.status === 400) await call(`${fs}/users/${uid}/devices/${dev.name.split('/').pop()}`, { method: 'DELETE' }); // dead token
       }
 

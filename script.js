@@ -12,6 +12,8 @@ const LS = {
   view: 'tp-view',
   collapsed: 'tp-collapsed',
   alarmSecs: 'tp-alarm-secs',   // how long the reminder sound rings (0 = until dismissed)
+  accent: 'tp-accent',
+  calMode: 'tp-cal-mode',
 };
 
 /* ---------- helpers ---------- */
@@ -51,7 +53,7 @@ function whenLabel(iso) {
 /* ---------- state ---------- */
 const state = {
   tasks: [],
-  view: ['all', 'today', 'upcoming', 'done'].includes(lsGet(LS.view)) ? lsGet(LS.view) : 'all',
+  view: ['all', 'today', 'upcoming', 'calendar', 'done'].includes(lsGet(LS.view)) ? lsGet(LS.view) : 'all',
   search: '',
   editingId: null,
   user: null,            // signed-in user (cloud) or null
@@ -59,6 +61,9 @@ const state = {
   syncDetail: '',
   collapsed: new Set(parseJSON(lsGet(LS.collapsed, '[]'), [])),
   justAdded: null,
+  selecting: false,      // bulk-select mode
+  sel: new Set(),
+  cal: { mode: lsGet(LS.calMode, 'month') === 'week' ? 'week' : 'month', cursor: new Date(), day: '' },
 };
 let cloud = null;
 let unsubscribe = null;
@@ -104,7 +109,7 @@ function upsert(task, { silent = false } = {}) {
   }
   if (!silent) render();
 }
-function removeTask(id) {
+function removeTask(id, { silent = false } = {}) {
   state.tasks = state.tasks.filter((t) => t.id !== id);
   persist();
   if (cloudOn()) {
@@ -112,7 +117,7 @@ function removeTask(id) {
     cloud.remove(state.user.uid, id).catch(onCloudError);
     cloud.deleteReminder(id).catch(() => {});
   }
-  render();
+  if (!silent) render();
 }
 
 /* Mirror upcoming alarms to reminders/{taskId} so the push worker can find them */
@@ -157,17 +162,30 @@ function deleteWithUndo(id) {
 /* =====================================================
    THEME
    ===================================================== */
+const ACCENTS = ['indigo', 'violet', 'blue', 'teal', 'green', 'orange', 'rose'];
+const prefTheme = () => { const p = lsGet(LS.theme, 'auto'); return p === 'light' || p === 'dark' ? p : 'auto'; };
+const resolveTheme = () => { const p = prefTheme(); return p === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : p; };
+const prefAccent = () => { const a = lsGet(LS.accent, 'indigo'); return ACCENTS.includes(a) ? a : 'indigo'; };
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   $('#theme-icon use').setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
   $('#theme-icon').parentElement.setAttribute('aria-label', theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
-  $('#meta-theme').setAttribute('content', theme === 'dark' ? '#0b0d12' : '#f5f6fb');
+}
+function applyAppearance() {
+  applyTheme(resolveTheme());
+  document.documentElement.setAttribute('data-accent', prefAccent());
+  const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  if (bg) $('#meta-theme').setAttribute('content', bg);
+  $$('#f-theme button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themePref === prefTheme())));
+  $$('#f-accent button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.accentPick === prefAccent())));
 }
 $('#btn-theme').addEventListener('click', () => {
-  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-  lsSet(LS.theme, next);
-  applyTheme(next);
+  lsSet(LS.theme, resolveTheme() === 'dark' ? 'light' : 'dark');
+  applyAppearance();
 });
+$$('#f-theme button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.theme, b.dataset.themePref); applyAppearance(); }));
+$$('#f-accent button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.accent, b.dataset.accentPick); applyAppearance(); }));
+try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (prefTheme() === 'auto') applyAppearance(); }); } catch { /* old browsers */ }
 
 /* =====================================================
    RENDER
@@ -177,6 +195,7 @@ const VIEW_META = {
   all:      { title: 'All tasks',  empty: ['Nothing here yet', 'Add a task above to get started.'] },
   today:    { title: 'Today',      empty: ['You’re all clear', 'Nothing is due today. Enjoy your day!'] },
   upcoming: { title: 'Upcoming',   empty: ['Nothing upcoming', 'Tasks with a future due date show up here.'] },
+  calendar: { title: 'Calendar',   empty: ['', ''] },
   done:     { title: 'Completed',  empty: ['No completed tasks', 'Finished tasks will be listed here.'] },
 };
 
@@ -236,7 +255,10 @@ function taskHTML(t, td) {
     chips.push(`<span class="chip alarm">${icon('bell')}${esc(whenLabel(t.alarm))}${t.alarmRepeat !== 'none' ? ` ${icon('repeat')}${t.alarmRepeat}` : ''}</span>`);
   }
   return `
-  <li class="task${t.completed ? ' done' : ''}${state.justAdded === t.id ? ' enter' : ''}" data-id="${esc(t.id)}" data-priority="${t.priority}" tabindex="0">
+  <li class="task${t.completed ? ' done' : ''}${state.justAdded === t.id ? ' enter' : ''}${state.sel.has(t.id) ? ' selected' : ''}" data-id="${esc(t.id)}" data-priority="${t.priority}" tabindex="0">
+    <div class="swipe-tray tray-l" aria-hidden="true">${icon('check')}<span>${t.completed ? 'Reopen' : 'Done'}</span></div>
+    <div class="swipe-tray tray-r"><button class="sw-snooze" type="button" tabindex="-1">${icon('snooze')}<span>Snooze</span></button><button class="sw-del" type="button" tabindex="-1">${icon('trash')}<span>Delete</span></button></div>
+    <span class="sel-box" aria-hidden="true">${icon('check')}</span>
     <span class="grip" aria-hidden="true" title="Drag to reorder">${icon('grip')}</span>
     <button class="check" type="button" role="checkbox" aria-checked="${t.completed}" aria-label="${t.completed ? 'Mark as pending' : 'Mark as complete'}">${icon('check')}</button>
     <div class="t-body">
@@ -251,9 +273,12 @@ function taskHTML(t, td) {
   </li>`;
 }
 
+let renderPending = false;
 function render() {
-  if (dragState) return; // never rebuild the list while dragging
+  if (dragState || swipe?.locked) { renderPending = true; return; } // never rebuild the list mid-gesture
+  renderPending = false;
   const { tasks, groups, counts, mode, title, td } = compute();
+  const isCal = state.view === 'calendar' && !state.search;
 
   // nav + counts
   $$('[data-view]').forEach((b) => {
@@ -269,10 +294,11 @@ function render() {
   });
 
   // header
-  $('#view-title').textContent = title;
+  $('#view-title').textContent = isCal ? 'Calendar' : title;
   const subDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   $('#view-sub').textContent = state.search
     ? `${tasks.length} result${tasks.length === 1 ? '' : 's'} for “${state.search.trim()}”`
+    : isCal ? calSub()
     : `${subDate} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
 
   // stats
@@ -283,6 +309,10 @@ function render() {
   $('#stat-done').textContent = done;
   $('#pct').textContent = pct + '%';
   $('#ring').style.setProperty('--p', pct);
+
+  $('.content').classList.toggle('selecting', state.selecting);
+  $('#quick-form').hidden = isCal; $('#calendar').hidden = !isCal; listEl.hidden = isCal;
+  if (isCal) { renderCalendar(); $('#empty').hidden = true; renderReminders(counts); updateBulk(); return; }
 
   // list
   const showHeads = (mode === 'headings' || mode === 'search') ? !(groups.length === 1 && groups[0].key === '') : mode === 'dates';
@@ -305,10 +335,11 @@ function render() {
   }
 
   renderReminders(counts);
+  updateBulk();
 }
 
 /* ---------- list interactions (event delegation) ---------- */
-listEl.addEventListener('click', (e) => {
+function onListClick(e) {
   const head = e.target.closest('.group-head');
   if (head) {
     const sec = head.parentElement; const key = sec.dataset.key;
@@ -319,12 +350,19 @@ listEl.addEventListener('click', (e) => {
     return;
   }
   const li = e.target.closest('.task'); if (!li) return;
+  if (Date.now() - swipedAt < 450) return; // the click that ends a swipe / long-press
   const id = li.dataset.id;
+  if (e.target.closest('.sw-del')) { closeOpenRow(); return deleteWithUndo(id); }
+  if (e.target.closest('.sw-snooze')) return snoozeTask(id);
+  if (e.target.closest('.swipe-tray')) return;
+  if (state.selecting) return toggleSel(id, li);
+  if (li.classList.contains('open')) return closeOpenRow();
   if (e.target.closest('.check')) return toggleComplete(id);
   if (e.target.closest('.del')) return deleteWithUndo(id);
   if (e.target.closest('.grip')) return;
   openEditor(id);
-});
+}
+listEl.addEventListener('click', onListClick);
 listEl.addEventListener('keydown', (e) => {
   const li = e.target.closest('.task'); if (!li || e.target !== li) return;
   if (e.key === 'Enter') { e.preventDefault(); openEditor(li.dataset.id); }
@@ -336,7 +374,7 @@ listEl.addEventListener('keydown', (e) => {
 let dragState = null;
 listEl.addEventListener('pointerdown', (e) => {
   const grip = e.target.closest('.grip');
-  if (!grip || listEl.classList.contains('no-drag') || (e.pointerType === 'mouse' && e.button !== 0)) return;
+  if (!grip || state.selecting || listEl.classList.contains('no-drag') || (e.pointerType === 'mouse' && e.button !== 0)) return;
   const li = grip.closest('.task');
   e.preventDefault();
   const r = li.getBoundingClientRect();
@@ -404,6 +442,7 @@ function renumber() {
    NAVIGATION / SEARCH
    ===================================================== */
 $$('[data-view]').forEach((b) => b.addEventListener('click', () => {
+  state.selecting = false; state.sel.clear(); closeOpenRow();
   state.view = b.dataset.view; lsSet(LS.view, state.view);
   state.search = ''; $('#search').value = ''; $('#search-clear').hidden = true;
   render(); window.scrollTo({ top: 0 });
@@ -527,6 +566,232 @@ $('#rem-list').addEventListener('click', (e) => {
   remDialog.close(); openEditor(t.id);
 });
 ['#btn-reminders-side', '#btn-reminders-top'].forEach((s) => $(s).addEventListener('click', () => remDialog.showModal()));
+
+/* =====================================================
+   SWIPE (touch) · LONG-PRESS SELECT · BULK ACTIONS
+   ===================================================== */
+const SWIPE = { open: 148, act: 84 };
+let swipe = null;       // active touch gesture
+let swipedAt = 0;       // timestamp of the last swipe / long-press (suppresses the trailing click)
+let openRow = null;     // row left open showing Snooze / Delete
+const haptic = () => { try { if (navigator.vibrate && navigator.userActivation?.hasBeenActive) navigator.vibrate(12); } catch { /* ignore */ } };
+
+function rowReset(li) {
+  li.classList.remove('swiping', 'open'); li.classList.add('snap');
+  li.style.removeProperty('--sx');
+  setTimeout(() => li.classList.remove('snap'), 260);
+}
+function closeOpenRow() { if (openRow) { rowReset(openRow); openRow = null; } }
+
+function attachSwipe(container) {
+  container.addEventListener('pointerdown', (e) => {
+    if (e.pointerType !== 'touch' || state.selecting) return;
+    const li = e.target.closest('.task');
+    if (!li || e.target.closest('.grip, .swipe-tray')) return;
+    if (openRow && openRow !== li) closeOpenRow();
+    swipe = {
+      li, id: li.dataset.id, x0: e.clientX, y0: e.clientY, x: 0, locked: false, pid: e.pointerId,
+      base: li.classList.contains('open') ? -SWIPE.open : 0, w: li.offsetWidth,
+      timer: setTimeout(() => {          // long-press → bulk select
+        if (!swipe || swipe.locked) return;
+        const id = swipe.id; swipe = null; swipedAt = Date.now(); haptic(); setSelecting(true, id);
+      }, 520),
+    };
+  });
+}
+document.addEventListener('pointermove', (e) => {
+  if (!swipe || e.pointerId !== swipe.pid) return;
+  const dx = e.clientX - swipe.x0, dy = e.clientY - swipe.y0;
+  if (Math.hypot(dx, dy) > 8) clearTimeout(swipe.timer);
+  if (!swipe.locked) {
+    if (Math.abs(dx) < 10 || Math.abs(dx) < Math.abs(dy) * 1.2) return; // vertical scroll wins
+    swipe.locked = true; swipe.li.classList.remove('snap'); swipe.li.classList.add('swiping');
+  }
+  swipe.x = Math.max(-swipe.w, Math.min(swipe.w * 0.9, swipe.base + dx));
+  swipe.li.style.setProperty('--sx', swipe.x + 'px');
+});
+function endSwipe(e) {
+  if (!swipe || e.pointerId !== swipe.pid) return;
+  clearTimeout(swipe.timer);
+  const s = swipe; swipe = null;
+  if (!s.locked) return;
+  swipedAt = Date.now();
+  const { li, x, w } = s;
+  if (e.type === 'pointercancel') { rowReset(li); }
+  else if (x > SWIPE.act) { haptic(); rowReset(li); toggleComplete(s.id); }
+  else if (x < -w * 0.6) { haptic(); rowReset(li); deleteWithUndo(s.id); }
+  else if (x < -SWIPE.act) {
+    li.classList.remove('swiping'); li.classList.add('open', 'snap'); li.style.setProperty('--sx', -SWIPE.open + 'px');
+    openRow = li; setTimeout(() => li.classList.remove('snap'), 260);
+  } else { rowReset(li); if (openRow === li) openRow = null; }
+  if (renderPending) render();
+}
+document.addEventListener('pointerup', endSwipe);
+document.addEventListener('pointercancel', endSwipe);
+document.addEventListener('pointerdown', (e) => { if (openRow && !e.target.closest('.task.open')) closeOpenRow(); }, true);
+['contextmenu'].forEach((t) => listEl.addEventListener(t, (e) => { if (e.target.closest('.task') && matchMedia('(pointer: coarse)').matches) e.preventDefault(); }));
+
+/* moving / snoozing */
+function shiftToTomorrow(t) {
+  const n = { ...t, date: shiftDay(1) };
+  if (t.alarm && !t.completed) {
+    const d = new Date(t.alarm), tm = new Date(); tm.setDate(tm.getDate() + 1);
+    d.setFullYear(tm.getFullYear(), tm.getMonth(), tm.getDate());
+    n.alarm = d.toISOString(); n.alarmFired = false;
+  }
+  return n;
+}
+function snoozeTask(id) {
+  const t = state.tasks.find((x) => x.id === id); if (!t) return;
+  const was = { ...t }; let n, msg;
+  if (t.alarm && !t.completed) {
+    const base = Math.max(Date.now(), new Date(t.alarm).getTime());
+    n = { ...t, alarm: new Date(base + 3600e3).toISOString(), alarmFired: false }; msg = 'Reminder pushed by 1 hour';
+  } else { n = shiftToTomorrow(t); msg = 'Moved to tomorrow'; }
+  closeOpenRow(); upsert(n);
+  toast(msg, { action: { label: 'Undo', fn: () => upsert(was) } });
+}
+
+/* bulk select */
+function setSelecting(on, id) {
+  state.selecting = on; state.sel = new Set(on && id ? [id] : []);
+  closeOpenRow(); render();
+}
+function toggleSel(id, li) {
+  state.sel.has(id) ? state.sel.delete(id) : state.sel.add(id);
+  li?.classList.toggle('selected', state.sel.has(id));
+  updateBulk();
+}
+function updateBulk() {
+  $('#bulkbar').hidden = !state.selecting;
+  document.body.classList.toggle('bulk-on', state.selecting);
+  $('#btn-select span').textContent = state.selecting ? 'Cancel' : 'Select';
+  const n = state.sel.size;
+  $('#bulk-count').textContent = `${n} selected`;
+  $$('#bulk-done, #bulk-tomorrow, #bulk-del').forEach((b) => { b.disabled = !n; });
+  $('#bulk-done span').textContent = state.view === 'done' ? 'Reopen' : 'Done';
+}
+const selTasks = () => state.tasks.filter((t) => state.sel.has(t.id));
+$('#btn-select').addEventListener('click', () => setSelecting(!state.selecting));
+$('#bulk-cancel').addEventListener('click', () => setSelecting(false));
+$('#bulk-all').addEventListener('click', () => {
+  const ids = $$('.content .task').map((li) => li.dataset.id);
+  const all = ids.length && ids.every((id) => state.sel.has(id));
+  state.sel = new Set(all ? [] : ids);
+  $$('.content .task').forEach((li) => li.classList.toggle('selected', state.sel.has(li.dataset.id)));
+  updateBulk();
+});
+function bulkApply(label, fn) {
+  const list = selTasks(); if (!list.length) return;
+  const before = list.map((t) => ({ ...t }));
+  list.forEach((t) => fn(t));
+  setSelecting(false);
+  const n = before.length;
+  toast(`${n} task${n === 1 ? '' : 's'} ${label}`, { action: { label: 'Undo', fn: () => { before.forEach((t) => upsert(t, { silent: true })); render(); } } });
+}
+$('#bulk-done').addEventListener('click', () => {
+  const reopen = state.view === 'done';
+  bulkApply(reopen ? 'reopened' : 'completed', (t) => upsert({ ...t, completed: !reopen, completedAt: reopen ? null : new Date().toISOString() }, { silent: true }));
+});
+$('#bulk-tomorrow').addEventListener('click', () => bulkApply('moved to tomorrow', (t) => upsert(shiftToTomorrow(t), { silent: true })));
+$('#bulk-del').addEventListener('click', () => bulkApply('deleted', (t) => removeTask(t.id, { silent: true })));
+
+attachSwipe(listEl);
+
+/* =====================================================
+   CALENDAR (month + week)
+   ===================================================== */
+const WEEK_START = 0; // 0 = Sunday … 6 = Saturday
+const calEl = $('#calendar');
+const dayOf = (t) => t.date || (t.alarm ? ymd(new Date(t.alarm)) : '');
+const startOfWeek = (d) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() - WEEK_START + 7) % 7)); return x; };
+const addDays = (d, n) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() + n); return x; };
+const fromYmd = (s) => new Date(s + 'T00:00:00');
+function calSub() {
+  const c = state.cal;
+  if (c.mode === 'month') return c.cursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  const a = startOfWeek(c.cursor), b = addDays(a, 6), o = { month: 'short', day: 'numeric' };
+  return `${a.toLocaleDateString('en-US', o)} – ${b.toLocaleDateString('en-US', o)}, ${b.getFullYear()}`;
+}
+function dayTasks(map, day) {
+  return (map.get(day) || []).slice().sort((a, b) => (a.completed - b.completed) || byOrder(a, b));
+}
+function dayBlock(map, day, td) {
+  const list = dayTasks(map, day);
+  const d = fromYmd(day);
+  const full = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const label = day === td ? `Today · ${full}` : full;
+  return `<div class="cal-daylist">
+    <div class="cal-dayhead"><strong>${esc(label)}</strong><span class="count">${list.length}</span><span class="spacer"></span>
+      <button class="btn btn-ghost sm" type="button" data-cal-add="${day}">${icon('plus')} Add</button></div>
+    ${list.length ? `<ul class="group-list">${list.map((t) => taskHTML(t, td)).join('')}</ul>` : '<p class="muted cal-empty">No tasks on this day.</p>'}
+  </div>`;
+}
+function renderCalendar() {
+  const c = state.cal, td = todayStr();
+  if (!c.day) c.day = td;
+  const map = new Map();
+  state.tasks.forEach((t) => { const d = dayOf(t); if (d) { if (!map.has(d)) map.set(d, []); map.get(d).push(t); } });
+  const undated = state.tasks.filter((t) => !dayOf(t) && !t.completed).length;
+
+  const head = `<div class="cal-head">
+    <div class="seg" role="radiogroup" aria-label="Calendar mode">
+      <button type="button" role="radio" data-cal-mode="month" aria-checked="${c.mode === 'month'}">Month</button>
+      <button type="button" role="radio" data-cal-mode="week" aria-checked="${c.mode === 'week'}">Week</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="icon-btn" type="button" data-cal-nav="-1" aria-label="Previous">${icon('chevl')}</button>
+    <button class="btn btn-ghost sm" type="button" data-cal-nav="0">Today</button>
+    <button class="icon-btn" type="button" data-cal-nav="1" aria-label="Next">${icon('chevr')}</button>
+  </div>`;
+
+  let body;
+  if (c.mode === 'week') {
+    const a = startOfWeek(c.cursor);
+    body = `<div class="cal-week">${Array.from({ length: 7 }, (_, i) => dayBlock(map, ymd(addDays(a, i)), td)).join('')}</div>`;
+  } else {
+    const first = new Date(c.cursor.getFullYear(), c.cursor.getMonth(), 1);
+    const gs = startOfWeek(first);
+    const names = Array.from({ length: 7 }, (_, i) => `<span>${addDays(gs, i).toLocaleDateString('en-US', { weekday: 'short' })}</span>`).join('');
+    const cells = Array.from({ length: 42 }, (_, i) => {
+      const d = addDays(gs, i), key = ymd(d), list = map.get(key) || [];
+      const pend = list.filter((t) => !t.completed);
+      const dots = pend.slice(0, 3).map((t) => `<i class="dot ${t.priority}"></i>`).join('') || (list.length ? '<i class="dot done"></i>' : '');
+      const more = pend.length > 3 ? `<em>+${pend.length - 3}</em>` : '';
+      const cls = ['cal-day', d.getMonth() !== first.getMonth() ? 'out' : '', key === td ? 'today' : '', key === c.day ? 'sel' : ''].filter(Boolean).join(' ');
+      return `<button type="button" class="${cls}" data-day="${key}" aria-label="${esc(d.toDateString())}, ${pend.length} pending"><span class="n">${d.getDate()}</span><span class="dots">${dots}${more}</span></button>`;
+    }).join('');
+    body = `<div class="cal-grid"><div class="cal-names">${names}</div><div class="cal-cells">${cells}</div></div>${dayBlock(map, c.day, td)}`;
+  }
+  calEl.innerHTML = head + body + (undated ? `<p class="muted cal-note">${undated} task${undated === 1 ? ' has' : 's have'} no date or reminder, so ${undated === 1 ? 'it isn’t' : 'they aren’t'} shown here.</p>` : '');
+}
+calEl.addEventListener('click', (e) => {
+  const c = state.cal;
+  const mode = e.target.closest('[data-cal-mode]');
+  if (mode) { c.mode = mode.dataset.calMode; lsSet(LS.calMode, c.mode); return render(); }
+  const nav = e.target.closest('[data-cal-nav]');
+  if (nav) {
+    const n = Number(nav.dataset.calNav), td = new Date();
+    if (n === 0) { c.cursor = td; c.day = todayStr(); }
+    else if (c.mode === 'week') { c.cursor = addDays(c.cursor, 7 * n); }
+    else {
+      c.cursor = new Date(c.cursor.getFullYear(), c.cursor.getMonth() + n, 1);
+      c.day = c.cursor.getMonth() === td.getMonth() && c.cursor.getFullYear() === td.getFullYear() ? todayStr() : ymd(c.cursor);
+    }
+    return render();
+  }
+  const add = e.target.closest('[data-cal-add]');
+  if (add) return openEditor(null, { date: add.dataset.calAdd });
+  const day = e.target.closest('.cal-day');
+  if (day) {
+    c.day = day.dataset.day;
+    const d = fromYmd(c.day);
+    if (day.classList.contains('out')) c.cursor = new Date(d.getFullYear(), d.getMonth(), 1);
+    return render();
+  }
+  onListClick(e);
+});
+attachSwipe(calEl);
 
 /* =====================================================
    ALARM ENGINE
@@ -881,6 +1146,7 @@ async function handleAuth(user) {
    SHORTCUTS
    ===================================================== */
 document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && state.selecting && !document.querySelector('dialog[open]')) { setSelecting(false); return; }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || document.activeElement?.isContentEditable;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); searchEl.focus(); searchEl.select(); return; }
   if (typing || e.ctrlKey || e.metaKey || e.altKey || document.querySelector('dialog[open]')) {
@@ -895,19 +1161,24 @@ document.addEventListener('keydown', (e) => {
    BOOT
    ===================================================== */
 function boot() {
-  applyTheme(document.documentElement.getAttribute('data-theme') || 'dark');
+  const qp = new URLSearchParams(location.search);
+  if (['all', 'today', 'upcoming', 'calendar', 'done'].includes(qp.get('view'))) { state.view = qp.get('view'); lsSet(LS.view, state.view); }
+  applyAppearance();
   const lastUid = lsGet(LS.lastUid, '');
   state.tasks = loadList(window.FIREBASE_CONFIG?.apiKey && lastUid ? LS.cachePrefix + lastUid : LS.local);
   renderAvatar();
   render();
   checkAlarms();
-  setInterval(() => { checkAlarms(); if (!document.hidden && !dragState && !document.querySelector('dialog[open]')) render(); }, 30000);
+  setInterval(() => { checkAlarms(); if (!document.hidden && !dragState && !swipe && !openRow && !document.querySelector('dialog[open]')) render(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkAlarms(); render(); } });
   initCloud();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW registration failed', e));
   }
-  if (new URLSearchParams(location.search).get('action') === 'new') { openEditor(null); history.replaceState(null, '', location.pathname); }
+  const act = qp.get('action');
+  if (act === 'new') openEditor(null);
+  else if (act === 'search') { searchEl.focus(); }
+  if (act || qp.get('view')) history.replaceState(null, '', location.pathname);
 }
 boot();

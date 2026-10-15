@@ -20,9 +20,11 @@
   <script>
     /* apply saved theme before first paint (no flash) */
     try {
-      var t = localStorage.getItem('theme') ||
-        (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+      var t = localStorage.getItem('theme');
+      if (t !== 'light' && t !== 'dark') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
       document.documentElement.setAttribute('data-theme', t);
+      var a = localStorage.getItem('tp-accent');
+      if (a) document.documentElement.setAttribute('data-accent', a);
     } catch (e) {}
   </script>
 
@@ -63,6 +65,10 @@
     <symbol id="i-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
     <symbol id="i-text" viewBox="0 0 24 24"><path d="M17 6H3M21 12H3M15 18H3"/></symbol>
     <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+    <symbol id="i-calgrid" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></symbol>
+    <symbol id="i-chevl" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chevr" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-listcheck" viewBox="0 0 24 24"><path d="m3 17 2 2 4-4M3 7l2 2 4-4M13 6h8M13 12h8M13 18h8"/></symbol>
     <symbol id="i-snooze" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5M12 7v5l3 2"/></symbol>
   </defs>
 </svg>
@@ -84,6 +90,7 @@
       <button class="nav-item" data-view="all" type="button"><svg class="i"><use href="#i-inbox"/></svg><span>All tasks</span><em data-count="all">0</em></button>
       <button class="nav-item" data-view="today" type="button"><svg class="i"><use href="#i-sun"/></svg><span>Today</span><em data-count="today">0</em></button>
       <button class="nav-item" data-view="upcoming" type="button"><svg class="i"><use href="#i-calendar"/></svg><span>Upcoming</span><em data-count="upcoming">0</em></button>
+      <button class="nav-item" data-view="calendar" type="button"><svg class="i"><use href="#i-calgrid"/></svg><span>Calendar</span></button>
       <button class="nav-item" data-view="done" type="button"><svg class="i"><use href="#i-done"/></svg><span>Completed</span><em data-count="done">0</em></button>
     </nav>
 
@@ -118,6 +125,7 @@
       </div>
 
       <div class="topbar-actions">
+        <button class="icon-btn mobile-only" data-view="calendar" type="button" aria-label="Calendar view"><svg class="i"><use href="#i-calgrid"/></svg></button>
         <button class="icon-btn mobile-only" id="btn-reminders-top" type="button" aria-label="Reminders">
           <svg class="i"><use href="#i-bell"/></svg><span class="badge" data-count="reminders-badge" hidden>0</span>
         </button>
@@ -135,12 +143,15 @@
           <h1 id="view-title">All tasks</h1>
           <p id="view-sub" class="muted"></p>
         </div>
+        <div class="head-actions">
+        <button class="btn btn-ghost sm" id="btn-select" type="button"><svg class="i"><use href="#i-listcheck"/></svg><span>Select</span></button>
         <div class="progress-card" aria-label="Completion progress">
           <div class="ring" id="ring" style="--p:0"><span id="pct">0%</span></div>
           <div class="progress-meta">
             <strong><span id="stat-done">0</span> / <span id="stat-total">0</span></strong>
             <small>completed</small>
           </div>
+        </div>
         </div>
       </div>
 
@@ -152,6 +163,7 @@
       </form>
 
       <main id="list" class="list" aria-live="polite"></main>
+      <section id="calendar" class="calendar" aria-label="Calendar" hidden></section>
 
       <div class="empty" id="empty" hidden>
         <div class="empty-art"><svg class="i"><use href="#i-inbox"/></svg></div>
@@ -264,6 +276,25 @@
     </div>
 
     <div class="acc-section">
+      <h3>Appearance</h3>
+      <p class="muted">Theme follows your device unless you pick one.</p>
+      <div class="seg" id="f-theme" role="radiogroup" aria-label="Theme">
+        <button type="button" role="radio" data-theme-pref="auto">Auto</button>
+        <button type="button" role="radio" data-theme-pref="light">Light</button>
+        <button type="button" role="radio" data-theme-pref="dark">Dark</button>
+      </div>
+      <div class="swatches" id="f-accent" role="radiogroup" aria-label="Accent color">
+        <button type="button" role="radio" class="swatch" data-accent-pick="indigo" aria-label="Indigo"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="violet" aria-label="Violet"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="blue" aria-label="Blue"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="teal" aria-label="Teal"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="green" aria-label="Green"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="orange" aria-label="Orange"></button>
+        <button type="button" role="radio" class="swatch" data-accent-pick="rose" aria-label="Rose"></button>
+      </div>
+    </div>
+
+    <div class="acc-section">
       <h3>Reminder sound</h3>
       <p class="muted">How long the alarm rings when a reminder fires.</p>
       <div class="row">
@@ -308,6 +339,16 @@
     <button class="btn btn-ghost sm" id="alarm-done" type="button">Done</button>
     <button class="btn btn-primary sm" id="alarm-dismiss" type="button">Dismiss</button>
   </div>
+</div>
+
+<div class="bulkbar" id="bulkbar" role="toolbar" aria-label="Bulk actions" hidden>
+  <button class="icon-btn" id="bulk-cancel" type="button" aria-label="Exit selection"><svg class="i"><use href="#i-x"/></svg></button>
+  <strong id="bulk-count">0 selected</strong>
+  <span class="spacer"></span>
+  <button class="btn btn-ghost sm" id="bulk-all" type="button">All</button>
+  <button class="btn btn-ghost sm" id="bulk-done" type="button"><svg class="i"><use href="#i-check"/></svg><span>Done</span></button>
+  <button class="btn btn-ghost sm" id="bulk-tomorrow" type="button"><svg class="i"><use href="#i-snooze"/></svg><span>Tomorrow</span></button>
+  <button class="btn btn-ghost sm danger" id="bulk-del" type="button"><svg class="i"><use href="#i-trash"/></svg><span>Delete</span></button>
 </div>
 
 <div class="toasts" id="toasts" aria-live="polite"></div>
