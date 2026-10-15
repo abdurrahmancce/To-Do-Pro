@@ -1,15 +1,14 @@
 /* =====================================================
-   Firebase config — paste YOUR values here (see SETUP.md, Step 3).
-   Leave `null` to run in local-only mode (no cloud sync).
-
-   Example:
-   window.FIREBASE_CONFIG = {
-     apiKey: "AIza...",
-     authDomain: "your-project.firebaseapp.com",
-     projectId: "your-project",
-     storageBucket: "your-project.firebasestorage.app",
-     messagingSenderId: "1234567890",
-     appId: "1:1234567890:web:abcdef"
-   };
+   Firebase config for To-Do Pro (cloud sync).
+   Web config values are not secret — access is protected by
+   Firebase Authentication + Firestore security rules.
+   Set `window.FIREBASE_CONFIG = null;` to go back to local-only mode.
    ===================================================== */
-window.FIREBASE_CONFIG = null;
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAJ-AK7VRbSYxyjLM1itOcDLI6Q2OTtGeE",
+  authDomain: "todo-pro-c172f.firebaseapp.com",
+  projectId: "todo-pro-c172f",
+  storageBucket: "todo-pro-c172f.firebasestorage.app",
+  messagingSenderId: "164487477381",
+  appId: "1:164487477381:web:647543ca981ce595ae91ec"
+};
