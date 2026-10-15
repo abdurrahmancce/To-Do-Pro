@@ -535,13 +535,39 @@ const alarmQueue = [];
 let activeAlarm = null;
 const popup = $('#alarm-popup');
 
+/* Alarm engine
+   - Local-only mode: the app rings and settles the task itself (as before).
+   - Cloud + push mode: the app only RINGS locally. The Cloudflare worker pushes to every device and
+     marks the task fired / advances the repeat, so a device that is open can no longer cancel the
+     push meant for your other devices. If the worker has not settled the task within GRACE, the app
+     settles it itself as a fallback. */
+const GRACE = 3 * 60e3;
+const RUNG_KEY = 'tp-rung';
+const rung = new Set(); // `${taskId}|${alarmISO}` already shown on this device (dedupes push vs in-app)
+const pushMode = () => cloudOn() && !!window.FIREBASE_VAPID_KEY;
+function wasRung(key) {
+  if (rung.has(key)) return true;
+  try { return !!JSON.parse(lsGet(RUNG_KEY, '{}'))[key]; } catch { return false; }
+}
+function markRung(key) {
+  rung.add(key);
+  try {
+    const m = JSON.parse(lsGet(RUNG_KEY, '{}')); const cut = Date.now() - 2 * 864e5;
+    for (const k of Object.keys(m)) if (m[k] < cut) delete m[k];
+    m[key] = Date.now(); lsSet(RUNG_KEY, JSON.stringify(m));
+  } catch { /* ignore */ }
+}
+const isDue = (t, now) => t.alarm && !t.completed && !t.alarmFired && new Date(t.alarm).getTime() <= now;
 function checkAlarms() {
   const now = Date.now();
-  state.tasks.filter((t) => t.alarm && !t.completed && !t.alarmFired && new Date(t.alarm).getTime() <= now).forEach(fireAlarm);
+  state.tasks.filter((t) => isDue(t, now)).forEach((t) => {
+    if (!pushMode()) return fireAlarm(t);
+    const key = `${t.id}|${t.alarm}`;
+    if (!wasRung(key)) ringAlarm(t);
+    if (now - new Date(t.alarm).getTime() > GRACE) settleAlarm(t);
+  });
 }
-const rung = new Set(); // `${taskId}|${alarmISO}` already shown on this device (dedupes push vs in-app)
-function fireAlarm(task) {
-  rung.add(`${task.id}|${task.alarm}`);
+function settleAlarm(task) {
   const next = { ...task };
   if (task.alarmRepeat === 'daily' || task.alarmRepeat === 'weekly') {
     const step = task.alarmRepeat === 'daily' ? 1 : 7;
@@ -552,10 +578,14 @@ function fireAlarm(task) {
     next.alarmFired = true;
   }
   upsert(next);
+}
+function ringAlarm(task) {
+  markRung(`${task.id}|${task.alarm}`);
   alarmQueue.push(task);
   if (!activeAlarm) showNextAlarm();
   notify(task);
 }
+function fireAlarm(task) { settleAlarm(task); ringAlarm(task); }
 function showNextAlarm() {
   activeAlarm = alarmQueue.shift() || null;
   if (!activeAlarm) { popup.hidden = true; return; }
@@ -631,8 +661,8 @@ navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.type !== 'reminder') return;
   const d = e.data.data || {};
   const key = `${d.taskId}|${d.alarm}`;
-  if (rung.has(key)) return;
-  rung.add(key);
+  if (wasRung(key)) return;
+  markRung(key);
   alarmQueue.push(state.tasks.find((x) => x.id === d.taskId) || { id: d.taskId, title: d.title || 'Reminder', notes: d.body || '' });
   if (!activeAlarm) showNextAlarm();
 });
