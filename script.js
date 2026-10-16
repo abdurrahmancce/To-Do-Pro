@@ -4,8 +4,11 @@
    - Syncs across devices when Firebase is configured (cloud.js)
    ===================================================== */
 
+import { parseQuick, fmtDay, fmtTime } from './quickparse.js';
+import { isHabit, completeHabit, streakOf, weekStats } from './habits.js';
+
 const LS = {
-  local: 'tasks-pro',            // local-only task list (same key as the old version)
+  local: 'tasks-pro',           // local-only task list (same key as the old version)
   cachePrefix: 'tasks-cache-',   // per-user mirror of cloud data for instant/offline start
   lastUid: 'tp-last-uid',
   theme: 'theme',
@@ -14,6 +17,8 @@ const LS = {
   alarmSecs: 'tp-alarm-secs',   // how long the reminder sound rings (0 = until dismissed)
   accent: 'tp-accent',
   calMode: 'tp-cal-mode',
+  preMin: 'tp-pre-min',          // pre-reminder: minutes before the alarm (0 = off)
+  echo: 'tp-echo',               // backup push 90 s later if you have not reacted ('0' = off)
 };
 
 /* ---------- helpers ---------- */
@@ -85,6 +90,7 @@ function normalize(t, i = 0) {
     alarm: t.alarm || null,
     alarmRepeat: ['daily', 'weekly'].includes(t.alarmRepeat) ? t.alarmRepeat : 'none',
     alarmFired: !!t.alarmFired,
+    doneDates: Array.isArray(t.doneDates) ? t.doneDates.filter((x) => typeof x === 'string').slice(-400) : [], // habit check-ins (repeating tasks)
   };
 }
 const byOrder = (a, b) => a.order - b.order || a.createdAt.localeCompare(b.createdAt);
@@ -116,22 +122,38 @@ function removeTask(id, { silent = false } = {}) {
     setSync('syncing');
     cloud.remove(state.user.uid, id).catch(onCloudError);
     cloud.deleteReminder(id).catch(() => {});
+    cloud.deleteReminder(id + '_echo').catch(() => {});
   }
   if (!silent) render();
 }
 
 /* Mirror upcoming alarms to reminders/{taskId} so the push worker can find them */
+const preMin = () => { const n = Number(lsGet(LS.preMin, '0')); return [0, 5, 10, 30].includes(n) ? n : 0; };
+const echoOn = () => lsGet(LS.echo, '1') !== '0';
 function mirrorReminder(t) {
   if (!cloudOn() || !window.FIREBASE_VAPID_KEY) return;
   const warn = (e) => console.warn('reminder mirror failed', e?.message || e);
   if (t.alarm && !t.completed && !t.alarmFired) {
+    const pre = preMin();
+    const preAt = new Date(t.alarm).getTime() - pre * 60e3;
+    const early = pre > 0 && preAt > Date.now() + 60e3; // only if the early time is still ahead
     cloud.saveReminder({
       id: t.id, uid: state.user.uid, title: t.title.slice(0, 120),
       body: (t.notes || '').slice(0, 140), alarm: t.alarm, repeat: t.alarmRepeat,
+      fireAt: early ? new Date(preAt).toISOString() : t.alarm, stage: early ? 'pre' : 'main', pre, echo: echoOn(),
     }).catch(warn);
+    cloud.deleteReminder(t.id + '_echo').catch(() => {}); // a new/changed alarm resets any pending backup push
   } else {
     cloud.deleteReminder(t.id).catch(() => {});
+    if (t.completed) cloud.deleteReminder(t.id + '_echo').catch(() => {});
   }
+}
+/* You have seen a fired reminder on some device: cancel its backup push */
+function ackEchoes() {
+  if (!cloudOn() || !window.FIREBASE_VAPID_KEY) return;
+  const now = Date.now();
+  state.tasks.filter((t) => t.alarm && !t.completed && new Date(t.alarm).getTime() <= now && now - new Date(t.alarm).getTime() < 10 * 60e3)
+    .forEach((t) => cloud.deleteReminder(t.id + '_echo').catch(() => {}));
 }
 function topOrder() {
   return state.tasks.length ? Math.min(...state.tasks.map((t) => t.order)) - 1 : 0;
@@ -142,14 +164,21 @@ function createTask(fields) {
   upsert(t);
   return t;
 }
+/* Finishing a repeating task checks it in for today and moves it to the next occurrence (a habit);
+   any other task is simply closed. */
+const finishTask = (t) => (isHabit(t) && !t.completed ? completeHabit(t) : { ...t, completed: true, completedAt: new Date().toISOString() });
 function toggleComplete(id) {
   const t = state.tasks.find((x) => x.id === id);
   if (!t) return;
   const was = { ...t };
-  const copy = { ...t, completed: !t.completed };
-  copy.completedAt = copy.completed ? new Date().toISOString() : null;
+  const undo = { action: { label: 'Undo', fn: () => upsert(was) } };
+  if (t.completed) { upsert({ ...t, completed: false, completedAt: null }); toast('Marked as pending', undo); return; }
+  const copy = finishTask(t);
   upsert(copy);
-  toast(copy.completed ? 'Task completed' : 'Marked as pending', { action: { label: 'Undo', fn: () => upsert(was) } });
+  if (isHabit(copy)) {
+    const n = streakOf(copy.doneDates, copy.alarmRepeat).cur, unit = copy.alarmRepeat === 'weekly' ? 'week' : 'day';
+    toast(`Done \u00b7 \u{1F525} ${n} ${unit}${n === 1 ? '' : 's'} streak`, undo);
+  } else toast('Task completed', undo);
 }
 function deleteWithUndo(id) {
   const t = state.tasks.find((x) => x.id === id);
@@ -245,7 +274,7 @@ function compute() {
 }
 
 function taskHTML(t, td) {
-  const overdue = !t.completed && t.date && t.date < td;
+  const overdue = !t.completed && t.date && t.date < td && !isHabit(t);
   const chips = [];
   if (t.date) {
     const cls = overdue ? 'overdue' : t.date === td ? 'today' : '';
@@ -253,6 +282,10 @@ function taskHTML(t, td) {
   }
   if (t.alarm && !t.completed) {
     chips.push(`<span class="chip alarm">${icon('bell')}${esc(whenLabel(t.alarm))}${t.alarmRepeat !== 'none' ? ` ${icon('repeat')}${t.alarmRepeat}` : ''}</span>`);
+  }
+  if (isHabit(t) && !t.completed) {
+    const n = streakOf(t.doneDates, t.alarmRepeat).cur;
+    if (n > 0) chips.push(`<span class="chip streak" title="Current streak">\u{1F525} ${n}</span>`);
   }
   return `
   <li class="task${t.completed ? ' done' : ''}${state.justAdded === t.id ? ' enter' : ''}${state.sel.has(t.id) ? ' selected' : ''}" data-id="${esc(t.id)}" data-priority="${t.priority}" tabindex="0">
@@ -312,6 +345,7 @@ function render() {
 
   $('.content').classList.toggle('selecting', state.selecting);
   $('#quick-form').hidden = isCal; $('#calendar').hidden = !isCal; listEl.hidden = isCal;
+  if (isCal) qaPreview.hidden = true; else if (qaPreview.innerHTML) qaPreview.hidden = false;
   if (isCal) { renderCalendar(); $('#empty').hidden = true; renderReminders(counts); updateBulk(); return; }
 
   // list
@@ -455,15 +489,47 @@ searchEl.addEventListener('input', () => {
 });
 $('#search-clear').addEventListener('click', () => { searchEl.value = ''; state.search = ''; $('#search-clear').hidden = true; render(); searchEl.focus(); });
 
-/* quick add */
+/* quick add — understands "kal 9 tay Surah Kahf alarm", "tomorrow 5pm call mom", "every day 6am gym !high #health" */
+let qaRaw = false; // "Keep as typed": skip smart parsing for the text currently in the box
+const qaPreview = $('#q-preview');
+const CHIP_ICON = { date: 'calendar', alarm: 'bell', repeat: 'repeat', priority: 'alert' };
+function renderQuickPreview() {
+  const text = $('#q-title').value.trim();
+  const p = text && !qaRaw ? parseQuick(text) : null;
+  if (qaRaw && text) {
+    qaPreview.hidden = false;
+    qaPreview.innerHTML = `<span class="qa-note">Keeping as typed</span><button type="button" class="qa-keep" data-qa="smart">Use smart parsing</button>`;
+  } else if (p && p.changed) {
+    qaPreview.hidden = false;
+    qaPreview.innerHTML = p.chips.map((c) => `<span class="qa-chip qa-${c.k}">${CHIP_ICON[c.k] ? icon(CHIP_ICON[c.k]) : ''}${esc(c.text)}</span>`).join('')
+      + `<button type="button" class="qa-keep" data-qa="raw" title="Add the text exactly as typed">Keep as typed</button>`;
+  } else { qaPreview.hidden = true; qaPreview.innerHTML = ''; }
+}
+qaPreview.addEventListener('click', (e) => {
+  const b = e.target.closest('[data-qa]'); if (!b) return;
+  qaRaw = b.dataset.qa === 'raw'; renderQuickPreview(); $('#q-title').focus();
+});
+$('#q-title').addEventListener('input', () => { if (!$('#q-title').value.trim()) qaRaw = false; renderQuickPreview(); });
+const quickFields = (text) => {
+  const p = qaRaw ? null : parseQuick(text);
+  if (!p || !p.changed) return { title: text, date: state.view === 'today' ? todayStr() : '' };
+  const f = { title: p.title, date: p.date || (state.view === 'today' ? todayStr() : '') };
+  if (p.alarm) { f.alarm = p.alarm; f.alarmRepeat = p.repeat; f.alarmFired = false; }
+  if (p.priority) f.priority = p.priority;
+  if (p.heading) f.heading = p.heading;
+  return f;
+};
+const quickReset = () => { const input = $('#q-title'); input.value = ''; qaRaw = false; renderQuickPreview(); input.focus(); };
 $('#quick-form').addEventListener('submit', (e) => {
   e.preventDefault();
-  const input = $('#q-title'); const title = input.value.trim();
-  if (!title) { input.focus(); return; }
-  createTask({ title, date: state.view === 'today' ? todayStr() : '' });
-  input.value = ''; input.focus();
+  const input = $('#q-title'); const text = input.value.trim();
+  if (!text) { input.focus(); return; }
+  const f = quickFields(text);
+  createTask(f);
+  if (f.alarm) { ensureNotifyPermission(); toast(`Added · ${fmtDay(new Date(f.alarm))} ${fmtTime(new Date(f.alarm))} ⏰`); }
+  quickReset();
 });
-$('#q-more').addEventListener('click', () => { const v = $('#q-title').value.trim(); $('#q-title').value = ''; openEditor(null, { title: v }); });
+$('#q-more').addEventListener('click', () => { const v = $('#q-title').value.trim(); const f = v ? quickFields(v) : {}; $('#q-title').value = ''; qaRaw = false; renderQuickPreview(); openEditor(null, { ...f, title: f.title || v }); });
 
 /* =====================================================
    EDITOR (create / edit)
@@ -691,7 +757,7 @@ function bulkApply(label, fn) {
 }
 $('#bulk-done').addEventListener('click', () => {
   const reopen = state.view === 'done';
-  bulkApply(reopen ? 'reopened' : 'completed', (t) => upsert({ ...t, completed: !reopen, completedAt: reopen ? null : new Date().toISOString() }, { silent: true }));
+  bulkApply(reopen ? 'reopened' : 'completed', (t) => upsert(reopen ? { ...t, completed: false, completedAt: null } : finishTask(t), { silent: true }));
 });
 $('#bulk-tomorrow').addEventListener('click', () => bulkApply('moved to tomorrow', (t) => upsert(shiftToTomorrow(t), { silent: true })));
 $('#bulk-del').addEventListener('click', () => bulkApply('deleted', (t) => removeTask(t.id, { silent: true })));
@@ -839,6 +905,7 @@ function settleAlarm(task) {
     const d = new Date(task.alarm);
     do { d.setDate(d.getDate() + step); } while (d.getTime() <= Date.now());
     next.alarm = d.toISOString(); next.alarmFired = false;
+    if (task.date) next.date = ymd(d);
   } else {
     next.alarmFired = true;
   }
@@ -846,6 +913,7 @@ function settleAlarm(task) {
 }
 function ringAlarm(task) {
   markRung(`${task.id}|${task.alarm}`);
+  if (cloudOn()) cloud.deleteReminder(task.id + '_echo').catch(() => {});
   alarmQueue.push(task);
   if (!activeAlarm) showNextAlarm();
   notify(task);
@@ -921,10 +989,23 @@ async function notify(task) {
   } catch { /* ignore */ }
 }
 
+/* A notification button was tapped but the worker could not do it (no worker URL / offline): do it here */
+let pendingAct = null;
+function runAct(act, id) {
+  const t = state.tasks.find((x) => x.id === id);
+  if (!t) return false;
+  if (act === 'done') { if (!t.completed) toggleComplete(id); }
+  else if (act === 'snooze') { upsert({ ...t, alarm: new Date(Date.now() + 10 * 60e3).toISOString(), alarmFired: false }); toast('Snoozed for 10 minutes'); }
+  return true;
+}
+function flushPendingAct() { if (pendingAct && runAct(pendingAct.act, pendingAct.id)) pendingAct = null; }
+
 /* A push arrived while the app is open: show the in-app popup + sound */
 navigator.serviceWorker?.addEventListener('message', (e) => {
+  if (e.data?.type === 'act') { runAct(e.data.act, e.data.id); return; }
   if (e.data?.type !== 'reminder') return;
   const d = e.data.data || {};
+  if (d.kind === 'pre') { toast(`\u23f3 Coming up: ${d.title || 'reminder'}`, { duration: 7000 }); return; }
   const key = `${d.taskId}|${d.alarm}`;
   if (wasRung(key)) return;
   markRung(key);
@@ -1050,6 +1131,13 @@ async function signInClick() {
 }
 $$('[data-open-account]').forEach((b) => b.addEventListener('click', () => { renderAccount(); $('#account').showModal(); }));
 
+/* reminder extras: pre-reminder + backup push */
+const preSel = $('#pre-min'), echoChk = $('#echo-on');
+preSel.value = String(preMin()); echoChk.checked = echoOn();
+const remirrorAll = () => state.tasks.forEach(mirrorReminder);
+preSel.addEventListener('change', () => { lsSet(LS.preMin, preSel.value); remirrorAll(); toast(Number(preSel.value) ? `Heads-up ${preSel.value} min before each alarm` : 'Pre-reminder off'); });
+echoChk.addEventListener('change', () => { lsSet(LS.echo, echoChk.checked ? '1' : '0'); remirrorAll(); });
+
 /* reminder sound setting */
 const soundSel = $('#sound-secs');
 soundSel.value = String(alarmSecs());
@@ -1138,9 +1226,46 @@ async function handleAuth(user) {
     persist();
     if (!mirrored && !meta.fromCache) { mirrored = true; state.tasks.forEach(mirrorReminder); }
     setSync(!navigator.onLine ? 'offline' : meta.hasPendingWrites || meta.fromCache ? 'syncing' : 'synced');
+    if (!meta.fromCache) { flushPendingAct(); ackEchoes(); }
     render(); checkAlarms();
   }, onCloudError);
 }
+
+/* =====================================================
+   WEEKLY SUMMARY (last 7 days) + habit streaks
+   ===================================================== */
+const sumDialog = $('#summary');
+function renderSummary() {
+  const s = weekStats(state.tasks);
+  const max = Math.max(1, ...s.bars.map((b) => b.count));
+  const md = (d) => fromYmd(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const delta = s.delta === 0 ? ['flat', 'Same as the week before'] : s.delta > 0 ? ['up', `▲ ${s.delta} more than the week before`] : ['down', `▼ ${-s.delta} fewer than the week before`];
+  const stat = (label, value, hint = '') => `<div class="sum-stat"><strong>${value}</strong><span>${label}</span>${hint ? `<small>${hint}</small>` : ''}</div>`;
+  const habits = s.habits.length ? `
+    <div class="sum-sec"><h3>Habit streaks</h3>
+      <ul class="sum-habits">${s.habits.slice(0, 6).map((h) => `<li><span class="fl">\u{1F525} ${h.cur}</span><span class="nm">${esc(h.title)}</span><small>${h.repeat === 'weekly' ? 'weekly' : 'daily'} · best ${h.best}</small></li>`).join('')}</ul>
+      <p class="muted sum-note">Mark a repeating task done to keep its streak alive. It comes back at its next time.</p>
+    </div>` : '';
+  $('#sum-body').innerHTML = `
+    <div class="sum-hero">
+      <div class="sum-num">${s.total}</div>
+      <div class="sum-hero-t"><strong>task${s.total === 1 ? '' : 's'} completed</strong><small>${md(s.range[0])} – ${md(s.range[1])}</small></div>
+      <span class="sum-delta ${delta[0]}">${delta[1]}</span>
+    </div>
+    <div class="sum-bars" role="img" aria-label="Tasks completed per day">${s.bars.map((b) => `
+      <div class="sum-bar${b.today ? ' today' : ''}"><span class="n">${b.count || ''}</span><i style="height:${b.count ? Math.max(8, Math.round((b.count / max) * 100)) : 3}%"></i><em>${b.label}</em></div>`).join('')}</div>
+    <div class="sum-grid">
+      ${stat('Created', s.created)}
+      ${stat('Overdue now', s.overdue)}
+      ${stat('Done on time', s.onTimePct == null ? '–' : s.onTimePct + '%')}
+      ${stat('Best day', s.best ? s.best.label : '–', s.best ? `${s.best.count} done` : '')}
+    </div>
+    ${s.total === 0 ? '<p class="muted sum-note">Complete a few tasks and your week will show up here.</p>' : ''}
+    ${habits}`;
+}
+function openSummary() { renderSummary(); if (!sumDialog.open) sumDialog.showModal(); }
+['#btn-summary-side', '#progress-card'].forEach((sel) => { const el = $(sel); if (el) el.addEventListener('click', openSummary); });
+$('#progress-card').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSummary(); } });
 
 /* =====================================================
    SHORTCUTS
@@ -1170,15 +1295,17 @@ function boot() {
   render();
   checkAlarms();
   setInterval(() => { checkAlarms(); if (!document.hidden && !dragState && !swipe && !openRow && !document.querySelector('dialog[open]')) render(); }, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkAlarms(); render(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkAlarms(); ackEchoes(); render(); } });
   initCloud();
 
   if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
     navigator.serviceWorker.register('sw.js').catch((e) => console.warn('SW registration failed', e));
   }
+  if (['done', 'snooze'].includes(qp.get('do')) && qp.get('id')) { pendingAct = { act: qp.get('do'), id: qp.get('id') }; flushPendingAct(); }
+  navigator.serviceWorker?.ready.then((r) => r.active?.postMessage({ type: 'cfg', workerUrl: window.WORKER_URL || '' })).catch(() => {});
   const act = qp.get('action');
   if (act === 'new') openEditor(null);
   else if (act === 'search') { searchEl.focus(); }
-  if (act || qp.get('view')) history.replaceState(null, '', location.pathname);
+  if (act || qp.get('view') || qp.get('do')) history.replaceState(null, '', location.pathname);
 }
 boot();

@@ -1,9 +1,10 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v7';
+const VERSION = 'v10';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
+const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
 const CORE = [
-  './', 'index.html', 'style.css', 'script.js', 'cloud.js', 'firebase-config.js', 'manifest.webmanifest',
+  './', 'index.html', 'style.css', 'script.js', 'quickparse.js', 'habits.js', 'cloud.js', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png', 'icons/favicon-32.png',
 ];
@@ -21,7 +22,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => ![SHELL, RUNTIME].includes(k)).map((k) => caches.delete(k))))
+      .then((keys) => Promise.all(keys.filter((k) => ![SHELL, RUNTIME, CFG].includes(k)).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -67,31 +68,77 @@ function networkFirst(req, cacheName) {
     .catch(() => caches.match(req));
 }
 
+/* ---------- worker URL (sent by the page) used by the notification buttons ---------- */
+self.addEventListener('message', (e) => {
+  if (e.data?.type !== 'cfg') return;
+  e.waitUntil(caches.open(CFG).then((c) => c.put('./cfg', new Response(JSON.stringify({ workerUrl: e.data.workerUrl || '' })))));
+});
+async function workerUrl() {
+  try { const r = await (await caches.open(CFG)).match('./cfg'); return r ? (await r.json()).workerUrl || '' : ''; } catch { return ''; }
+}
+async function callWorker(d, act, extra = {}) {
+  const url = await workerUrl();
+  if (!url || !d.sig || !d.uid) return false;
+  try {
+    const r = await fetch(url.replace(/\/+$/, '') + '/act', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ uid: d.uid, id: d.taskId, sig: d.sig, act, echo: d.echo, tzo: new Date().getTimezoneOffset(), ...extra }) });
+    return r.ok;
+  } catch { return false; }
+}
+const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
+
 /* Background push from the reminder worker (FCM data message) */
 self.addEventListener('push', (e) => {
   let p = {};
   try { p = e.data ? e.data.json() : {}; } catch { /* ignore */ }
   const d = p.data || p;
   const title = d.title || 'Reminder';
+  const kind = d.kind || 'main';
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const visible = wins.filter((c) => c.visibilityState === 'visible');
     if (visible.length) { visible.forEach((c) => c.postMessage({ type: 'reminder', data: d })); return; } // app is open: in-app alarm
-    await self.registration.showNotification('\u23f0 ' + title, {
-      body: d.body || 'Time to get this done!',
+    const at = d.alarm ? fmtTime(d.alarm) : '';
+    const note = d.body || (kind === 'pre' ? 'Get ready.' : 'Time to get this done!');
+    if (kind === 'pre') {
+      await self.registration.showNotification('⏳ Coming up: ' + title, {
+        body: (at ? `At ${at} · ` : '') + note, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png',
+        tag: 'pre-' + (d.taskId || 'x'), data: d,
+      });
+      return;
+    }
+    await self.registration.showNotification('⏰ ' + title, {
+      body: (kind === 'echo' ? 'Still pending · ' : '') + (at ? `Scheduled ${at} · ` : '') + note,
       icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png',
       tag: 'task-' + (d.taskId || 'x'), renotify: true, requireInteraction: true,
+      timestamp: d.alarm ? new Date(d.alarm).getTime() : Date.now(),
       vibrate: [400, 200, 400, 200, 800], data: d,
+      actions: [{ action: 'snooze', title: 'Snooze 10 min' }, { action: 'done', title: 'Done' }],
     });
   })());
 });
 
 self.addEventListener('notificationclick', (e) => {
+  const d = e.notification.data || {};
   e.notification.close();
-  e.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
-      for (const c of list) if ('focus' in c) return c.focus();
-      return self.clients.openWindow('./');
-    })
-  );
+  const openApp = (qs = '') => self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) if ('focus' in c) { if (qs) c.postMessage({ type: 'act', act: qs.act, id: qs.id }); return c.focus(); }
+    return self.clients.openWindow(qs ? `./?do=${qs.act}&id=${encodeURIComponent(qs.id)}` : './');
+  });
+  if (e.action === 'done' || e.action === 'snooze') {
+    e.waitUntil((async () => {
+      if (await callWorker(d, e.action, { min: 10 })) {
+        if (e.action === 'snooze') { // brief confirmation, auto-dismissed
+          await self.registration.showNotification('💤 Snoozed for 10 minutes', { body: d.title || '', tag: 'task-' + d.taskId, silent: true, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png' });
+          await new Promise((r) => setTimeout(r, 4000));
+          (await self.registration.getNotifications({ tag: 'task-' + d.taskId })).forEach((n) => n.close());
+        }
+        return;
+      }
+      await openApp({ act: e.action, id: d.taskId }); // no worker URL / offline: let the app do it
+    })());
+    return;
+  }
+  e.waitUntil(Promise.all([callWorker(d, 'ack'), openApp()]));
 });
+// Swiped away = you saw it, so no backup push
+self.addEventListener('notificationclose', (e) => { const d = e.notification.data || {}; if (d.taskId && d.sig) e.waitUntil(callWorker(d, 'ack')); });
