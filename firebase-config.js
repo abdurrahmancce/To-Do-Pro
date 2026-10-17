@@ -16,3 +16,7 @@ window.FIREBASE_CONFIG = {
 /* Web Push certificate key (Firebase Console -> Project settings -> Cloud Messaging -> Web Push certificates -> Generate key pair).
    Paste the public key below to enable background notifications (see PUSH-SETUP.md). */
 window.FIREBASE_VAPID_KEY = 'BLWu3H6Oic6FrS3TG4lzN8qF6dTRfX5pnA18t4kTFoUIKyTrVMZHaYaIi_1EVmj_lnXEr5UbLduOG3mexU0-LKI';
+
+/* Reminder worker address (shown after `wrangler deploy`, like https://todo-pro-reminders.YOURNAME.workers.dev).
+   With it, the Snooze / Done buttons on a notification work silently without opening the app. */
+window.WORKER_URL = 'https://todo-pro-reminders.akash-abdur-2002.workers.dev';
