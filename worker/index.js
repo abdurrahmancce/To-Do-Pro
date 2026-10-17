@@ -213,7 +213,8 @@ async function run(env) {
           method: 'POST',
           body: JSON.stringify({ message: { token: tok, data, webpush: { headers: { Urgency: 'high', TTL: '3600' } } } }),
         });
-        console.log(`[fcm] ${docId} ${stage} device ${dev.name.split('/').pop().slice(0, 8)}... status ${r.status}${r.ok ? '' : ' ' + (await r.clone().text()).slice(0, 200)}`);
+        const ua = str(dev.fields, 'ua'), kind = /Android/i.test(ua) ? 'Android' : /Windows/i.test(ua) ? 'Windows' : /iPhone|iPad|Mac/i.test(ua) ? 'Apple' : ua.slice(0, 20) || '?';
+        console.log(`[fcm] ${docId} ${stage} ${kind} device ${dev.name.split('/').pop().slice(0, 8)}... status ${r.status}${r.ok ? '' : ' ' + (await r.clone().text()).slice(0, 200)}`);
         if (r.status === 404 || r.status === 400) await call(`${fs}/users/${uid}/devices/${dev.name.split('/').pop()}`, { method: 'DELETE' }); // dead token
       }
 

@@ -308,7 +308,7 @@
 
     <div class="acc-section" id="push-extras">
       <h3>Reminder extras</h3>
-      <p class="muted">Works with background notifications.</p>
+      <p class="muted">Works with background notifications. These two settings are the same on all your devices.</p>
       <div class="row">
         <select id="pre-min" aria-label="Pre-reminder">
           <option value="0">No pre-reminder</option>
@@ -317,6 +317,7 @@
           <option value="30">Heads-up 30 min before</option>
         </select>
       </div>
+      <p class="muted" id="pre-hint">The heads-up only applies to alarms that are still more than 1 minute + the heads-up time away when you set them.</p>
       <label class="check-row"><input type="checkbox" id="echo-on" /> <span>Send a backup reminder 90 s later if I don’t react</span></label>
     </div>
 

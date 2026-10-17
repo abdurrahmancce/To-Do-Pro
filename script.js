@@ -148,9 +148,16 @@ function mirrorReminder(t) {
     if (t.completed) cloud.deleteReminder(t.id + '_echo').catch(() => {});
   }
 }
+/* "Seen" means this app is really in front of you; a hidden/background tab ringing must not cancel the backup push for your phone */
+const seenNow = () => document.visibilityState === 'visible' && document.hasFocus();
+/* Pre-reminder / backup choices are shared by all devices. The first mirror after sign-in waits until
+   both the tasks and the shared choices arrived from the server, so one device can never overwrite
+   another device's setting with its own default. */
+let mirrorBoot = { prefs: false, tasks: false, done: false };
+function bootMirror() { if (!mirrorBoot.done && mirrorBoot.prefs && mirrorBoot.tasks) { mirrorBoot.done = true; state.tasks.forEach(mirrorReminder); } }
 /* You have seen a fired reminder on some device: cancel its backup push */
 function ackEchoes() {
-  if (!cloudOn() || !window.FIREBASE_VAPID_KEY) return;
+  if (!cloudOn() || !window.FIREBASE_VAPID_KEY || !seenNow()) return;
   const now = Date.now();
   state.tasks.filter((t) => t.alarm && !t.completed && new Date(t.alarm).getTime() <= now && now - new Date(t.alarm).getTime() < 10 * 60e3)
     .forEach((t) => cloud.deleteReminder(t.id + '_echo').catch(() => {}));
@@ -913,7 +920,7 @@ function settleAlarm(task) {
 }
 function ringAlarm(task) {
   markRung(`${task.id}|${task.alarm}`);
-  if (cloudOn()) cloud.deleteReminder(task.id + '_echo').catch(() => {});
+  if (cloudOn() && seenNow()) cloud.deleteReminder(task.id + '_echo').catch(() => {});
   alarmQueue.push(task);
   if (!activeAlarm) showNextAlarm();
   notify(task);
@@ -927,7 +934,7 @@ function showNextAlarm() {
   popup.hidden = false;
   playAlarmSound();
 }
-const closeAlarm = () => { stopAlarmSound(); popup.hidden = true; activeAlarm = null; setTimeout(showNextAlarm, 400); };
+const closeAlarm = () => { if (cloudOn() && activeAlarm) cloud.deleteReminder(activeAlarm.id + '_echo').catch(() => {}); stopAlarmSound(); popup.hidden = true; activeAlarm = null; setTimeout(showNextAlarm, 400); };
 $('#alarm-dismiss').addEventListener('click', closeAlarm);
 $('#alarm-snooze').addEventListener('click', () => {
   const t = activeAlarm && state.tasks.find((x) => x.id === activeAlarm.id);
@@ -1135,8 +1142,19 @@ $$('[data-open-account]').forEach((b) => b.addEventListener('click', () => { ren
 const preSel = $('#pre-min'), echoChk = $('#echo-on');
 preSel.value = String(preMin()); echoChk.checked = echoOn();
 const remirrorAll = () => state.tasks.forEach(mirrorReminder);
-preSel.addEventListener('change', () => { lsSet(LS.preMin, preSel.value); remirrorAll(); toast(Number(preSel.value) ? `Heads-up ${preSel.value} min before each alarm` : 'Pre-reminder off'); });
-echoChk.addEventListener('change', () => { lsSet(LS.echo, echoChk.checked ? '1' : '0'); remirrorAll(); });
+preSel.addEventListener('change', () => {
+  lsSet(LS.preMin, preSel.value);
+  if (cloudOn()) cloud.savePrefs(state.user.uid, { pre: preMin() }).catch(() => {});
+  remirrorAll();
+  toast(Number(preSel.value) ? `Heads-up ${preSel.value} min before each alarm (all your devices)` : 'Pre-reminder off');
+});
+echoChk.addEventListener('change', () => {
+  lsSet(LS.echo, echoChk.checked ? '1' : '0');
+  if (cloudOn()) cloud.savePrefs(state.user.uid, { echo: echoOn() }).catch(() => {});
+  remirrorAll();
+});
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') ackEchoes(); });
+let unsubPrefs = null;
 
 /* reminder sound setting */
 const soundSel = $('#sound-secs');
@@ -1199,6 +1217,8 @@ async function initCloud() {
 
 async function handleAuth(user) {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+  if (unsubPrefs) { unsubPrefs(); unsubPrefs = null; }
+  mirrorBoot = { prefs: false, tasks: false, done: false };
   if (!user) {
     state.user = null; lsSet(LS.lastUid, '');
     state.tasks = loadList(LS.local);
@@ -1220,16 +1240,46 @@ async function handleAuth(user) {
     });
   }
 
-  let mirrored = false;
+  unsubPrefs = cloud.subscribePrefs(user.uid, (p, meta) => {
+    if (meta.fromCache) return;
+    if (p) {
+      const pre = [0, 5, 10, 30].includes(Number(p.pre)) ? Number(p.pre) : 0, echo = p.echo !== false;
+      const changed = pre !== preMin() || echo !== echoOn();
+      lsSet(LS.preMin, String(pre)); lsSet(LS.echo, echo ? '1' : '0');
+      preSel.value = String(pre); echoChk.checked = echo;
+      if (changed && mirrorBoot.done) remirrorAll();
+    } else if (!mirrorBoot.prefs) {
+      cloud.savePrefs(user.uid, { pre: preMin(), echo: echoOn() }).catch(() => {}); // nothing shared yet: share this device's choice
+    }
+    mirrorBoot.prefs = true; bootMirror();
+  });
   unsubscribe = cloud.subscribe(user.uid, (docs, meta) => {
     state.tasks = docs.map((d, i) => normalize(d, i));
     persist();
-    if (!mirrored && !meta.fromCache) { mirrored = true; state.tasks.forEach(mirrorReminder); }
+    if (!meta.fromCache) { mirrorBoot.tasks = true; bootMirror(); }
     setSync(!navigator.onLine ? 'offline' : meta.hasPendingWrites || meta.fromCache ? 'syncing' : 'synced');
     if (!meta.fromCache) { flushPendingAct(); ackEchoes(); }
     render(); checkAlarms();
   }, onCloudError);
+  refreshPush();
 }
+
+/* Self-heal: the worker deletes a device whose push token Google reports as dead, and Chrome can also rotate the token.
+   While this device is "on", quietly re-register its current token (no permission prompt: it is already granted)
+   so it never silently drops off the list. At most once every 20 minutes. */
+const PUSH_CHECK_KEY = 'tp-push-checked';
+async function refreshPush(force = false) {
+  try {
+    const old = lsGet(PUSH_KEY, '');
+    if (!old || !cloudOn() || !window.FIREBASE_VAPID_KEY || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    if (!force && Date.now() - Number(lsGet(PUSH_CHECK_KEY, '0')) < 20 * 60e3) return;
+    lsSet(PUSH_CHECK_KEY, String(Date.now()));
+    const uid = state.user.uid;
+    const token = await cloud.enablePush(uid, window.FIREBASE_VAPID_KEY); // re-writes users/{uid}/devices/{token}
+    if (token && token !== old) { lsSet(PUSH_KEY, token); cloud.dropDevice(uid, old).catch(() => {}); console.info('[push] token refreshed'); }
+  } catch (e) { console.warn('[push] refresh failed', e?.message || e); }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshPush(); });
 
 /* =====================================================
    WEEKLY SUMMARY (last 7 days) + habit streaks

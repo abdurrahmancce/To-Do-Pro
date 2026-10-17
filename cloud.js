@@ -112,5 +112,17 @@ export async function disablePush(uid, token) {
   if (token) await deleteDoc(doc(db, 'users', uid, 'devices', token));
 }
 
+/* Reminder preferences shared by every device of the account: users/{uid}/settings/prefs */
+export const savePrefs = (uid, p) => setDoc(doc(db, 'users', uid, 'settings', 'prefs'), p, { merge: true });
+export function subscribePrefs(uid, onData) {
+  return onSnapshot(
+    doc(db, 'users', uid, 'settings', 'prefs'),
+    { includeMetadataChanges: true },
+    (s) => onData(s.exists() ? s.data() : null, { fromCache: s.metadata.fromCache }),
+    () => {}
+  );
+}
+
+export const dropDevice = (uid, token) => deleteDoc(doc(db, 'users', uid, 'devices', token));
 export const saveReminder = (r) => setDoc(doc(db, 'reminders', r.id), r);
 export const deleteReminder = (id) => deleteDoc(doc(db, 'reminders', id));
