@@ -1010,6 +1010,12 @@ function flushPendingAct() { if (pendingAct && runAct(pendingAct.act, pendingAct
 /* A push arrived while the app is open: show the in-app popup + sound */
 navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.type === 'act') { runAct(e.data.act, e.data.id); return; }
+  if (e.data?.type === 'dismiss') { // handled on another device: drop it from the queue and close its popup here
+    const id = e.data.id;
+    for (let i = alarmQueue.length - 1; i >= 0; i--) if (alarmQueue[i].id === id) alarmQueue.splice(i, 1);
+    if (activeAlarm?.id === id) closeAlarm();
+    return;
+  }
   if (e.data?.type !== 'reminder') return;
   const d = e.data.data || {};
   if (d.kind === 'pre') { toast(`\u23f3 Coming up: ${d.title || 'reminder'}`, { duration: 7000 }); return; }

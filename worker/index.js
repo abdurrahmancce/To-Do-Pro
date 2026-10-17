@@ -75,6 +75,24 @@ function schedule(alarmISO, pre) {
   return pre > 0 && preAt > Date.now() + 60e3 ? { stage: 'pre', fireAt: new Date(preAt).toISOString() } : { stage: 'main', fireAt: alarmISO };
 }
 
+/* Tell every device of the account to close the notification for a task that was just handled on one of them. */
+async function dismissOthers(c, uid, id) {
+  try {
+    const dRes = await c.call(`${c.fs}/users/${uid}/devices?pageSize=20`);
+    const devices = dRes.ok ? ((await dRes.json()).documents || []) : [];
+    for (const dev of devices) {
+      const tok = c.str(dev.fields, 'token');
+      if (!tok) continue;
+      const r = await c.call(`https://fcm.googleapis.com/v1/projects/${c.pid}/messages:send`, {
+        method: 'POST',
+        body: JSON.stringify({ message: { token: tok, data: { kind: 'dismiss', taskId: id }, webpush: { headers: { Urgency: 'high', TTL: '120' } } } }),
+      });
+      console.log(`[dismiss] ${id} device ${dev.name.split('/').pop().slice(0, 8)}... status ${r.status}`);
+      if (r.status === 404) await c.call(`${c.fs}/users/${uid}/devices/${dev.name.split('/').pop()}`, { method: 'DELETE' }); // dead token
+    }
+  } catch (e) { console.error('[dismiss] failed', e); }
+}
+
 /* ---------- notification buttons: POST /act  {uid,id,act:'done'|'snooze'|'ack',min,sig} ---------- */
 async function act(req, env) {
   const b = JSON.parse(await req.text());
@@ -120,6 +138,7 @@ async function act(req, env) {
       }
       await c.call(rem('_echo'), { method: 'DELETE' });
       console.log(`[act] habit done ${id} streak day ${today} -> next ${nextISO}`);
+      await dismissOthers(c, uid, id);
       return { ok: true, habit: true, alarm: nextISO };
     }
     await c.patch(taskUrl, ['completed', 'completedAt', 'updatedAt'], {
@@ -127,6 +146,7 @@ async function act(req, env) {
     });
     await c.call(rem(), { method: 'DELETE' }); await c.call(rem('_echo'), { method: 'DELETE' });
     console.log(`[act] done ${id}`);
+    await dismissOthers(c, uid, id);
     return { ok: true };
   }
   const min = Math.min(120, Math.max(1, Number(b.min) || 10));
@@ -142,6 +162,7 @@ async function act(req, env) {
   });
   await c.call(rem('_echo'), { method: 'DELETE' });
   console.log(`[act] snooze ${id} ${min}min -> ${alarm}`);
+  await dismissOthers(c, uid, id);
   return { ok: true, alarm };
 }
 

@@ -1,5 +1,5 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v12';
+const VERSION = 'v13';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
@@ -86,6 +86,19 @@ async function callWorker(d, act, extra = {}) {
 }
 const fmtTime = (iso) => { try { return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); } catch { return ''; } };
 
+/* Another device snoozed/finished this task: close its notification here too (and any in-app alarm popup). */
+async function dismissLocal(d) {
+  const id = d.taskId || 'x';
+  const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  wins.forEach((c) => c.postMessage({ type: 'dismiss', id }));
+  if (!wins.some((c) => c.visibilityState === 'visible')) {
+    // A push with no visible page must still end in a notification (browser rule): replace the shown one silently, then close it.
+    await self.registration.showNotification('Reminder handled', { tag: 'task-' + id, silent: true, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png' });
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  for (const tag of ['task-' + id, 'pre-' + id]) (await self.registration.getNotifications({ tag })).forEach((n) => n.close());
+}
+
 /* Background push from the reminder worker (FCM data message) */
 self.addEventListener('push', (e) => {
   let p = {};
@@ -93,6 +106,7 @@ self.addEventListener('push', (e) => {
   const d = p.data || p;
   const title = d.title || 'Reminder';
   const kind = d.kind || 'main';
+  if (kind === 'dismiss') { e.waitUntil(dismissLocal(d)); return; }
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const visible = wins.filter((c) => c.visibilityState === 'visible');
@@ -128,9 +142,9 @@ self.addEventListener('notificationclick', (e) => {
     e.waitUntil((async () => {
       if (await callWorker(d, e.action, { min: 10 })) {
         if (e.action === 'snooze') { // brief confirmation, auto-dismissed
-          await self.registration.showNotification('💤 Snoozed for 10 minutes', { body: d.title || '', tag: 'task-' + d.taskId, silent: true, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png' });
+          await self.registration.showNotification('💤 Snoozed for 10 minutes', { body: d.title || '', tag: 'snooze-' + d.taskId, silent: true, icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png' });
           await new Promise((r) => setTimeout(r, 4000));
-          (await self.registration.getNotifications({ tag: 'task-' + d.taskId })).forEach((n) => n.close());
+          (await self.registration.getNotifications({ tag: 'snooze-' + d.taskId })).forEach((n) => n.close());
         }
         return;
       }
