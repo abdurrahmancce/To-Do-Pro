@@ -1225,6 +1225,7 @@ async function showLoginScreen(force = false) {
   try {
     const a = await import('./auth.js');
     if (!force && a.isGuest()) return;
+    document.querySelectorAll('dialog[open]').forEach((d) => d.close());
     if (force) a.clearGuest();
     a.showLogin(cloud, { onSkip: () => { const d = $('#account'); if (d?.open) d.close(); } });
   } catch (e) { console.error('login screen failed', e); }
