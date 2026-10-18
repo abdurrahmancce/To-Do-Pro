@@ -14,7 +14,7 @@ VS Code te folder open kore **Live Server** diye `index.html` chalan (port 5502)
 ## 2. Firebase project banano (≈ 5 min)
 
 1. https://console.firebase.google.com e jan → **Add project** → naam din (e.g. `todo-pro`) → Analytics off rakhte paren.
-2. **Build → Authentication → Get started → Sign-in method → Google → Enable** → support email din → Save.
+2. **Build → Authentication → Get started → Sign-in method** → **Email/Password → Enable → Save**. (Google button chaile **Google → Enable** → support email din → Save.)
 3. **Build → Firestore Database → Create database** → *Production mode* → location nin (e.g. `asia-south1`).
 4. Firestore er **Rules** tab e giye eta paste kore **Publish** korun (shudhu nijer data nijei dekhte/edit korte parbe):
 
@@ -45,7 +45,7 @@ window.FIREBASE_CONFIG = {
 };
 ```
 
-3. Live Server reload korun → sidebar e **Guest** card e click → **Continue with Google**.
+3. Live Server reload korun → login screen asbe → **Create account** diye email + password din.
    (`localhost` Firebase e default authorized, tai local test e kaj korbe.)
 
 > Prothom sign-in e ei device er local task gulo automatic cloud e upload hobe (backup copy browser e theke jabe).

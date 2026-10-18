@@ -6,6 +6,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
   getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, signOut,
+  createUserWithEmailAndPassword, signInWithEmailAndPassword, sendPasswordResetEmail, updateProfile,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
@@ -46,6 +47,16 @@ export async function signIn() {
     throw e;
   }
 }
+
+export async function emailSignIn(email, password) {
+  await signInWithEmailAndPassword(auth, email, password);
+}
+export async function emailSignUp(name, email, password) {
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  if (name) { try { await updateProfile(cred.user, { displayName: name }); } catch { /* name is optional */ } }
+  return { uid: cred.user.uid };
+}
+export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
 export const logout = () => signOut(auth);
 

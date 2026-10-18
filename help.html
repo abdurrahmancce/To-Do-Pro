@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>To-Do Pro — User guide</title>
+<style>
+:root{--bg:#f5f6fb;--s:#fff;--t:#151823;--m:#5d6479;--b:#e4e6ef;--a:#4f46e5;--soft:rgba(99,102,241,.1)}
+@media(prefers-color-scheme:dark){:root{--bg:#0b0d12;--s:#12151c;--t:#e9ebf2;--m:#9aa1b4;--b:#242a38;--a:#a5a8ff;--soft:rgba(99,102,241,.16)}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--t);font:16px/1.7 Inter,'Noto Sans Bengali',system-ui,sans-serif}
+header{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--s);border-bottom:1px solid var(--b)}
+header a{color:var(--a);text-decoration:none;font-weight:600}
+.lang{display:inline-flex;padding:3px;border:1px solid var(--b);border-radius:999px}
+.lang button{border:0;background:none;color:var(--m);font:inherit;font-size:14px;padding:4px 14px;border-radius:999px;cursor:pointer}
+.lang button[aria-pressed=true]{background:#6366f1;color:#fff}
+main{max-width:760px;margin:0 auto;padding:28px 20px 80px}
+h1{font-size:30px;letter-spacing:-.02em;margin:.2em 0}h2{font-size:22px;margin:2.2em 0 .4em;letter-spacing:-.01em}h3{font-size:17px;margin:1.4em 0 .2em}
+p,li{color:var(--m)}li{margin:.3em 0}b,strong{color:var(--t)}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}nav a{padding:5px 12px;border-radius:999px;background:var(--soft);color:var(--a);text-decoration:none;font-size:14px}
+.box{padding:12px 16px;border-radius:12px;background:var(--soft);border:1px solid var(--b);color:var(--t)}
+kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-radius:6px;background:var(--s);font-size:13px;color:var(--t)}
+[data-l]{display:none}html[data-lang=en] [data-l=en],html[data-lang=bn] [data-l=bn]{display:block}
+html[data-lang=en] span[data-l=en],html[data-lang=bn] span[data-l=bn]{display:inline}
+</style>
+</head>
+<body>
+<header><a href="./">← To-Do Pro</a>
+<div class="lang" role="group" aria-label="Language"><button data-set="en" aria-pressed="true">English</button><button data-set="bn" aria-pressed="false">বাংলা</button></div></header>
+<main>
+
+<div data-l="en">
+<h1>To-Do Pro user guide</h1>
+<p>To-Do Pro is a to-do app that works on your phone, laptop and PC, keeps your tasks in sync, and reminds you even when the app is closed.</p>
+<nav><a href="#start">Get started</a><a href="#tasks">Tasks</a><a href="#remind">Reminders</a><a href="#sync">Sync</a><a href="#install">Install</a><a href="#tips">Tips</a><a href="#help">Problems</a></nav>
+
+<h2 id="start">1. Create an account and sign in</h2>
+<ol>
+<li>Open the app. The sign-in screen appears.</li>
+<li>Tap <b>New here? Create an account</b>, enter your name, email and a password (6+ characters), then tap <b>Create account</b>.</li>
+<li>Next time, enter the same email and password and tap <b>Sign in</b>. Use the same account on every device to see the same tasks.</li>
+<li><b>Forgot password?</b> Enter your email and tap <b>Send reset link</b>. Open the email and choose a new password.</li>
+<li>You can switch the screen between English and বাংলা with the <b>EN / বাং</b> button.</li>
+</ol>
+<p class="box">No account? Tap <b>Continue without an account</b>. Tasks stay on that one device and are uploaded automatically when you sign in later.</p>
+
+<h2 id="tasks">2. Add and manage tasks</h2>
+<ul>
+<li><b>Add:</b> tap the <b>+</b> button, or type in the quick-add bar. Smart quick-add understands text like <kbd>Call mom tomorrow 6pm !high #family</kbd>.</li>
+<li><b>Complete:</b> tap the circle. Completing tasks on consecutive days builds your <b>streak</b>.</li>
+<li><b>Edit:</b> tap a task. Change title, notes, date, priority, repeat and alarm.</li>
+<li><b>Swipe</b> a task: one way to complete, the other way to delete. Use <b>Undo</b> in the message at the bottom if you make a mistake.</li>
+<li><b>Select many:</b> long-press a task to select several, then complete, move or delete them together.</li>
+<li><b>Views:</b> All, Today, Upcoming, Calendar and Done. Use search to find any task.</li>
+</ul>
+
+<h2 id="remind">3. Reminders and alarm</h2>
+<ol>
+<li>Open a task and set a <b>date and time</b>, then turn on <b>Alarm</b>.</li>
+<li>When the time comes, the alarm rings and a notification appears. Choose <b>Done</b> or <b>Snooze</b>.</li>
+<li>Open <b>Account → Reminder sound</b> to choose how long the alarm rings (3, 5 seconds or more).</li>
+<li>Open <b>Account → Reminder extras</b> for a heads-up before the alarm (5/10/30 minutes) and a backup reminder if you do not react. These apply to all your devices.</li>
+</ol>
+<h3>Reminders when the app is closed</h3>
+<p>Open <b>Account → Background notifications → Turn on for this device</b>, and tap <b>Allow</b>. Do this once on each device. On iPhone, first add the app to the Home Screen.</p>
+<p>When you press Done or Snooze on one device, the notification on your other devices disappears.</p>
+
+<h2 id="sync">4. Use it on many devices</h2>
+<p>Sign in with the same email and password on each device. Add, edit or delete a task on one and it appears on the others within seconds. The status in <b>Account</b> shows <b>Synced</b> when everything is saved.</p>
+<p>It also works offline: changes are stored on the device and sent when the internet returns.</p>
+
+<h2 id="install">5. Install as an app</h2>
+<ul>
+<li><b>Android (Chrome):</b> menu ⋮ → <b>Install app</b> (or <b>Add to Home screen</b>).</li>
+<li><b>Windows / Mac (Chrome or Edge):</b> click the install icon in the address bar → <b>Install</b>.</li>
+<li><b>iPhone (Safari):</b> Share → <b>Add to Home Screen</b>.</li>
+</ul>
+
+<h2 id="tips">6. Handy features</h2>
+<ul>
+<li><b>Look:</b> Account → Appearance: light/dark theme and accent colors.</li>
+<li><b>Weekly summary:</b> see what you finished this week.</li>
+<li><b>Backup:</b> Account → Backup: export your tasks to a file and import them back.</li>
+<li><b>Keyboard (computer):</b> <kbd>N</kbd> new task, <kbd>/</kbd> search.</li>
+</ul>
+
+<h2 id="help">7. Problems</h2>
+<ul>
+<li><b>“Email or password is wrong”:</b> check both. If you forgot, use <b>Forgot password?</b>.</li>
+<li><b>No notification on phone:</b> turn on Background notifications inside the installed app, allow notifications, and set phone battery for the app to <b>Unrestricted</b>.</li>
+<li><b>Tasks do not match on two devices:</b> make sure both are signed in with the same email. Check that Account shows <b>Synced</b>.</li>
+<li><b>App looks old after an update:</b> close and reopen the app twice, or press <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a computer.</li>
+</ul>
+</div>
+
+<div data-l="bn">
+<h1>To-Do Pro ব্যবহার নির্দেশিকা</h1>
+<p>To-Do Pro এমন একটি টু-ডু অ্যাপ যা ফোন, ল্যাপটপ ও পিসিতে চলে, সব ডিভাইসে টাস্ক মিলিয়ে রাখে এবং অ্যাপ বন্ধ থাকলেও রিমাইন্ডার দেয়।</p>
+<nav><a href="#start">শুরু করুন</a><a href="#tasks">টাস্ক</a><a href="#remind">রিমাইন্ডার</a><a href="#sync">সিঙ্ক</a><a href="#install">ইনস্টল</a><a href="#tips">টিপস</a><a href="#help">সমস্যা</a></nav>
+
+<h2 id="start">১. অ্যাকাউন্ট খুলুন ও সাইন ইন করুন</h2>
+<ol>
+<li>অ্যাপ খুলুন। সাইন ইন স্ক্রিন দেখা যাবে।</li>
+<li><b>নতুন? অ্যাকাউন্ট খুলুন</b> চাপুন, নাম, ইমেইল ও পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর) দিয়ে <b>অ্যাকাউন্ট খুলুন</b> চাপুন।</li>
+<li>পরের বার একই ইমেইল ও পাসওয়ার্ড দিয়ে <b>সাইন ইন</b> চাপুন। সব ডিভাইসে একই অ্যাকাউন্টে ঢুকলে একই টাস্ক দেখবেন।</li>
+<li><b>পাসওয়ার্ড ভুলে গেছেন?</b> চাপুন, ইমেইল দিয়ে <b>রিসেট লিংক পাঠান</b> চাপুন। ইমেইল খুলে নতুন পাসওয়ার্ড দিন।</li>
+<li><b>EN / বাং</b> বাটন দিয়ে স্ক্রিনের ভাষা বদলাতে পারবেন।</li>
+</ol>
+<p class="box">অ্যাকাউন্ট না চাইলে <b>অ্যাকাউন্ট ছাড়া চালিয়ে যান</b> চাপুন। টাস্ক শুধু ওই ডিভাইসে থাকবে, পরে সাইন ইন করলে নিজে থেকেই আপলোড হবে।</p>
+
+<h2 id="tasks">২. টাস্ক যোগ ও পরিচালনা</h2>
+<ul>
+<li><b>যোগ করুন:</b> <b>+</b> বাটন চাপুন বা কুইক-অ্যাড বারে লিখুন। স্মার্ট কুইক-অ্যাড এমন লেখা বোঝে: <kbd>Call mom tomorrow 6pm !high #family</kbd>।</li>
+<li><b>সম্পন্ন করুন:</b> গোল বাটনে চাপুন। টানা কয়েক দিন টাস্ক শেষ করলে <b>স্ট্রিক</b> বাড়ে।</li>
+<li><b>এডিট:</b> টাস্কে চাপুন। শিরোনাম, নোট, তারিখ, প্রায়োরিটি, রিপিট ও অ্যালার্ম বদলান।</li>
+<li><b>সোয়াইপ:</b> এক দিকে সোয়াইপে সম্পন্ন, অন্য দিকে ডিলিট। ভুল হলে নিচের মেসেজে <b>Undo</b> চাপুন।</li>
+<li><b>একসাথে অনেক:</b> টাস্কে লং-প্রেস করে একাধিক বেছে নিন, তারপর একসাথে সম্পন্ন, সরানো বা ডিলিট করুন।</li>
+<li><b>ভিউ:</b> All, Today, Upcoming, Calendar ও Done। সার্চ দিয়ে যেকোনো টাস্ক খুঁজুন।</li>
+</ul>
+
+<h2 id="remind">৩. রিমাইন্ডার ও অ্যালার্ম</h2>
+<ol>
+<li>টাস্ক খুলে <b>তারিখ ও সময়</b> দিন, তারপর <b>Alarm</b> চালু করুন।</li>
+<li>সময় হলে অ্যালার্ম বাজবে ও নোটিফিকেশন আসবে। <b>Done</b> বা <b>Snooze</b> বেছে নিন।</li>
+<li><b>Account → Reminder sound</b> থেকে অ্যালার্ম কত সেকেন্ড বাজবে ঠিক করুন (৩, ৫ সেকেন্ড বা বেশি)।</li>
+<li><b>Account → Reminder extras</b> থেকে অ্যালার্মের আগে আগাম সতর্কতা (৫/১০/৩০ মিনিট) এবং সাড়া না দিলে ব্যাকআপ রিমাইন্ডার চালু করুন। এগুলো সব ডিভাইসে একই থাকে।</li>
+</ol>
+<h3>অ্যাপ বন্ধ থাকলেও রিমাইন্ডার</h3>
+<p><b>Account → Background notifications → Turn on for this device</b> চাপুন এবং <b>Allow</b> দিন। প্রতিটি ডিভাইসে একবার করে করুন। iPhone-এ আগে অ্যাপটি Home Screen-এ যোগ করুন।</p>
+<p>একটি ডিভাইসে Done বা Snooze চাপলে অন্য ডিভাইসের নোটিফিকেশন মুছে যায়।</p>
+
+<h2 id="sync">৪. একাধিক ডিভাইসে ব্যবহার</h2>
+<p>প্রতিটি ডিভাইসে একই ইমেইল ও পাসওয়ার্ড দিয়ে সাইন ইন করুন। এক ডিভাইসে টাস্ক যোগ, এডিট বা ডিলিট করলে কয়েক সেকেন্ডে অন্যগুলোতে দেখা যাবে। সব সেভ হলে <b>Account</b>-এ <b>Synced</b> দেখাবে।</p>
+<p>অফলাইনেও চলে: পরিবর্তন ডিভাইসে জমা থাকে, ইন্টারনেট ফিরলে পাঠিয়ে দেয়।</p>
+
+<h2 id="install">৫. অ্যাপ হিসেবে ইনস্টল</h2>
+<ul>
+<li><b>Android (Chrome):</b> মেনু ⋮ → <b>Install app</b> (বা <b>Add to Home screen</b>)।</li>
+<li><b>Windows / Mac (Chrome বা Edge):</b> অ্যাড্রেস বারের ইনস্টল আইকনে চাপুন → <b>Install</b>।</li>
+<li><b>iPhone (Safari):</b> Share → <b>Add to Home Screen</b>।</li>
+</ul>
+
+<h2 id="tips">৬. কাজের ফিচার</h2>
+<ul>
+<li><b>চেহারা:</b> Account → Appearance: লাইট/ডার্ক থিম ও অ্যাকসেন্ট রঙ।</li>
+<li><b>সাপ্তাহিক সারাংশ:</b> এই সপ্তাহে কী কী শেষ করেছেন দেখুন।</li>
+<li><b>ব্যাকআপ:</b> Account → Backup: টাস্ক ফাইলে এক্সপোর্ট ও আবার ইমপোর্ট করুন।</li>
+<li><b>কীবোর্ড (কম্পিউটার):</b> <kbd>N</kbd> নতুন টাস্ক, <kbd>/</kbd> সার্চ।</li>
+</ul>
+
+<h2 id="help">৭. সমস্যা হলে</h2>
+<ul>
+<li><b>“ইমেইল বা পাসওয়ার্ড ভুল”:</b> দুটোই দেখুন। ভুলে গেলে <b>পাসওয়ার্ড ভুলে গেছেন?</b> ব্যবহার করুন।</li>
+<li><b>ফোনে নোটিফিকেশন আসছে না:</b> ইনস্টল করা অ্যাপের ভেতর থেকে Background notifications চালু করুন, Allow দিন এবং ফোনের ব্যাটারি সেটিংসে অ্যাপটি <b>Unrestricted</b> করুন।</li>
+<li><b>দুই ডিভাইসে টাস্ক মিলছে না:</b> দুটোতেই একই ইমেইলে সাইন ইন আছে কিনা দেখুন। Account-এ <b>Synced</b> দেখাচ্ছে কিনা দেখুন।</li>
+<li><b>আপডেটের পরও পুরনো দেখাচ্ছে:</b> অ্যাপ দুইবার বন্ধ করে খুলুন, অথবা কম্পিউটারে <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> চাপুন।</li>
+</ul>
+</div>
+</main>
+<script>
+(function(){var h=document.documentElement,k='tp-help-lang',l;
+try{l=localStorage.getItem(k)}catch(e){}
+if(!l)l=(navigator.language||'').toLowerCase().indexOf('bn')===0?'bn':'en';
+function set(x){h.dataset.lang=x;h.lang=x;document.querySelectorAll('.lang button').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.set===x))});try{localStorage.setItem(k,x)}catch(e){}}
+document.querySelectorAll('.lang button').forEach(function(b){b.onclick=function(){set(b.dataset.set)}});set(l)})();
+</script>
+</body>
+</html>
