@@ -501,8 +501,8 @@ fieldset.reminder legend .i { width: 14px; height: 14px; }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
 
-#sound-secs { flex: 1; min-width: 150px; height: 40px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface-2); font-size: 14px; outline: 0; }
-#sound-secs:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+#sound-secs, #pre-min { flex: 1; min-width: 150px; height: 40px; padding: 0 12px; border-radius: 11px; border: 1px solid var(--border); background: var(--surface-2); font-size: 14px; outline: 0; }
+#sound-secs:focus, #pre-min:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 
 /* =====================================================
