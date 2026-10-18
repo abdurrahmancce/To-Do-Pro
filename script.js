@@ -58,6 +58,7 @@ function whenLabel(iso) {
 /* ---------- state ---------- */
 const state = {
   tasks: [],
+  trash: [],             // soft-deleted tasks (kept 30 days)
   view: ['all', 'today', 'upcoming', 'calendar', 'done'].includes(lsGet(LS.view)) ? lsGet(LS.view) : 'all',
   search: '',
   editingId: null,
@@ -90,6 +91,7 @@ function normalize(t, i = 0) {
     alarm: t.alarm || null,
     alarmRepeat: ['daily', 'weekly'].includes(t.alarmRepeat) ? t.alarmRepeat : 'none',
     alarmFired: !!t.alarmFired,
+    deletedAt: Number(t.deletedAt) || 0,   // set while the task sits in Trash
     doneDates: Array.isArray(t.doneDates) ? t.doneDates.filter((x) => typeof x === 'string').slice(-400) : [], // habit check-ins (repeating tasks)
   };
 }
@@ -99,13 +101,21 @@ const loadList = (key) => {
   return Array.isArray(arr) ? arr.map(normalize) : [];
 };
 const cacheKey = () => (state.user ? LS.cachePrefix + state.user.uid : LS.local);
-const persist = () => lsSet(cacheKey(), JSON.stringify(state.tasks));
+const persist = () => lsSet(cacheKey(), JSON.stringify([...state.tasks, ...state.trash]));
+function setAll(list) { // split a stored/synced list into live tasks and Trash
+  state.tasks = list.filter((t) => !t.deletedAt);
+  state.trash = list.filter((t) => t.deletedAt);
+}
+const TRASH_MS = 30 * 24 * 3600e3;
+const UNDO_MS = 5000;
 const cloudOn = () => !!(cloud && state.user);
 
 /* ---------- mutations ---------- */
 function upsert(task, { silent = false } = {}) {
   task.updatedAt = Date.now();
   const i = state.tasks.findIndex((t) => t.id === task.id);
+  task.deletedAt = 0;
+  state.trash = state.trash.filter((t) => t.id !== task.id);
   if (i >= 0) state.tasks[i] = task; else state.tasks.push(task);
   persist();
   if (cloudOn()) {
@@ -115,16 +125,39 @@ function upsert(task, { silent = false } = {}) {
   }
   if (!silent) render();
 }
+/* Delete = move to Trash (kept 30 days, synced to all devices). Its reminder is cancelled. */
 function removeTask(id, { silent = false } = {}) {
-  state.tasks = state.tasks.filter((t) => t.id !== id);
+  const t = state.tasks.find((x) => x.id === id);
+  if (!t) return;
+  const gone = { ...t, deletedAt: Date.now(), updatedAt: Date.now() };
+  state.tasks = state.tasks.filter((x) => x.id !== id);
+  state.trash.push(gone);
   persist();
   if (cloudOn()) {
     setSync('syncing');
-    cloud.remove(state.user.uid, id).catch(onCloudError);
+    cloud.save(state.user.uid, gone).catch(onCloudError);
     cloud.deleteReminder(id).catch(() => {});
     cloud.deleteReminder(id + '_echo').catch(() => {});
   }
   if (!silent) render();
+}
+function purgeTask(id, { silent = false } = {}) { // permanent
+  state.trash = state.trash.filter((t) => t.id !== id);
+  persist();
+  if (cloudOn()) { setSync('syncing'); cloud.remove(state.user.uid, id).catch(onCloudError); }
+  if (!silent) render();
+}
+function restoreTask(id) {
+  const t = state.trash.find((x) => x.id === id);
+  if (!t) return;
+  upsert({ ...t, deletedAt: 0 });
+  toast('Task restored');
+}
+function purgeExpired() {
+  const old = state.trash.filter((t) => Date.now() - t.deletedAt > TRASH_MS);
+  if (!old.length) return;
+  old.forEach((t) => purgeTask(t.id, { silent: true }));
+  render();
 }
 
 /* Mirror upcoming alarms to reminders/{taskId} so the push worker can find them */
@@ -192,7 +225,7 @@ function deleteWithUndo(id) {
   if (!t) return;
   const backup = { ...t };
   removeTask(id);
-  toast('Task deleted', { action: { label: 'Undo', fn: () => upsert(backup) } });
+  toast('Moved to Trash', { duration: UNDO_MS, action: { label: 'Undo', fn: () => upsert(backup) } });
 }
 
 /* =====================================================
@@ -232,6 +265,7 @@ const VIEW_META = {
   today:    { title: 'Today',      empty: ['You’re all clear', 'Nothing is due today. Enjoy your day!'] },
   upcoming: { title: 'Upcoming',   empty: ['Nothing upcoming', 'Tasks with a future due date show up here.'] },
   calendar: { title: 'Calendar',   empty: ['', ''] },
+  trash:    { title: 'Trash',      empty: ['Trash is empty', 'Deleted tasks stay here for 30 days before they are removed for good.'] },
   done:     { title: 'Completed',  empty: ['No completed tasks', 'Finished tasks will be listed here.'] },
 };
 
@@ -247,10 +281,14 @@ function compute() {
     upcoming: pending.filter((t) => t.date > td).length,
     done: sorted.length - pending.length,
     reminders: pending.filter((t) => t.alarm).length,
+    trash: state.trash.length,
   };
 
   let tasks, mode, title;
-  if (q) {
+  if (state.view === 'trash' && !q) {
+    tasks = [...state.trash].sort((a, b) => b.deletedAt - a.deletedAt);
+    mode = 'trash'; title = VIEW_META.trash.title;
+  } else if (q) {
     tasks = sorted.filter((t) => [t.title, t.notes, t.heading].some((x) => x.toLowerCase().includes(q)));
     mode = 'search'; title = 'Search results';
   } else if (state.view === 'done') {
@@ -275,6 +313,7 @@ function compute() {
   };
   if (mode === 'headings' || mode === 'search') tasks.forEach((t) => add(t.heading, t.heading || 'General', { heading: t.heading }).tasks.push(t));
   else if (mode === 'dates') tasks.forEach((t) => add(t.date, dateLabel(t.date)).tasks.push(t));
+  else if (mode === 'trash') add('', 'Trash').tasks = tasks;
   else add('', 'Completed').tasks = tasks;
 
   return { tasks, groups, counts, mode, title, td };
@@ -319,6 +358,7 @@ function render() {
   renderPending = false;
   const { tasks, groups, counts, mode, title, td } = compute();
   const isCal = state.view === 'calendar' && !state.search;
+  $('#btn-select').hidden = state.view === 'trash' && !state.search;
 
   // nav + counts
   $$('[data-view]').forEach((b) => {
@@ -339,6 +379,7 @@ function render() {
   $('#view-sub').textContent = state.search
     ? `${tasks.length} result${tasks.length === 1 ? '' : 's'} for “${state.search.trim()}”`
     : isCal ? calSub()
+    : state.view === 'trash' ? `${tasks.length} deleted task${tasks.length === 1 ? '' : 's'}`
     : `${subDate} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
 
   // stats
@@ -354,6 +395,27 @@ function render() {
   $('#quick-form').hidden = isCal; $('#calendar').hidden = !isCal; listEl.hidden = isCal;
   if (isCal) qaPreview.hidden = true; else if (qaPreview.innerHTML) qaPreview.hidden = false;
   if (isCal) { renderCalendar(); $('#empty').hidden = true; renderReminders(counts); updateBulk(); return; }
+
+  // Trash view
+  if (mode === 'trash') {
+    state.selecting = false; state.sel.clear();
+    $('.content').classList.remove('selecting');
+    $('#quick-form').hidden = true; $('#calendar').hidden = true; listEl.hidden = false;
+    qaPreview.hidden = true; listEl.classList.add('no-drag');
+    const DAY = 864e5;
+    listEl.innerHTML = tasks.length ? `<div class="trash-bar"><span>Deleted tasks stay here for 30 days, then they are removed for good.</span><button class="btn btn-ghost sm" type="button" data-empty-trash>Empty trash</button></div>
+      <ul class="group-list trash-list">${tasks.map((t) => {
+        const age = Math.floor((Date.now() - t.deletedAt) / DAY), left = Math.max(0, 30 - age);
+        const when = age < 1 ? 'Deleted today' : `Deleted ${age} day${age === 1 ? '' : 's'} ago`;
+        return `<li class="trash-row" data-id="${esc(t.id)}"><div class="tr-main"><div class="tr-title">${esc(t.title || 'Untitled')}</div>
+          <div class="tr-meta">${when} · ${left} day${left === 1 ? '' : 's'} left</div></div>
+          <div class="tr-actions"><button class="btn btn-ghost sm" type="button" data-restore>Restore</button><button class="btn btn-danger-ghost sm" type="button" data-purge>Delete forever</button></div></li>`;
+      }).join('')}</ul>` : '';
+    $('#empty').hidden = !!tasks.length;
+    if (!tasks.length) { $('#empty-title').textContent = VIEW_META.trash.empty[0]; $('#empty-sub').textContent = VIEW_META.trash.empty[1]; }
+    renderReminders(counts); updateBulk();
+    return;
+  }
 
   // list
   const showHeads = (mode === 'headings' || mode === 'search') ? !(groups.length === 1 && groups[0].key === '') : mode === 'dates';
@@ -381,6 +443,19 @@ function render() {
 
 /* ---------- list interactions (event delegation) ---------- */
 function onListClick(e) {
+  const trow = e.target.closest('.trash-row');
+  if (trow) {
+    const id = trow.dataset.id;
+    if (e.target.closest('[data-restore]')) restoreTask(id);
+    else if (e.target.closest('[data-purge]') && confirm('Delete this task forever? This cannot be undone.')) { purgeTask(id); toast('Deleted forever'); }
+    return;
+  }
+  if (e.target.closest('[data-empty-trash]')) {
+    if (state.trash.length && confirm(`Delete all ${state.trash.length} task${state.trash.length === 1 ? '' : 's'} in Trash forever? This cannot be undone.`)) {
+      const n = state.trash.length; [...state.trash].forEach((t) => purgeTask(t.id, { silent: true })); render(); toast(`Trash emptied (${n})`);
+    }
+    return;
+  }
   const head = e.target.closest('.group-head');
   if (head) {
     const sec = head.parentElement; const key = sec.dataset.key;
@@ -760,14 +835,14 @@ function bulkApply(label, fn) {
   list.forEach((t) => fn(t));
   setSelecting(false);
   const n = before.length;
-  toast(`${n} task${n === 1 ? '' : 's'} ${label}`, { action: { label: 'Undo', fn: () => { before.forEach((t) => upsert(t, { silent: true })); render(); } } });
+  toast(`${n} task${n === 1 ? '' : 's'} ${label}`, { duration: label === 'moved to Trash' ? UNDO_MS : undefined, action: { label: 'Undo', fn: () => { before.forEach((t) => upsert(t, { silent: true })); render(); } } });
 }
 $('#bulk-done').addEventListener('click', () => {
   const reopen = state.view === 'done';
   bulkApply(reopen ? 'reopened' : 'completed', (t) => upsert(reopen ? { ...t, completed: false, completedAt: null } : finishTask(t), { silent: true }));
 });
 $('#bulk-tomorrow').addEventListener('click', () => bulkApply('moved to tomorrow', (t) => upsert(shiftToTomorrow(t), { silent: true })));
-$('#bulk-del').addEventListener('click', () => bulkApply('deleted', (t) => removeTask(t.id, { silent: true })));
+$('#bulk-del').addEventListener('click', () => bulkApply('moved to Trash', (t) => removeTask(t.id, { silent: true })));
 
 attachSwipe(listEl);
 
@@ -1237,14 +1312,14 @@ async function handleAuth(user) {
   mirrorBoot = { prefs: false, tasks: false, done: false };
   if (!user) {
     state.user = null; lsSet(LS.lastUid, '');
-    state.tasks = loadList(LS.local);
+    setAll(loadList(LS.local));
     renderAvatar(); setSync('local'); render();
     showLoginScreen();
     return;
   }
   state.user = user; lsSet(LS.lastUid, user.uid);
   import('./auth.js').then((a) => { a.clearGuest(); a.hideLogin(); }).catch(() => {});
-  state.tasks = loadList(cacheKey());
+  setAll(loadList(cacheKey()));
   renderAvatar(); setSync('syncing'); render();
 
   // First sign-in on this device: upload any local-only tasks, keep a backup copy
@@ -1272,8 +1347,8 @@ async function handleAuth(user) {
     mirrorBoot.prefs = true; bootMirror();
   });
   unsubscribe = cloud.subscribe(user.uid, (docs, meta) => {
-    state.tasks = docs.map((d, i) => normalize(d, i));
-    persist();
+    setAll(docs.map((d, i) => normalize(d, i)));
+    persist(); purgeExpired();
     if (!meta.fromCache) { mirrorBoot.tasks = true; bootMirror(); }
     setSync(!navigator.onLine ? 'offline' : meta.hasPendingWrites || meta.fromCache ? 'syncing' : 'synced');
     if (!meta.fromCache) { flushPendingAct(); ackEchoes(); }
@@ -1355,14 +1430,15 @@ document.addEventListener('keydown', (e) => {
    ===================================================== */
 function boot() {
   const qp = new URLSearchParams(location.search);
-  if (['all', 'today', 'upcoming', 'calendar', 'done'].includes(qp.get('view'))) { state.view = qp.get('view'); lsSet(LS.view, state.view); }
+  if (['all', 'today', 'upcoming', 'calendar', 'done', 'trash'].includes(qp.get('view'))) { state.view = qp.get('view'); lsSet(LS.view, state.view); }
   applyAppearance();
   const lastUid = lsGet(LS.lastUid, '');
-  state.tasks = loadList(window.FIREBASE_CONFIG?.apiKey && lastUid ? LS.cachePrefix + lastUid : LS.local);
+  setAll(loadList(window.FIREBASE_CONFIG?.apiKey && lastUid ? LS.cachePrefix + lastUid : LS.local));
+  purgeExpired();
   renderAvatar();
   render();
   checkAlarms();
-  setInterval(() => { checkAlarms(); if (!document.hidden && !dragState && !swipe && !openRow && !document.querySelector('dialog[open]')) render(); }, 30000);
+  setInterval(() => { checkAlarms(); purgeExpired(); if (!document.hidden && !dragState && !swipe && !openRow && !document.querySelector('dialog[open]')) render(); }, 30000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkAlarms(); ackEchoes(); render(); } });
   initCloud();
 
