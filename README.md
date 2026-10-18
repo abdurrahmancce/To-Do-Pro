@@ -1,333 +1,79 @@
-# 📝 To-Do Pro
+# To-Do Pro
 
-A modern, responsive, and feature-rich **To-Do Pro** Application built using **HTML, CSS, and JavaScript** with an elegant glassmorphism UI, smart reminders, drag-and-drop functionality, dark/light themes, and productivity-focused features.
+**English** | [বাংলা](#বাংলা)
 
----
+An installable to-do app (PWA) that works on phone, laptop and PC. Tasks sync across devices, reminders ring even when the app is closed, and everything runs on free services.
 
-# 🚀 Features
+**Live app:** https://abdurrahmancce.github.io/To-Do-Pro/
+**User guide (English + বাংলা):** open `help.html` or *Account → Help* inside the app.
 
-## ✅ Task Management
-- Add tasks instantly
-- Edit existing tasks
-- Delete tasks
-- Mark tasks as completed
-- Organize tasks with headings
-- Add detailed notes/descriptions
-- Due date support
+## Features
+- Email + password login (sign in, create account, reset password), optional Google sign-in, optional guest mode
+- Multi-device sync (Firebase Firestore) and offline support
+- Smart quick-add (`Call mom tomorrow 6pm !high #family`), priorities, repeat, calendar, search
+- Swipe actions, undo, bulk select, streaks, weekly summary, light/dark themes and accent colors
+- Alarm sound with custom length, background push reminders (Firebase Cloud Messaging + Cloudflare Worker), heads-up and backup reminders, Done/Snooze from the notification
+- Installable on Android, iPhone, Windows and Mac
 
----
+## Quick start for users
+1. Open the app and tap **Create account**. Enter name, email and a password (6+ characters).
+2. Add tasks with **+**. Set a date, time and **Alarm** for reminders.
+3. Sign in with the same email on your other devices to see the same tasks.
+4. Turn on **Account → Background notifications** on each device for reminders when the app is closed.
 
-## 🎯 Priority Levels
-Each task supports priority tagging:
+## Setup for the owner (one time)
+1. **Firebase:** follow `SETUP.md`, then paste the config into `firebase-config.js`.
+2. **Enable email login:** Firebase Console → *Authentication* → *Sign-in method* → **Email/Password** → Enable → Save. (Add **Google** there too if you want the Google button.)
+3. **Authorized domain:** *Authentication* → *Settings* → *Authorized domains* must include `abdurrahmancce.github.io`.
+4. **Background push:** follow `PUSH-SETUP.md` (Cloudflare Worker).
+5. Publish with GitHub Pages. After each update, bump `VERSION` in `sw.js` so installed apps refresh.
 
-- 🟢 Low Priority
-- 🟡 Medium Priority
-- 🔴 High Priority
-
----
-
-## ⏰ Reminder & Alarm System
-- Set custom reminder date & time
-- Daily repeating reminders
-- Weekly repeating reminders
-- Snooze reminders for 5 minutes
-- Animated alarm popup
-- Browser notifications support
-- Upcoming reminders panel
-
----
-
-## 📊 Productivity Dashboard
-Live statistics including:
-- Total tasks
-- Completed tasks
-- Pending tasks
-- Progress percentage
-- Animated progress bar
+## Files
+| File | Purpose |
+|---|---|
+| `index.html`, `style.css`, `script.js` | App UI and logic |
+| `auth.js` | Animated email/password login screen (English + বাংলা) |
+| `cloud.js` | Firebase Auth, Firestore sync and push |
+| `help.html` | Bilingual user guide |
+| `sw.js`, `manifest.webmanifest` | Offline cache, push, install |
+| `worker/` | Cloudflare Worker that sends scheduled push reminders |
 
 ---
 
-## 🔍 Search & Filtering
-- Real-time task search
-- Filter by:
-  - All Tasks
-  - Pending Tasks
-  - Completed Tasks
-
----
-
-## 🎨 Modern UI/UX
-- Glassmorphism design
-- Floating background effects
-- Smooth animations
-- Fully responsive layout
-- Light/Dark theme support
-- Modern typography
-
----
-
-## ⚡ Advanced Features
-- Drag & drop task reordering
-- Keyboard shortcuts
-- LocalStorage data persistence
-- Toast notifications
-- Modal editing system
-
----
-
-# 🛠️ Technologies Used
-
-| Technology | Purpose |
-|------------|---------|
-| HTML5 | Structure |
-| CSS3 | Styling & Animations |
-| JavaScript ES6 | Functionality |
-| Font Awesome | Icons |
-| Google Fonts | Typography |
-| LocalStorage API | Save Tasks |
-| Notification API | Browser Notifications |
-| Web Audio API | Alarm Sounds |
-
----
-
-# 📂 Project Structure
-
-```bash
-To-Do-Pro/
-│
-├── index.html
-├── style.css
-├── script.js
-└── README.md
-```
-
----
-
-# 📸 UI Highlights
-
-## 🌙 Dark Mode
-- Neon accents
-- Glassmorphism cards
-- Smooth transitions
-
-<img width="1920" height="1340" alt="image" src="https://github.com/user-attachments/assets/89b8f24c-0191-4dfb-a459-fbbaedc765c5" />
-
-## ☀️ Light Mode
-- Clean interface
-- Soft shadows
-- Elegant layout
-
-<img width="1920" height="1340" alt="image" src="https://github.com/user-attachments/assets/4f027622-3a95-4588-9559-ad3cdf2967a7" />
-
----
-
-# ⚙️ Installation Guide
-
-## 1️⃣ Clone Repository
-
-```bash
-git clone https://github.com/your-username/todo-pro.git
-```
-
----
-
-## 2️⃣ Open Project Folder
-
-```bash
-cd todo-pro
-```
-
----
-
-## 3️⃣ Run Application
-
-Open:
-
-```bash
-index.html
-```
-
-in your browser.
-
----
-
-# 🚀 How To Use
-
-## ➕ Add Task
-1. Enter task title
-2. Add notes (optional)
-3. Set due date
-4. Choose priority
-5. Add reminder if needed
-6. Click Add button
-
----
-
-## ✏️ Edit Task
-- Click edit icon
-- Update task details
-- Save changes
-
----
-
-## ✅ Complete Task
-Click checkbox to mark task as completed.
-
----
-
-## 🔔 Reminder Usage
-- Set reminder date & time
-- Receive popup alert
-- Snooze reminder
-- Dismiss reminder
-
----
-
-# ⌨️ Keyboard Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl + N` | Focus New Task |
-| `Ctrl + K` | Focus Search |
-| `Delete` | Remove Selected Task |
-| `Esc` | Close Modal |
-
----
-
-# 💾 Data Storage
-
-All tasks are stored using:
-
-```javascript
-localStorage
-```
-
-Your tasks remain saved even after refreshing the browser.
-
----
-
-# 🧠 Core Functionalities
-
-## 📌 Task System
-- Dynamic rendering
-- Live updates
-- Task filtering
-
----
-
-## 🔔 Alarm Engine
-- Automatic reminder checking
-- Repeating alarm scheduling
-- Notification triggering
-
----
-
-## 🎨 Theme System
-- Persistent theme saving
-- Dynamic icon switching
-
----
-
-## 📦 Modal System
-- Interactive editing popup
-- Smooth animations
-
----
-
-# 📱 Responsive Design
-
-Optimized for:
-- 💻 Desktop
-- 📱 Mobile
-- 📟 Tablet
-
----
-
-# 🔐 Browser Permission
-
-Allow browser notifications for reminder support.
-
----
-
-# 🌟 Future Improvements
-
-- Cloud synchronization
-- User authentication
-- Categories & tags
-- Calendar integration
-- Pomodoro timer
-- Export/import tasks
-- Multi-language support
-
----
-
-# 🤝 Contributing
-
-Contributions are welcome!
-
-## Steps
-
-### 1. Fork Repository
-
-### 2. Create Feature Branch
-
-```bash
-git checkout -b feature-name
-```
-
-### 3. Commit Changes
-
-```bash
-git commit -m "Add new feature"
-```
-
-### 4. Push Changes
-
-```bash
-git push origin feature-name
-```
-
-### 5. Create Pull Request
-
----
-
-# 🐛 Bug Reports
-
-If you find any issue:
-- Open an issue
-- Describe the problem
-- Include screenshots if possible
-
----
-
-# 📄 License
-
-Licensed under the MIT License.
-
----
-
-# 👨‍💻 Author
-
-## Abdur Rahman
-
-### 📫 Contact
-- GitHub: https://github.com/abdurrahmancce
-- Email: akash.abdur.2002@gmail.com
-
----
-
-# ⭐ Support
-
-If you like this project:
-
-⭐ Star the repository  
-🍴 Fork the project  
-🛠️ Contribute improvements
-
----
-
-# 💡 Inspiration
-
-Built to create a modern, beautiful, and productivity-focused task management experience with advanced reminder functionality and elegant UI interactions.
-
----
+## বাংলা
+
+ফোন, ল্যাপটপ ও পিসিতে চলা ইনস্টলযোগ্য টু-ডু অ্যাপ (PWA)। সব ডিভাইসে টাস্ক সিঙ্ক হয়, অ্যাপ বন্ধ থাকলেও রিমাইন্ডার বাজে, আর সবকিছু ফ্রি সার্ভিসে চলে।
+
+**লাইভ অ্যাপ:** https://abdurrahmancce.github.io/To-Do-Pro/
+**ব্যবহার নির্দেশিকা (English + বাংলা):** `help.html` খুলুন, অথবা অ্যাপের ভেতরে *Account → Help*।
+
+### ফিচার
+- ইমেইল + পাসওয়ার্ড লগইন (সাইন ইন, অ্যাকাউন্ট খোলা, পাসওয়ার্ড রিসেট), ঐচ্ছিক Google লগইন, ঐচ্ছিক গেস্ট মোড
+- একাধিক ডিভাইসে সিঙ্ক (Firebase Firestore) ও অফলাইন সাপোর্ট
+- স্মার্ট কুইক-অ্যাড (`Call mom tomorrow 6pm !high #family`), প্রায়োরিটি, রিপিট, ক্যালেন্ডার, সার্চ
+- সোয়াইপ, Undo, একসাথে অনেক টাস্ক বাছাই, স্ট্রিক, সাপ্তাহিক সারাংশ, লাইট/ডার্ক থিম ও রঙ
+- নিজের পছন্দমতো সময়ের অ্যালার্ম সাউন্ড, ব্যাকগ্রাউন্ড পুশ রিমাইন্ডার (Firebase Cloud Messaging + Cloudflare Worker), আগাম ও ব্যাকআপ রিমাইন্ডার, নোটিফিকেশন থেকেই Done/Snooze
+- Android, iPhone, Windows ও Mac-এ ইনস্টল করা যায়
+
+### ব্যবহারকারীর জন্য দ্রুত শুরু
+1. অ্যাপ খুলে **অ্যাকাউন্ট খুলুন** চাপুন। নাম, ইমেইল ও পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর) দিন।
+2. **+** দিয়ে টাস্ক যোগ করুন। রিমাইন্ডারের জন্য তারিখ, সময় ও **Alarm** দিন।
+3. অন্য ডিভাইসে একই ইমেইলে সাইন ইন করলে একই টাস্ক দেখবেন।
+4. অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে প্রতিটি ডিভাইসে **Account → Background notifications** চালু করুন।
+
+### মালিকের জন্য সেটআপ (একবার)
+1. **Firebase:** `SETUP.md` অনুসরণ করে কনফিগ `firebase-config.js`-এ বসান।
+2. **ইমেইল লগইন চালু করুন:** Firebase Console → *Authentication* → *Sign-in method* → **Email/Password** → Enable → Save। (Google বাটন চাইলে **Google**-ও এখানে চালু করুন।)
+3. **Authorized domain:** *Authentication* → *Settings* → *Authorized domains*-এ `abdurrahmancce.github.io` থাকতে হবে।
+4. **ব্যাকগ্রাউন্ড পুশ:** `PUSH-SETUP.md` অনুসরণ করুন (Cloudflare Worker)।
+5. GitHub Pages-এ পাবলিশ করুন। প্রতিটি আপডেটে `sw.js`-এর `VERSION` বাড়ান, যাতে ইনস্টল করা অ্যাপ নতুন ভার্সন নেয়।
+
+### ফাইল
+| ফাইল | কাজ |
+|---|---|
+| `index.html`, `style.css`, `script.js` | অ্যাপের UI ও লজিক |
+| `auth.js` | অ্যানিমেটেড ইমেইল/পাসওয়ার্ড লগইন স্ক্রিন (English + বাংলা) |
+| `cloud.js` | Firebase Auth, Firestore সিঙ্ক ও পুশ |
+| `help.html` | দ্বিভাষিক ব্যবহার নির্দেশিকা |
+| `sw.js`, `manifest.webmanifest` | অফলাইন ক্যাশ, পুশ, ইনস্টল |
+| `worker/` | Cloudflare Worker যা নির্ধারিত সময়ে পুশ রিমাইন্ডার পাঠায় |

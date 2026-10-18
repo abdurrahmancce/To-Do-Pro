@@ -1077,10 +1077,10 @@ function renderAccount() {
       <p>Your tasks are saved on this device only. To see and edit the same tasks on all your devices, set up Firebase (free) — it takes about 10 minutes.</p>
       <div class="note">Open <b>SETUP.md</b> in the project folder and follow the steps, then paste your config into <b>firebase-config.js</b>.</div>`;
   } else if (!u) {
-    box.innerHTML = `<p>Sign in to sync your tasks across your phone, laptop and PC. Your existing local tasks will be uploaded automatically.</p>
-      <button type="button" class="btn btn-google" id="btn-signin">${GOOGLE_SVG} Continue with Google</button>
+    box.innerHTML = `<p>Sign in with your email and password to sync your tasks across your phone, laptop and PC. Your existing local tasks will be uploaded automatically.</p>
+      <button type="button" class="btn btn-primary" id="btn-signin">Sign in or create account</button>
       ${state.sync === 'error' ? `<div class="note">${esc(state.syncDetail)}</div>` : ''}`;
-    $('#btn-signin').onclick = signInClick;
+    $('#btn-signin').onclick = () => { $('#account').close(); showLoginScreen(true); };
   } else {
     box.innerHTML = `<div class="acc-user"><span class="avatar">${u.photo ? `<img src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer"/>` : esc((u.name || u.email)[0].toUpperCase())}</span>
       <div><strong>${esc(u.name || 'Signed in')}</strong><small>${esc(u.email)}</small></div></div>
@@ -1221,6 +1221,15 @@ async function initCloud() {
   }
 }
 
+async function showLoginScreen(force = false) {
+  try {
+    const a = await import('./auth.js');
+    if (!force && a.isGuest()) return;
+    if (force) a.clearGuest();
+    a.showLogin(cloud, { onSkip: () => { const d = $('#account'); if (d?.open) d.close(); } });
+  } catch (e) { console.error('login screen failed', e); }
+}
+
 async function handleAuth(user) {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   if (unsubPrefs) { unsubPrefs(); unsubPrefs = null; }
@@ -1229,9 +1238,11 @@ async function handleAuth(user) {
     state.user = null; lsSet(LS.lastUid, '');
     state.tasks = loadList(LS.local);
     renderAvatar(); setSync('local'); render();
+    showLoginScreen();
     return;
   }
   state.user = user; lsSet(LS.lastUid, user.uid);
+  import('./auth.js').then((a) => { a.clearGuest(); a.hideLogin(); }).catch(() => {});
   state.tasks = loadList(cacheKey());
   renderAvatar(); setSync('syncing'); render();
 
