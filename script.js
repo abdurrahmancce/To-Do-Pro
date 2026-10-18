@@ -571,7 +571,7 @@ searchEl.addEventListener('input', () => {
 });
 $('#search-clear').addEventListener('click', () => { searchEl.value = ''; state.search = ''; $('#search-clear').hidden = true; render(); searchEl.focus(); });
 
-/* quick add — understands "kal 9 tay Surah Kahf alarm", "tomorrow 5pm call mom", "every day 6am gym !high #health" */
+/* quick add — understands "tomorrow 5pm call mom", "every day 6am gym !high #health" */
 let qaRaw = false; // "Keep as typed": skip smart parsing for the text currently in the box
 const qaPreview = $('#q-preview');
 const CHIP_ICON = { date: 'calendar', alarm: 'bell', repeat: 'repeat', priority: 'alert' };
@@ -591,7 +591,9 @@ qaPreview.addEventListener('click', (e) => {
   const b = e.target.closest('[data-qa]'); if (!b) return;
   qaRaw = b.dataset.qa === 'raw'; renderQuickPreview(); $('#q-title').focus();
 });
-$('#q-title').addEventListener('input', () => { if (!$('#q-title').value.trim()) qaRaw = false; renderQuickPreview(); });
+const QA_DRAFT = 'tp-qa-draft';
+$('#q-title').addEventListener('input', () => { if (!$('#q-title').value.trim()) qaRaw = false; renderQuickPreview(); lsSet(QA_DRAFT, $('#q-title').value); }); // saved on every keystroke
+{ const d = lsGet(QA_DRAFT, ''); if (d) { $('#q-title').value = d; renderQuickPreview(); } }
 const quickFields = (text) => {
   const p = qaRaw ? null : parseQuick(text);
   if (!p || !p.changed) return { title: text, date: state.view === 'today' ? todayStr() : '' };
@@ -601,7 +603,7 @@ const quickFields = (text) => {
   if (p.heading) f.heading = p.heading;
   return f;
 };
-const quickReset = () => { const input = $('#q-title'); input.value = ''; qaRaw = false; renderQuickPreview(); input.focus(); };
+const quickReset = () => { const input = $('#q-title'); input.value = ''; lsSet(QA_DRAFT, ''); qaRaw = false; renderQuickPreview(); input.focus(); };
 $('#quick-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const input = $('#q-title'); const text = input.value.trim();
@@ -611,7 +613,7 @@ $('#quick-form').addEventListener('submit', (e) => {
   if (f.alarm) { ensureNotifyPermission(); toast(`Added · ${fmtDay(new Date(f.alarm))} ${fmtTime(new Date(f.alarm))} ⏰`); }
   quickReset();
 });
-$('#q-more').addEventListener('click', () => { const v = $('#q-title').value.trim(); const f = v ? quickFields(v) : {}; $('#q-title').value = ''; qaRaw = false; renderQuickPreview(); openEditor(null, { ...f, title: f.title || v }); });
+$('#q-more').addEventListener('click', () => { const v = $('#q-title').value.trim(); const f = v ? quickFields(v) : {}; $('#q-title').value = ''; lsSet(QA_DRAFT, ''); qaRaw = false; renderQuickPreview(); openEditor(null, { ...f, title: f.title || v }); });
 
 /* =====================================================
    EDITOR (create / edit)
@@ -634,8 +636,8 @@ function openEditor(id, preset = {}) {
   if (id && !t) return;
   const v = t || { title: '', notes: '', date: '', heading: '', priority: 'medium', alarm: null, alarmRepeat: 'none', ...preset };
 
+  autoReset();
   $('#editor-title').textContent = t ? 'Edit task' : 'New task';
-  $('#f-save').textContent = t ? 'Save changes' : 'Add task';
   $('#f-delete').hidden = !t;
   F.title.value = v.title; F.notes.value = v.notes; F.date.value = v.date; F.heading.value = v.heading;
   setPriority(v.priority);
@@ -660,10 +662,63 @@ $$('#editor [data-alarm]').forEach((b) => b.addEventListener('click', () => {
   F.aDate.value = ymd(d); F.aTime.value = hm(d);
 }));
 
+
+/* ---------- autosave: every change in the editor is stored right away (on this device, and in the cloud when online) ---------- */
+let autoTimer = null, autoDirty = false;
+function autoStatus(kind) {
+  const el = $('#autosave-state'); if (!el) return;
+  const offline = !navigator.onLine;
+  el.dataset.s = kind;
+  el.textContent = kind === 'saving' ? 'Saving…'
+    : kind === 'saved' ? (!cloudOn() ? 'Saved on this device' : offline ? 'Saved on this device · will sync when online' : 'All changes saved')
+    : kind === 'idle' ? 'Changes save automatically' : '';
+}
+function autoReset() { clearTimeout(autoTimer); autoTimer = null; autoDirty = false; autoStatus('idle'); }
+function readForm() {
+  let aDate = F.aDate.value, aTime = F.aTime.value;
+  if (aDate && !aTime) aTime = '09:00';
+  if (aTime && !aDate) aDate = todayStr();
+  const alarm = aDate && aTime ? new Date(`${aDate}T${aTime}`).toISOString() : null;
+  return {
+    title: F.title.value.trim(), notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
+    priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none',
+  };
+}
+function autoSave() {
+  clearTimeout(autoTimer); autoTimer = null;
+  if (!autoDirty) return;
+  autoDirty = false;
+  const f = readForm();
+  const existing = state.editingId ? state.tasks.find((x) => x.id === state.editingId) : null;
+  if (!existing && !f.title && !f.notes) { autoStatus('idle'); return; } // nothing to save yet
+  if (!f.title) f.title = 'Untitled task';
+  // an alarm in the past would ring immediately, so it is only stored when you press Done
+  const alarmOk = !f.alarm || new Date(f.alarm).getTime() > Date.now() || (existing && existing.alarm === f.alarm);
+  if (!alarmOk) { f.alarm = existing ? existing.alarm : null; f.alarmRepeat = existing ? existing.alarmRepeat : 'none'; }
+  if (existing) {
+    const changed = existing.alarm !== f.alarm;
+    upsert({ ...existing, ...f, alarmFired: changed ? false : existing.alarmFired }, { silent: true });
+  } else {
+    const t = normalize({ ...f, id: newId(), order: topOrder(), createdAt: new Date().toISOString(), alarmFired: false });
+    upsert(t, { silent: true });
+    state.editingId = t.id;
+    $('#editor-title').textContent = 'Edit task'; $('#f-delete').hidden = false;
+  }
+  autoStatus('saved');
+}
+function autoSchedule() { autoDirty = true; autoStatus('saving'); clearTimeout(autoTimer); autoTimer = setTimeout(autoSave, 350); }
+['input', 'change'].forEach((ev) => $('#editor-form').addEventListener(ev, autoSchedule));
+$('#editor-form').addEventListener('click', (e) => { if (e.target.closest('[data-date], [data-alarm], #f-priority button')) setTimeout(autoSchedule, 0); });
+editor.addEventListener('close', () => { autoSave(); render(); });
+window.addEventListener('pagehide', autoSave);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autoSave(); });
+window.addEventListener('online', () => autoStatus('saved'));
+
 $('#editor-form').addEventListener('submit', (e) => {
   e.preventDefault();
   const title = F.title.value.trim();
-  if (!title) { F.title.focus(); toast('Please enter a task title'); return; }
+  clearTimeout(autoTimer); autoDirty = false;
+  if (!title) { if (state.editingId || F.notes.value.trim()) { F.title.value = 'Untitled task'; return $('#editor-form').requestSubmit(); } F.title.focus(); toast('Enter a task title'); return; }
 
   let aDate = F.aDate.value, aTime = F.aTime.value;
   if (aDate && !aTime) aTime = '09:00';
@@ -680,7 +735,7 @@ $('#editor-form').addEventListener('submit', (e) => {
     if (t) {
       const changed = t.alarm !== alarm;
       upsert({ ...t, ...base, alarmFired: changed ? false : t.alarmFired });
-      toast('Task updated');
+      toast('Saved');
     }
   } else {
     createTask({ ...base, alarmFired: false });

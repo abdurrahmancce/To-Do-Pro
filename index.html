@@ -161,7 +161,7 @@
 
       <form class="quick-add" id="quick-form" autocomplete="off">
         <svg class="i lead"><use href="#i-plus"/></svg>
-        <input id="q-title" type="text" placeholder="Add a task… try “kal 9 tay namaz”" maxlength="200" aria-label="Quick add task" />
+        <input id="q-title" type="text" placeholder="Add a task… try “tomorrow 9am call mom”" maxlength="200" aria-label="Quick add task" />
         <button class="btn btn-ghost sm" id="q-more" type="button">Details</button>
         <button class="btn btn-primary sm" type="submit">Add</button>
       </form>
@@ -246,9 +246,10 @@
 
     <footer class="sheet-foot">
       <button type="button" class="btn btn-danger-ghost" id="f-delete" hidden><svg class="i"><use href="#i-trash"/></svg> Delete</button>
+      <span class="autosave" id="autosave-state" data-s="idle" aria-live="polite">Changes save automatically</span>
       <span class="spacer"></span>
-      <button type="button" class="btn btn-ghost" data-close>Cancel</button>
-      <button type="submit" class="btn btn-primary" id="f-save">Add task</button>
+      <button type="button" class="btn btn-ghost" data-close>Close</button>
+      <button type="submit" class="btn btn-primary" id="f-save">Done</button>
     </footer>
   </form>
 </dialog>
@@ -349,8 +350,8 @@
 
     <div class="acc-section">
       <h3>Help</h3>
-      <p class="muted">Step-by-step guide in Bangla and English.</p>
-      <a class="btn btn-ghost" href="help.html" target="_blank" rel="noopener">Open user guide / ব্যবহার নির্দেশিকা</a>
+      <p class="muted">Step-by-step guide for using To-Do Pro.</p>
+      <a class="btn btn-ghost" href="help.html" target="_blank" rel="noopener">Open user guide</a>
     </div>
 
     <div class="acc-section" id="install-section" hidden>

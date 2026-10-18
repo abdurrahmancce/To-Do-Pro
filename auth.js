@@ -32,38 +32,8 @@ const T = {
     'auth/unauthorized-domain': 'This domain is not authorized in Firebase → Authentication → Settings → Authorized domains.',
     other: 'Something went wrong. Try again.',
   },
-  bn: {
-    tagline: 'আপনার টাস্ক, সব ডিভাইসে।',
-    sub: 'একবার সাইন ইন করুন। লিস্ট, রিমাইন্ডার আর স্ট্রিক ফোন থেকে ল্যাপটপে সাথে থাকবে।',
-    signin: 'সাইন ইন', signup: 'অ্যাকাউন্ট খুলুন', reset: 'পাসওয়ার্ড রিসেট',
-    h_signin: 'আবার স্বাগতম', h_signup: 'নতুন অ্যাকাউন্ট খুলুন', h_reset: 'পাসওয়ার্ড রিসেট করুন',
-    p_signin: 'ইমেইল ও পাসওয়ার্ড দিয়ে সাইন ইন করুন।', p_signup: 'এক মিনিটের কম সময় লাগবে, সম্পূর্ণ ফ্রি।', p_reset: 'ইমেইল দিন, আমরা রিসেট লিংক পাঠাব।',
-    name: 'নাম', name_ph: 'আপনার নাম', email: 'ইমেইল', pass: 'পাসওয়ার্ড', pass_new: 'পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)',
-    show: 'পাসওয়ার্ড দেখুন', hide: 'পাসওয়ার্ড লুকান',
-    forgot: 'পাসওয়ার্ড ভুলে গেছেন?', to_signup: 'নতুন? অ্যাকাউন্ট খুলুন', to_signin: 'অ্যাকাউন্ট আছে? সাইন ইন করুন', back: 'সাইন ইনে ফিরে যান',
-    send: 'রিসেট লিংক পাঠান', skip: 'অ্যাকাউন্ট ছাড়া চালিয়ে যান', skip_note: 'টাস্ক শুধু এই ডিভাইসে থাকবে।',
-    google: 'Google দিয়ে চালিয়ে যান', or: 'অথবা',
-    s_weak: 'দুর্বল', s_fair: 'মোটামুটি', s_good: 'ভালো', s_strong: 'শক্তিশালী',
-    sent: 'রিসেট লিংক পাঠানো হয়েছে। ইনবক্স (এবং স্প্যাম ফোল্ডার) দেখুন।',
-    done: 'সাইন ইন হয়েছে',
-    r1: 'বিদ্যুৎ বিল দেওয়া', r2: 'বিকেল ৪:৩০ এ টিম কল', r3: 'বাজার করা', r4: '২০ পৃষ্ঠা পড়া',
-    streak: 'দিনের স্ট্রিক', phone: 'ফোন', laptop: 'ল্যাপটপ', synced: 'সিঙ্ক হয়েছে',
-    e_email: 'সঠিক ইমেইল ঠিকানা দিন।', e_pass: 'পাসওয়ার্ড দিন।', e_short: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
-    'auth/invalid-credential': 'ইমেইল বা পাসওয়ার্ড ভুল। দুটোই আবার দেখে চেষ্টা করুন।',
-    'auth/wrong-password': 'ইমেইল বা পাসওয়ার্ড ভুল। দুটোই আবার দেখে চেষ্টা করুন।',
-    'auth/user-not-found': 'এই ইমেইলে কোনো অ্যাকাউন্ট নেই। নতুন অ্যাকাউন্ট খুলুন।',
-    'auth/email-already-in-use': 'এই ইমেইলে আগেই অ্যাকাউন্ট আছে। সাইন ইন করুন।',
-    'auth/weak-password': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
-    'auth/invalid-email': 'সঠিক ইমেইল ঠিকানা দিন।',
-    'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে। কয়েক মিনিট পরে আবার চেষ্টা করুন।',
-    'auth/network-request-failed': 'ইন্টারনেট সংযোগ নেই। সংযোগ দিয়ে আবার চেষ্টা করুন।',
-    'auth/operation-not-allowed': 'Firebase-এ Email/Password সাইন-ইন এখনো চালু করা হয়নি (Authentication → Sign-in method)।',
-    'auth/unauthorized-domain': 'এই ডোমেইন Firebase → Authentication → Settings → Authorized domains-এ যোগ করা নেই।',
-    other: 'কিছু একটা সমস্যা হয়েছে। আবার চেষ্টা করুন।',
-  },
 };
 
-const LANG_KEY = 'tp-auth-lang';
 const ls = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* ignore */ } },
@@ -98,12 +68,6 @@ function stageHTML() {
 function formHTML() {
   const su = mode === 'signup', rs = mode === 'reset';
   return `
-  <div class="ax-top">
-    <div class="ax-lang" role="group" aria-label="Language">
-      <button type="button" data-lang="en" aria-pressed="${lang === 'en'}">EN</button>
-      <button type="button" data-lang="bn" aria-pressed="${lang === 'bn'}">বাং</button>
-    </div>
-  </div>
   <div class="ax-formwrap">
     <h2 id="ax-h">${esc(t('h_' + mode))}</h2>
     <p class="ax-p">${esc(t('p_' + mode))}</p>
@@ -204,7 +168,6 @@ function shake() {
 
 async function onClick(ev) {
   const b = ev.target.closest('button'); if (!b) return;
-  if (b.dataset.lang) { lang = b.dataset.lang; ls.set(LANG_KEY, lang); applyLang(); return; }
   if (b.dataset.go) { mode = b.dataset.go; renderForm(); return; }
   if (b.classList.contains('ax-eye')) {
     const inp = b.parentElement.querySelector('input'); const show = inp.type === 'password';
@@ -216,14 +179,6 @@ async function onClick(ev) {
     if (busy) return; setMsg('');
     try { await cloudApi.signIn(); } catch (e) { setMsg(errText(e)); shake(); }
   }
-}
-
-function applyLang() {
-  const keep = root.querySelector('#ax-form') ? { email: root.querySelector('[name=email]')?.value || '' } : {};
-  root.lang = lang;
-  root.querySelectorAll('.ax-stage [data-t]').forEach((el) => { el.textContent = t(el.dataset.t); });
-  renderForm(false);
-  const em = root.querySelector('[name=email]'); if (em) em.value = keep.email;
 }
 
 /* ---- live stage: tasks tick themselves off, streak counts up, bell rings ---- */
@@ -250,10 +205,8 @@ function startStage() {
 export function showLogin(cloud, o = {}) {
   cloudApi = cloud; opts = o;
   if (root) { root.hidden = false; root.classList.remove('leaving'); return; }
-  lang = ls.get(LANG_KEY) || ((navigator.language || '').toLowerCase().startsWith('bn') ? 'bn' : 'en');
   mode = o.mode || 'signin';
   build();
-  root.lang = lang;
   document.documentElement.classList.add('ax-lock');
 }
 

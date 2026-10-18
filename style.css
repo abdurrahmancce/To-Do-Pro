@@ -771,7 +771,7 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
 
 /* panel (right) */
 .ax-panel { position: relative; display: flex; flex-direction: column; overflow-y: auto; background: var(--surface); }
-.ax-top { display: flex; justify-content: flex-end; padding: 18px 20px 0; }
+
 .ax-lang { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); }
 .ax-lang button { border: 0; background: none; color: var(--muted); font: inherit; font-size: 13px; padding: 5px 12px; border-radius: 999px; cursor: pointer; }
 .ax-lang button[aria-pressed="true"] { background: var(--accent); color: #fff; }
@@ -846,3 +846,8 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
 .tr-meta { margin-top: 2px; font-size: 12.5px; color: var(--muted); }
 .tr-actions { display: flex; gap: 6px; flex: none; }
 @media (max-width: 560px) { .trash-row { flex-direction: column; align-items: stretch; } .tr-actions .btn { flex: 1; } }
+
+.autosave { font-size: 12.5px; color: var(--muted); }
+.autosave[data-s="saved"]::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #22c55e; }
+.autosave[data-s="saving"]::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #f59e0b; }
+@media (max-width: 560px) { .sheet-foot { flex-wrap: wrap; } .sheet-foot .autosave { flex-basis: 100%; order: -1; } }

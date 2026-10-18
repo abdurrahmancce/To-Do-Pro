@@ -1,38 +1,45 @@
 # To-Do Pro — Setup Guide
 
-Ei app ta ekhon **PWA** (laptop, PC, mobile e app er moto install kora jay) ar **Firebase** diye sob device e same data sync kore.
-Firebase free plan (Spark) e personal use er jonno enough.
+To-Do Pro is a **PWA** (installable on laptop, PC and mobile) that uses **Firebase** to sync the same data across all your devices.
+The Firebase free plan (Spark) is enough for personal use.
 
 ---
 
-## 1. Local e chalano (test)
+## 1. Run locally (test)
 
-VS Code te folder open kore **Live Server** diye `index.html` chalan (port 5502). Cloud setup chhara-o app kaj korbe (data shudhu ei device e thakbe).
+Open the folder in VS Code and run `index.html` with **Live Server** (port 5502). The app also works without cloud setup, but data then stays on that one device.
 
 ---
 
-## 2. Firebase project banano (≈ 5 min)
+## 2. Create the Firebase project (about 5 minutes)
 
-1. https://console.firebase.google.com e jan → **Add project** → naam din (e.g. `todo-pro`) → Analytics off rakhte paren.
-2. **Build → Authentication → Get started → Sign-in method** → **Email/Password → Enable → Save**. (Google button chaile **Google → Enable** → support email din → Save.)
-3. **Build → Firestore Database → Create database** → *Production mode* → location nin (e.g. `asia-south1`).
-4. Firestore er **Rules** tab e giye eta paste kore **Publish** korun (shudhu nijer data nijei dekhte/edit korte parbe):
+1. Go to https://console.firebase.google.com, choose **Add project**, enter a name (for example `todo-pro`). Google Analytics can stay off.
+2. Open **Build → Authentication → Get started → Sign-in method**, choose **Email/Password**, enable it and save. (For the optional Google button, also enable **Google** and enter a support email.)
+3. Open **Build → Firestore Database → Create database**, choose *Production mode* and pick a location (for example `asia-south1`).
+4. In Firestore, open the **Rules** tab, paste the rules below and choose **Publish**. They let each user read and write only their own data.
 
 ```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId}/tasks/{taskId} {
+    match /users/{userId}/{document=**} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /reminders/{id} {
+      allow create, update: if request.auth != null
+        && request.resource.data.uid == request.auth.uid
+        && (resource == null || resource.data.uid == request.auth.uid);
+      allow read: if request.auth != null && resource.data.uid == request.auth.uid;
+      allow delete: if request.auth != null && (resource == null || resource.data.uid == request.auth.uid);
     }
   }
 }
 ```
 
-## 3. Config paste kora
+## 3. Add the config to the app
 
-1. Firebase → **Project settings (gear) → General → Your apps → Web (`</>`)** → app register korun (Hosting tick lagbe na).
-2. Je `firebaseConfig = { ... }` dekhabe, oi value gulo `firebase-config.js` e paste korun:
+1. In Firebase, open **Project settings (gear) → General → Your apps → Web (`</>`)** and register an app. Hosting is not needed.
+2. Copy the values from the `firebaseConfig` object into `firebase-config.js`:
 
 ```js
 window.FIREBASE_CONFIG = {
@@ -45,61 +52,60 @@ window.FIREBASE_CONFIG = {
 };
 ```
 
-3. Live Server reload korun → login screen asbe → **Create account** diye email + password din.
-   (`localhost` Firebase e default authorized, tai local test e kaj korbe.)
+3. Reload the page. The sign-in screen appears. Choose **Create account** and enter your email and a password. `localhost` is authorized by default, so local testing works.
 
-> Prothom sign-in e ei device er local task gulo automatic cloud e upload hobe (backup copy browser e theke jabe).
+> On the first sign-in, tasks stored only on this device are uploaded automatically. A backup copy stays in the browser.
 
 ---
 
-## 4. Online host kora (jate mobile ar onno device theke open kora jay)
+## 4. Host the app online
 
-Phone theke use korte hole app ta internet e host korte hobe (HTTPS lagbe, PWA install er jonno-o). Sobcheye shohoj: **Firebase Hosting** (free).
+To use the app on a phone, host it on an HTTPS site (this is also required for installing it). GitHub Pages, Firebase Hosting, Netlify, Vercel and Cloudflare Pages all work.
+
+Firebase Hosting example:
 
 ```bash
 npm install -g firebase-tools
 firebase login
 cd todo-pro
-firebase init hosting      # public directory: .   |  single-page app: No  |  overwrite index.html: No
+firebase init hosting      # public directory: .  |  single-page app: No  |  overwrite index.html: No
 firebase deploy
 ```
 
-Deploy er por URL pabe: `https://your-project.web.app`.
-Onno option: Netlify / Vercel / Cloudflare Pages / GitHub Pages — folder ta drag-drop ba push korlei hoy.
-**Jodi Firebase Hosting chhara onno domain e host koren**, Firebase → Authentication → Settings → **Authorized domains** e oi domain add korte hobe.
+If you host on any other domain, add it in Firebase under **Authentication → Settings → Authorized domains**.
 
 ---
 
-## 5. App er moto install kora
+## 5. Install as an app
 
-| Device | Kivabe |
+| Device | How |
 |---|---|
-| **Windows / Mac / Linux (Chrome, Edge)** | Address bar er right e **Install** icon, ba sidebar/Account e **Install app** button |
-| **Android (Chrome)** | ⋮ menu → **Install app** (ba app er Account dialog e Install button) |
-| **iPhone / iPad (Safari)** | Share → **Add to Home Screen** |
-
-Install er por alada window e, offline-o khule, desktop/home screen e icon thake.
+| Windows / Mac / Linux (Chrome, Edge) | Click the **Install** icon at the right of the address bar, or use **Install app** in the Account dialog |
+| Android (Chrome) | Menu ⋮ → **Install app** |
+| iPhone / iPad (Safari) | Share → **Add to Home Screen** |
 
 ---
 
-## Kivabe sync kaj kore
+## How sync works
 
-- Data thake `users/{uid}/tasks/{id}` e. Ek device e add/edit/delete korle onno device e **sathe sathe** dekha jay.
-- **Offline e-o** kaj kore: change gulo device e save thake, net ashle auto sync hoy. Sidebar/top-bar er dot: 🟢 synced · 🟡 syncing · ⚪ offline/local · 🔴 error.
-- Ek-i task duita device e ek-i somoy edit korle **shesh write jite** (last-write-wins).
+- Data lives in `users/{uid}/tasks/{id}`. A change on one device appears on the others within seconds.
+- The app works offline. Changes are saved on the device immediately and sync when the internet returns. The dot in the sidebar shows the state: green synced, amber syncing, grey offline or local, red error.
+- If the same task is edited on two devices at the same time, the last write wins.
+- Deleted tasks stay in Trash for 30 days and are then removed permanently.
 
-## Reminder / alarm er limitation (khub important)
+## Reminders
 
-Reminder tokhon-i bajbe jokhon app **khola ache** (browser tab ba installed app background e cholche). App puro bondho thakle web app alarm dite pare na — eta web platform er limit. Always-on push notification lagle alada server (Firebase Cloud Messaging + Cloud Functions) lagbe; chaile pore add kora jabe.
-Ek-i reminder duita device e khola thakle je device age dhorbe sheta bajabe.
+In-app alarms ring while the app is open. For reminders when the app is closed or the screen is off, follow `PUSH-SETUP.md`.
 
 ## Files
 
-| File | Kaj |
+| File | Purpose |
 |---|---|
-| `index.html`, `style.css`, `script.js` | UI + app logic |
-| `cloud.js` | Firebase Auth + Firestore sync |
-| `firebase-config.js` | **Apnar Firebase config ekhane** |
-| `manifest.webmanifest`, `sw.js`, `icons/` | PWA (install + offline) |
+| `index.html`, `style.css`, `script.js` | UI and app logic |
+| `auth.js` | Login screen |
+| `cloud.js` | Firebase Auth, Firestore sync and push |
+| `firebase-config.js` | Your Firebase config |
+| `help.html` | User guide |
+| `manifest.webmanifest`, `sw.js`, `icons/` | PWA (install and offline) |
 
-Code update dile `sw.js` er `VERSION = 'v1'` bariye `'v2'` korun, jate installed app notun file pay.
+After every code update, increase the `VERSION` value in `sw.js` (for example `'v16'` to `'v17'`) so installed apps load the new files.
