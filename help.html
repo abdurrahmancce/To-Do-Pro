@@ -12,7 +12,7 @@ body{margin:0;background:var(--bg);color:var(--t);font:16px/1.7 Inter,'Noto Sans
 header{position:sticky;top:0;z-index:5;display:flex;gap:12px;align-items:center;justify-content:space-between;padding:12px 20px;background:var(--s);border-bottom:1px solid var(--b)}
 header a{color:var(--a);text-decoration:none;font-weight:600}
 main{max-width:760px;margin:0 auto;padding:28px 20px 80px}
-h1{font-size:30px;letter-spacing:-.02em;margin:.2em 0}h2{font-size:22px;margin:2.2em 0 .4em;letter-spacing:-.01em}h3{font-size:17px;margin:1.4em 0 .2em}
+h1{font-size:30px;letter-spacing:-.02em;margin:.2em 0}h2{font-size:22px;margin:2.2em 0 .4em;letter-spacing:-.01em}h2[id]{scroll-margin-top:72px}h3{font-size:17px;margin:1.4em 0 .2em}
 p,li{color:var(--m)}li{margin:.3em 0}b,strong{color:var(--t)}
 nav{display:flex;flex-wrap:wrap;gap:8px;margin:18px 0}nav a{padding:5px 12px;border-radius:999px;background:var(--soft);color:var(--a);text-decoration:none;font-size:14px}
 .box{padding:12px 16px;border-radius:12px;background:var(--soft);border:1px solid var(--b);color:var(--t)}
@@ -98,9 +98,9 @@ kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-rad
 <div data-l="bn">
 <h1>To-Do Pro ব্যবহার নির্দেশিকা</h1>
 <p>To-Do Pro এমন একটি টু-ডু অ্যাপ যা ফোন, ল্যাপটপ ও পিসিতে চলে, সব ডিভাইসে টাস্ক মিলিয়ে রাখে এবং অ্যাপ বন্ধ থাকলেও রিমাইন্ডার দেয়।</p>
-<nav><a href="#start">শুরু করুন</a><a href="#tasks">টাস্ক</a><a href="#remind">রিমাইন্ডার</a><a href="#sync">সিঙ্ক</a><a href="#install">ইনস্টল</a><a href="#tips">টিপস</a><a href="#help">সমস্যা</a></nav>
+<nav><a href="#bn-start">শুরু করুন</a><a href="#bn-tasks">টাস্ক</a><a href="#bn-remind">রিমাইন্ডার</a><a href="#bn-sync">সিঙ্ক</a><a href="#bn-install">ইনস্টল</a><a href="#bn-tips">টিপস</a><a href="#bn-help">সমস্যা</a></nav>
 
-<h2 id="start">১. অ্যাকাউন্ট খুলুন ও সাইন ইন করুন</h2>
+<h2 id="bn-start">১. অ্যাকাউন্ট খুলুন ও সাইন ইন করুন</h2>
 <ol>
 <li>অ্যাপ খুলুন। সাইন ইন স্ক্রিন দেখা যাবে।</li>
 <li><b>নতুন? অ্যাকাউন্ট খুলুন</b> চাপুন, নাম, ইমেইল ও পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর) দিয়ে <b>অ্যাকাউন্ট খুলুন</b> চাপুন।</li>
@@ -110,7 +110,7 @@ kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-rad
 </ol>
 <p class="box">অ্যাকাউন্ট না চাইলে <b>অ্যাকাউন্ট ছাড়া চালিয়ে যান</b> চাপুন। টাস্ক শুধু ওই ডিভাইসে থাকবে, পরে সাইন ইন করলে নিজে থেকেই আপলোড হবে।</p>
 
-<h2 id="tasks">২. টাস্ক যোগ ও পরিচালনা</h2>
+<h2 id="bn-tasks">২. টাস্ক যোগ ও পরিচালনা</h2>
 <ul>
 <li><b>যোগ করুন:</b> <b>+</b> বাটন চাপুন বা কুইক-অ্যাড বারে লিখুন। স্মার্ট কুইক-অ্যাড এমন লেখা বোঝে: <kbd>Call mom tomorrow 6pm !high #family</kbd>।</li>
 <li><b>সম্পন্ন করুন:</b> গোল বাটনে চাপুন। টানা কয়েক দিন টাস্ক শেষ করলে <b>স্ট্রিক</b> বাড়ে।</li>
@@ -122,7 +122,7 @@ kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-rad
 <li><b>ডিলিট ও ট্র্যাশ:</b> ডিলিট করা টাস্ক <b>Trash</b>-এ যায়। ৫ সেকেন্ডের মধ্যে <b>Undo</b> চাপলে সাথে সাথে ফিরে আসে। Trash থেকে ৩০ দিনের মধ্যে <b>Restore</b> করা যায়। ৩০ দিন পর টাস্ক স্থায়ীভাবে মুছে যায়। আগেই মুছতে চাইলে <b>Delete forever</b> বা <b>Empty trash</b> ব্যবহার করুন।</li>
 </ul>
 
-<h2 id="remind">৩. রিমাইন্ডার ও অ্যালার্ম</h2>
+<h2 id="bn-remind">৩. রিমাইন্ডার ও অ্যালার্ম</h2>
 <ol>
 <li>টাস্ক খুলে <b>তারিখ ও সময়</b> দিন, তারপর <b>Alarm</b> চালু করুন।</li>
 <li>সময় হলে অ্যালার্ম বাজবে ও নোটিফিকেশন আসবে। <b>Done</b> বা <b>Snooze</b> বেছে নিন।</li>
@@ -133,18 +133,18 @@ kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-rad
 <p><b>Account → Background notifications → Turn on for this device</b> চাপুন এবং <b>Allow</b> দিন। প্রতিটি ডিভাইসে একবার করে করুন। iPhone-এ আগে অ্যাপটি Home Screen-এ যোগ করুন।</p>
 <p>একটি ডিভাইসে Done বা Snooze চাপলে অন্য ডিভাইসের নোটিফিকেশন মুছে যায়।</p>
 
-<h2 id="sync">৪. একাধিক ডিভাইসে ব্যবহার</h2>
+<h2 id="bn-sync">৪. একাধিক ডিভাইসে ব্যবহার</h2>
 <p>প্রতিটি ডিভাইসে একই ইমেইল ও পাসওয়ার্ড দিয়ে সাইন ইন করুন। এক ডিভাইসে টাস্ক যোগ, এডিট বা ডিলিট করলে কয়েক সেকেন্ডে অন্যগুলোতে দেখা যাবে। সব সেভ হলে <b>Account</b>-এ <b>Synced</b> দেখাবে।</p>
 <p>অফলাইনেও চলে: পরিবর্তন ডিভাইসে জমা থাকে, ইন্টারনেট ফিরলে পাঠিয়ে দেয়।</p>
 
-<h2 id="install">৫. অ্যাপ হিসেবে ইনস্টল</h2>
+<h2 id="bn-install">৫. অ্যাপ হিসেবে ইনস্টল</h2>
 <ul>
 <li><b>Android (Chrome):</b> মেনু ⋮ → <b>Install app</b> (বা <b>Add to Home screen</b>)।</li>
 <li><b>Windows / Mac (Chrome বা Edge):</b> অ্যাড্রেস বারের ইনস্টল আইকনে চাপুন → <b>Install</b>।</li>
 <li><b>iPhone (Safari):</b> Share → <b>Add to Home Screen</b>।</li>
 </ul>
 
-<h2 id="tips">৬. কাজের ফিচার</h2>
+<h2 id="bn-tips">৬. কাজের ফিচার</h2>
 <ul>
 <li><b>চেহারা:</b> Account → Appearance: লাইট/ডার্ক থিম ও অ্যাকসেন্ট রঙ।</li>
 <li><b>সাপ্তাহিক সারাংশ:</b> এই সপ্তাহে কী কী শেষ করেছেন দেখুন।</li>
@@ -152,7 +152,7 @@ kbd{padding:1px 7px;border:1px solid var(--b);border-bottom-width:2px;border-rad
 <li><b>কীবোর্ড (কম্পিউটার):</b> <kbd>N</kbd> নতুন টাস্ক, <kbd>/</kbd> সার্চ।</li>
 </ul>
 
-<h2 id="help">৭. সমস্যা হলে</h2>
+<h2 id="bn-help">৭. সমস্যা হলে</h2>
 <ul>
 <li><b>“ইমেইল বা পাসওয়ার্ড ভুল”:</b> দুটোই দেখুন। ভুলে গেলে <b>পাসওয়ার্ড ভুলে গেছেন?</b> ব্যবহার করুন।</li>
 <li><b>ফোনে নোটিফিকেশন আসছে না:</b> ইনস্টল করা অ্যাপের ভেতর থেকে Background notifications চালু করুন, Allow দিন এবং ফোনের ব্যাটারি সেটিংসে অ্যাপটি <b>Unrestricted</b> করুন।</li>

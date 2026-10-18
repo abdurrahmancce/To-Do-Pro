@@ -1,5 +1,5 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v18';
+const VERSION = 'v19';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
