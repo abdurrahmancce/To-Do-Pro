@@ -24,7 +24,7 @@
 | [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
 | [🧭 Project history](#-project-history) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
 | [🚀 Quick start](#-quick-start-for-users) | [🛠️ Owner setup](#️-setup-for-the-owner-one-time) | [📦 Deploying updates](#-deploying-updates) |
-| [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | |
+| [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | [👨‍💻 Contact developer](#-contact-developer) |
 
 ---
 
@@ -256,6 +256,31 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 - ⏱️ The worker runs every minute and sends at most 5 reminders per run to stay inside the free plan.
 - 🛡️ A Content Security Policy is not set yet. Add one only after testing Google and email sign-in on the live site.
 - 📊 Usage analytics are not included. A privacy-friendly option such as GoatCounter can be added.
+
+---
+
+## 👨‍💻 Contact developer
+
+<div align="center">
+
+### Abdur Rahman
+**Developer of To-Do Pro**
+
+Questions, bug reports, feature ideas or collaboration? Reach out through any of the links below.
+
+[![Portfolio](https://img.shields.io/badge/🌐_Portfolio-abdurrahmancce.github.io-2ea44f?style=for-the-badge)](https://abdurrahmancce.github.io/Personal-Portfolio/)
+[![GitHub](https://img.shields.io/badge/GitHub-abdurrahmancce-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/abdurrahmancce)
+
+</div>
+
+| | How to reach me | Best for |
+|---|---|---|
+| 🌐 | [Portfolio website](https://abdurrahmancce.github.io/Personal-Portfolio/) | My work, projects and contact details |
+| 💻 | [GitHub profile](https://github.com/abdurrahmancce) | Other projects and code |
+| 🐞 | [Open an issue](https://github.com/abdurrahmancce/To-Do-Pro/issues/new) | Bug reports and feature requests for To-Do Pro |
+| ⭐ | [Star the repository](https://github.com/abdurrahmancce/To-Do-Pro) | Show support if the app is useful to you |
+
+> 💬 **Reporting a bug?** Please include your device and browser, what you expected, what happened, and a screenshot if you can. This helps fix it faster.
 
 ---
 
