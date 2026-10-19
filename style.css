@@ -853,3 +853,14 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
 @media (max-width: 560px) { .sheet-foot { flex-wrap: wrap; } .sheet-foot .autosave { flex-basis: 100%; order: -1; } }
 
 .ax-top { display: flex; justify-content: flex-end; padding: 18px 20px 0; }
+
+/* ---------- Contact developer card ---------- */
+.dev-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.dev-top { display: flex; align-items: center; gap: 12px; }
+.dev-avatar { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 15px; letter-spacing: .02em; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.dev-id { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.dev-id strong { font-size: 15px; }
+.dev-id small { color: var(--muted); font-size: 12.5px; }
+.dev-card p { font-size: 13.5px; }
+.dev-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.dev-links .btn { text-decoration: none; }
