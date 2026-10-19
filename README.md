@@ -1,26 +1,24 @@
 # To-Do Pro
 
-**English** | [বাংলা](#বাংলা)
-
 An installable to-do app (PWA) for phone, laptop and PC. Tasks sync across devices, reminders ring even when the app is closed, and the whole stack runs on free services.
 
 **Live app:** https://abdurrahmancce.github.io/To-Do-Pro/
-**User guide (English + বাংলা):** open `help.html`, or *Account → Help* inside the app.
+**User guide (English and Bangla):** open `help.html`, or *Account → Help* inside the app.
 
 ---
 
 ## Contents
 1. [Features](#features)
-2. [Architecture](#architecture)
-3. [Project history](#project-history)
-4. [Security](#security)
-5. [Testing](#testing)
-6. [Quick start for users](#quick-start-for-users)
-7. [Setup for the owner](#setup-for-the-owner-one-time)
-8. [Deploying updates](#deploying-updates)
-9. [Repository layout](#repository-layout)
-10. [Known limitations and recommendations](#known-limitations-and-recommendations)
-11. [বাংলা](#বাংলা)
+2. [Release status](#release-status)
+3. [Architecture](#architecture)
+4. [Project history](#project-history)
+5. [Security](#security)
+6. [Testing](#testing)
+7. [Quick start for users](#quick-start-for-users)
+8. [Setup for the owner](#setup-for-the-owner-one-time)
+9. [Deploying updates](#deploying-updates)
+10. [Repository layout](#repository-layout)
+11. [Known limitations and recommendations](#known-limitations-and-recommendations)
 
 ---
 
@@ -40,9 +38,9 @@ An installable to-do app (PWA) for phone, laptop and PC. Tasks sync across devic
 - Export and import of tasks as JSON (import is size-limited and validated).
 
 **Accounts and sync**
-- Email + password sign-in, account creation and password reset. Optional Google sign-in. Optional guest mode (data stays on that device).
+- Email + password sign-in, account creation and password reset (minimum 6 characters live, 8 after the pending update). Optional Google sign-in. Optional guest mode (data stays on that device).
 - Firebase Firestore sync across devices with offline cache; edits made offline sync when the connection returns.
-- Animated bilingual (English + বাংলা) login screen.
+- Animated login screen shown in English and Bangla side by side.
 
 **Reminders**
 - In-app alarm popup with sound (custom length), Done and Snooze.
@@ -54,6 +52,19 @@ An installable to-do app (PWA) for phone, laptop and PC. Tasks sync across devic
 - Light and dark themes, accent colours, responsive layout from 320px phones to desktop.
 - English-only app interface; Bangla and English appear together only on the login screen and the user guide.
 - Installable on Android, iPhone, Windows and Mac.
+
+---
+
+## Release status
+
+| Area | Status |
+|---|---|
+| Core app, sync, Trash, autosave, bilingual login and guide, background push reminders | Live |
+| Spellcheck turned off in text fields (Bangla typing no longer underlined) | Live |
+| Security hardening: `worker/index.js`, `firestore.rules`, `cloud.js` sign-out cache clearing, `auth.js` 8-character password minimum, `SETUP.md` / `PUSH-SETUP.md` updates | Prepared and tested, **not yet deployed** |
+| Usage analytics (GoatCounter) | Planned, not added |
+
+Until the pending hardening update is deployed, the live app still accepts 6-character passwords and the previous Firestore rules and worker remain in use. Sections below describe the full repository state, and each item is marked where it depends on the pending update.
 
 ---
 
@@ -81,26 +92,70 @@ An installable to-do app (PWA) for phone, laptop and PC. Tasks sync across devic
 
 ## Project history
 
-The app was built incrementally. Each stage below was tested and confirmed working before moving on.
+The app was built in stages. Each stage was tested and confirmed working before the next began.
 
-| Stage | What was delivered |
-|---|---|
-| 1. Core app | Task list, priorities, due dates, sections, calendar, search, swipe actions, bulk select, undo, light/dark themes, accent colours, weekly summary, export/import, installable PWA with offline cache. |
-| 2. Cloud sync | Firebase Auth (Google) and Firestore sync across devices, offline persistence, per-user data isolation. |
-| 3. Reminders | In-app alarm engine, repeat alarms with streaks, FCM background push with a Cloudflare Worker, heads-up and backup reminders, Done/Snooze on the notification, dismiss-on-other-devices, stale push token clean-up. |
-| 4. Email login | Animated email/password screen (sign in, create account, reset password), friendly error messages, optional guest mode, Google kept as an option. |
-| 5. Documentation | Bilingual user guide (`help.html`) with working navigation in both languages, setup guides for Firebase and push. |
-| 6. Data safety | Trash with 5-second undo and 30-day restore, synced across devices; autosave for every field; saved quick-add draft. |
-| 7. Interface polish | English-only app text, restyled dropdown, fixed account dialog after sign-out, fixed bell animation, bilingual login page. |
-| 8. Review and hardening | Full post-mortem, automated browser tests, security fixes (see below), spellcheck turned off in text fields so Bangla typing is not underlined and mobile keyboard stays steady. |
+### Stage 1: Core app
+- Task list with title, notes, due date, section and priority (low, medium, high).
+- Views: All, Today, Upcoming, Calendar (month and week), Completed.
+- Search, swipe actions, drag to reorder, bulk select, undo, weekly summary with progress ring.
+- Light and dark themes with selectable accent colours.
+- JSON export and import.
+- Installable PWA with an offline cache (`sw.js`, `manifest.webmanifest`).
 
-Notable problems found and fixed along the way: stale downloaded files overwriting the repo, duplicate element ids that broke the Bangla guide links, an alarm bell animation clashing with an existing style, push tokens going stale, and an autosave race on the editor's close event.
+### Stage 2: Smart input
+- Quick-add parser that reads dates, times, priority (`!high`) and sections (`#family`) from one sentence, including common Bangla and Banglish time words.
+- Saved quick-add draft so half-typed tasks survive a reload.
+
+### Stage 3: Cloud sync
+- Firebase Authentication (Google) and Firestore sync across devices.
+- Per-user data (`users/{uid}/tasks`), offline persistence, instant start from a local cache.
+- Guest mode for use without an account.
+
+### Stage 4: Reminders
+- In-app alarm engine with popup, sound of configurable length, Done and Snooze.
+- Repeating alarms (daily, weekly) with habit-style streak tracking.
+- Background push reminders with Firebase Cloud Messaging and a Cloudflare Worker that runs every minute.
+- Heads-up reminder before the alarm, and a backup reminder 90 seconds after the main one if you have not responded.
+- Done and Snooze directly on the notification, authenticated with a signed request to the worker.
+- Handling a reminder on one device dismisses the notification on the other devices (tested on a real phone and PC).
+- Push-token self-healing and automatic removal of dead tokens.
+
+### Stage 5: Email and password login
+- Animated login screen: sign in, create account, reset password, show/hide password, clear error messages.
+- Google sign-in kept as an option.
+- Guest mode kept as an option.
+- Firebase setup documented (enable Email/Password, authorized domain).
+
+### Stage 6: Documentation
+- Bilingual user guide (`help.html`) with working navigation in both languages.
+- Owner setup guides: `SETUP.md` (Firebase) and `PUSH-SETUP.md` (push worker).
+- Login page and guide shown in English and Bangla; the app itself uses English only.
+
+### Stage 7: Data safety and polish
+- **Trash:** deleted tasks stay for 30 days, restore or delete forever, empty trash; synced across devices; 5-second undo after delete.
+- **Autosave:** every change is saved automatically while the editor is open, online or offline, with a visible save status.
+- English-only interface text; restyled dropdown; account dialog closes on sign-out; bell animation fixed; Bangla guide links fixed.
+
+### Stage 8: Review, testing and hardening
+- Full project post-mortem and bug hunt.
+- Automated browser test suite (34 checks, all passing).
+- Security fixes for the worker, client data handling, sign-out privacy, password length and database rules (see [Security](#security)). Prepared and tested, pending deployment.
+- Spellcheck turned off in text fields, and the autosave status text no longer rewrites the page when unchanged, so Bangla typing is clean and the mobile keyboard stays steady (deployed).
+
+### Problems found and fixed along the way
+- Stale downloaded files overwriting repository files (resolved with rename steps).
+- Duplicate element ids that broke the Bangla guide links.
+- An alarm bell animation clashing with an existing style.
+- Push tokens going stale across sessions.
+- Autosave racing with the editor's close event.
+- Account dialog staying open above the login screen after sign-out.
+- A task coming back after delete when autosave was still pending (found in review, fix pending deployment).
 
 ---
 
 ## Security
 
-A full review was done in stage 8. Findings and fixes:
+A full review was done in stage 8. Findings and fixes below are prepared in the repository files and are pending deployment (see [Release status](#release-status)):
 
 | ID | Severity | Finding | Fix |
 |---|---|---|---|
@@ -138,7 +193,7 @@ Real Firebase, Google sign-in, FCM delivery and the new Firestore rules cannot b
 
 ## Quick start for users
 
-1. Open the app and tap **Create account**. Enter name, email and a password (8+ characters).
+1. Open the app and tap **Create account**. Enter name, email and a password (8+ characters after the pending update, 6+ today).
 2. Add tasks with **+**. Set a date, time and **Alarm** for reminders.
 3. Sign in with the same email on your other devices to see the same tasks.
 4. Turn on **Account → Background notifications** on each device for reminders when the app is closed.
@@ -182,7 +237,7 @@ Real Firebase, Google sign-in, FCM delivery and the new Firestore rules cannot b
 | `cloud.js` | Firebase Auth, Firestore sync, push registration |
 | `quickparse.js` | Natural-language quick-add parser |
 | `habits.js` | Repeat and streak helpers |
-| `help.html` | User guide (English + বাংলা) |
+| `help.html` | User guide (English and Bangla) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline cache, push handling, install metadata |
 | `firebase-config.js` | Firebase web config and worker URL |
 | `firestore.rules` | Database security rules |
@@ -202,40 +257,3 @@ Real Firebase, Google sign-in, FCM delivery and the new Firestore rules cannot b
 - Usage analytics are not included. A privacy-friendly option such as GoatCounter can be added.
 
 ---
-
-## বাংলা
-
-ফোন, ল্যাপটপ ও পিসিতে চলা ইনস্টলযোগ্য টু-ডু অ্যাপ (PWA)। সব ডিভাইসে টাস্ক সিঙ্ক হয়, অ্যাপ বন্ধ থাকলেও রিমাইন্ডার বাজে, আর সবকিছু ফ্রি সার্ভিসে চলে।
-
-**লাইভ অ্যাপ:** https://abdurrahmancce.github.io/To-Do-Pro/
-**ব্যবহার নির্দেশিকা (English + বাংলা):** `help.html` খুলুন, অথবা অ্যাপের ভেতরে *Account → Help*।
-
-### ফিচার
-- ইমেইল + পাসওয়ার্ড লগইন (সাইন ইন, অ্যাকাউন্ট খোলা, পাসওয়ার্ড রিসেট), ঐচ্ছিক Google লগইন, ঐচ্ছিক গেস্ট মোড
-- প্রতিটি পরিবর্তনে অটো সেভ (অনলাইন ও অফলাইন), ৫ সেকেন্ডের Undo, ৩০ দিনের Trash (সব ডিভাইসে সিঙ্ক)
-- একাধিক ডিভাইসে সিঙ্ক (Firebase Firestore) ও অফলাইন সাপোর্ট
-- স্মার্ট কুইক-অ্যাড, প্রায়োরিটি, রিপিট ও স্ট্রিক, ক্যালেন্ডার, সার্চ, সোয়াইপ, বাল্ক সিলেক্ট, সাপ্তাহিক সারাংশ, লাইট/ডার্ক থিম
-- অ্যালার্ম সাউন্ড, ব্যাকগ্রাউন্ড পুশ রিমাইন্ডার (Firebase Cloud Messaging + Cloudflare Worker), আগাম ও ব্যাকআপ রিমাইন্ডার, নোটিফিকেশন থেকেই Done/Snooze, এক ডিভাইসে হ্যান্ডেল করলে অন্য ডিভাইসের নোটিফিকেশন মুছে যায়
-- Android, iPhone, Windows ও Mac-এ ইনস্টল করা যায়
-
-### নিরাপত্তা ও টেস্টিং
-- সম্পূর্ণ রিভিউ করে worker-এর আইডি যাচাই, সিগনেচার আগে যাচাই, CORS সীমাবদ্ধ, ডেটা স্যানিটাইজ, সাইন আউটে লোকাল ক্যাশ মুছে ফেলা, Firestore রুলস, ন্যূনতম পাসওয়ার্ড ৮ অক্ষর, এবং বাংলা টাইপিংয়ে স্পেলচেক বন্ধ করা হয়েছে।
-- স্বয়ংক্রিয় ব্রাউজার টেস্টে ৩৪টির সবকটি পাস করেছে (বিস্তারিত ইংরেজি অংশে)।
-
-### ব্যবহারকারীর জন্য দ্রুত শুরু
-1. অ্যাপ খুলে **অ্যাকাউন্ট খুলুন** চাপুন। নাম, ইমেইল ও পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর) দিন।
-2. **+** দিয়ে টাস্ক যোগ করুন। রিমাইন্ডারের জন্য তারিখ, সময় ও **Alarm** দিন।
-3. অন্য ডিভাইসে একই ইমেইলে সাইন ইন করলে একই টাস্ক দেখবেন।
-4. অ্যাপ বন্ধ থাকলেও রিমাইন্ডার পেতে প্রতিটি ডিভাইসে **Account → Background notifications** চালু করুন।
-
-### মালিকের জন্য সেটআপ (একবার)
-1. **Firebase:** `SETUP.md` অনুসরণ করে কনফিগ `firebase-config.js`-এ বসান।
-2. **ইমেইল লগইন চালু করুন:** Firebase Console → *Authentication* → *Sign-in method* → **Email/Password** → Enable → Save।
-3. **Authorized domain:** *Authentication* → *Settings* → *Authorized domains*-এ `abdurrahmancce.github.io` থাকতে হবে।
-4. **Firestore রুলস:** `firestore.rules`-এর লেখা Firestore → *Rules*-এ পেস্ট করে Publish করুন।
-5. **ব্যাকগ্রাউন্ড পুশ:** `PUSH-SETUP.md` অনুসরণ করুন (Cloudflare Worker)।
-6. GitHub Pages-এ পাবলিশ করুন। প্রতিটি আপডেটে `sw.js`-এর `VERSION` বাড়ান।
-
-### সুপারিশ
-- নিজের অ্যাকাউন্ট খোলা হয়ে গেলে নতুন সাইন-আপ বন্ধ করুন (Firebase → Authentication → Settings → User actions)।
-- Firebase API key শুধু `abdurrahmancce.github.io` ডোমেইনে সীমাবদ্ধ করুন।
