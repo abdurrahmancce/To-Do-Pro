@@ -864,3 +864,16 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
 .dev-card p { font-size: 13.5px; }
 .dev-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .dev-links .btn { text-decoration: none; }
+
+/* ---------- What's new ---------- */
+.wn-hero { display: flex; flex-direction: column; gap: 6px; padding: 16px; border-radius: 14px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent) 16%, transparent), color-mix(in srgb, var(--accent-2) 12%, transparent)); border: 1px solid var(--border); }
+.wn-badge { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+.wn-hero strong { font-size: 17px; }
+.wn-hero p { font-size: 13.5px; }
+.wn-group { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.wn-group h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; display: flex; align-items: center; gap: 8px; }
+.wn-group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wn-group li { font-size: 13.5px; line-height: 1.45; padding: 10px 12px; border-radius: 10px; background: var(--surface-2); border: 1px solid var(--border); }
+.wn-group li b { display: block; font-size: 13.5px; }
+.wn-group li span { color: var(--muted); }
+#wn-ok { margin-top: 18px; width: 100%; }

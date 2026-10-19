@@ -18,6 +18,7 @@ const LS = {
   accent: 'tp-accent',
   calMode: 'tp-cal-mode',
   preMin: 'tp-pre-min',          // pre-reminder: minutes before the alarm (0 = off)
+  seenUpdate: 'tp-seen-update',  // which What's new announcement this device has already seen
   echo: 'tp-echo',               // backup push 90 s later if you have not reacted ('0' = off)
 };
 
@@ -1519,4 +1520,55 @@ function boot() {
   else if (act === 'search') { searchEl.focus(); }
   if (act || qp.get('view') || qp.get('do')) history.replaceState(null, '', location.pathname);
 }
+
+/* ---------- What's new (announcement shown once per update) ---------- */
+const APP_UPDATE = { id: '2026-10-19', label: 'Update of 19 October 2026' };
+const WHATS_NEW = [
+  { icon: '\u2728', title: 'New', items: [
+    ['Contact developer', 'Reach the developer, report a bug or visit the portfolio from Account \u2192 Contact developer.'],
+    ['Trash with 30-day restore', 'Deleted tasks wait in Trash for 30 days. Restore them any time, on any device. Every delete also has a 5-second Undo.'],
+    ['Autosave', 'Everything you type is saved automatically, online or offline, so nothing is lost if you close the app by mistake.'],
+    ['Email and password sign-in', 'Create an account with your email, sign in on every device and reset your password if you forget it. Google sign-in is still available.'],
+    ['Smarter reminders', 'Optional heads-up before an alarm, a backup reminder if you miss it, and Done / Snooze buttons right on the notification. Handle it on one device and it disappears from the others.'],
+    ['User guide', 'A step-by-step guide in English and Bangla is available under Account \u2192 Help.'],
+  ] },
+  { icon: '\u{1F680}', title: 'Improved', items: [
+    ['Bangla typing', 'Red underlines no longer appear while you type Bangla, and editing in the middle of a sentence is steadier on phones.'],
+    ['Cleaner interface', 'The app is now fully in English, with a restyled dropdown and a smoother sign-out.'],
+    ['Search, calendar and summary', 'Faster, clearer views with swipe actions, bulk select and a weekly summary.'],
+  ] },
+  { icon: '\u{1F41E}', title: 'Fixed', items: [
+    ['Deleted tasks coming back', 'Deleting a task right after editing it could bring it back. This is fixed.'],
+    ['Broken backup files', 'Importing a damaged or very large backup file no longer breaks the app.'],
+    ['Guide links', 'Navigation links in the Bangla guide now work.'],
+    ['Account window', 'The Account window no longer stays open after you sign out.'],
+  ] },
+  { icon: '\u{1F512}', title: 'Privacy and safety', items: [
+    ['Sign out clears this device', 'Signing out removes your saved task list from the browser, which matters on shared computers.'],
+    ['Safer data handling', 'Task text has sensible length limits and imported data is checked before it is used.'],
+  ] },
+];
+function renderWhatsNew() {
+  $('#wn-ver').textContent = APP_UPDATE.label;
+  $('#wn-list').innerHTML = WHATS_NEW.map((g) => `<section class="wn-group"><h3><span aria-hidden="true">${g.icon}</span>${esc(g.title)}</h3><ul>${
+    g.items.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('')}</ul></section>`).join('');
+}
+function openWhatsNew() {
+  renderWhatsNew();
+  lsSet(LS.seenUpdate, APP_UPDATE.id);
+  const d = $('#whatsnew'); if (!d.open) d.showModal();
+}
+$('#btn-whatsnew').addEventListener('click', () => { $('#account').close(); openWhatsNew(); });
+$('#wn-ok').addEventListener('click', () => $('#whatsnew').close());
+function maybeShowWhatsNew() {
+  const seen = lsGet(LS.seenUpdate, '');
+  if (seen === APP_UPDATE.id) return;
+  if (!seen && !state.tasks.length && !state.trash.length) { lsSet(LS.seenUpdate, APP_UPDATE.id); return; } // brand-new visitor: nothing to announce
+  setTimeout(() => {
+    if (document.querySelector('dialog[open], #auth-screen')) return; // not now: try again on the next visit
+    openWhatsNew();
+  }, 2500);
+}
+
 boot();
+maybeShowWhatsNew();

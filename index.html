@@ -354,6 +354,12 @@
       <a class="btn btn-ghost" href="help.html" target="_blank" rel="noopener">Open user guide / ব্যবহার নির্দেশিকা</a>
     </div>
 
+    <div class="acc-section">
+      <h3>What&rsquo;s new</h3>
+      <p class="muted">See the latest updates, improvements and fixes.</p>
+      <button type="button" class="btn btn-ghost" id="btn-whatsnew">See what&rsquo;s new</button>
+    </div>
+
     <div class="acc-section" id="dev-section">
       <h3>Contact developer</h3>
       <div class="dev-card">
@@ -375,6 +381,23 @@
       <p class="muted" id="install-text">Install To-Do Pro as an app on this device.</p>
       <button type="button" class="btn btn-ghost" data-install hidden><svg class="i"><use href="#i-download"/></svg> Install app</button>
     </div>
+  </div>
+</dialog>
+
+<!-- ============ WHAT'S NEW ============ -->
+<dialog id="whatsnew" class="sheet sheet-sm" aria-labelledby="wn-title">
+  <header class="sheet-head">
+    <h2 id="wn-title">What&rsquo;s new</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </header>
+  <div class="sheet-body">
+    <div class="wn-hero">
+      <span class="wn-badge">Update</span>
+      <strong id="wn-ver"></strong>
+      <p class="muted">Here is everything that is new, better and fixed in To-Do Pro.</p>
+    </div>
+    <div id="wn-list"></div>
+    <button type="button" class="btn btn-primary" id="wn-ok">Got it</button>
   </div>
 </dialog>
 
