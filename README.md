@@ -60,6 +60,10 @@
 - 🎛️ **Done / Snooze buttons on the notification** itself
 - 🔕 Handle a reminder on one device and the notification disappears on your other devices
 
+### 📣 Updates and support
+- 🆕 **What's new announcement:** after each update the app shows a short summary of what is new, improved and fixed. It appears once per device and can be reopened any time from **Account → See what's new**.
+- 👨‍💻 **Contact developer:** Account dialog and user guide include the developer's portfolio, GitHub and a bug-report link.
+
 ### 🎨 Look and feel
 - 🌗 Light and dark themes, 🎨 accent colours
 - 📐 Responsive from 320px phones to desktop
@@ -74,6 +78,8 @@
 |---|---|
 | Core app, sync, Trash, autosave, bilingual login and guide, background push | 🟢 **Live** |
 | Spellcheck off in text fields (no red lines under Bangla typing) | 🟢 **Live** |
+| Contact developer (Account dialog and user guide) | 🟢 **Live** |
+| What's new announcement (popup once per update, reopen from Account) | 🟢 **Live** |
 | Security hardening: `worker/index.js`, `firestore.rules`, sign-out cache clearing in `cloud.js`, 8-character password minimum in `auth.js`, updated `SETUP.md` and `PUSH-SETUP.md` | 🟡 **Prepared and tested, not yet deployed** |
 | Usage analytics (GoatCounter) | ⚪ Planned, not added |
 
@@ -131,6 +137,7 @@ The app was built in stages. Each stage was tested and confirmed working before 
 | 6️⃣ | **Documentation** | Bilingual user guide with working navigation, Firebase and push setup guides |
 | 7️⃣ | **Data safety and polish** | Trash (5-second undo, 30-day restore, synced), autosave for every field, English-only app text, dropdown restyle, bell animation and dialog fixes |
 | 8️⃣ | **Review and hardening** | Full post-mortem, automated browser tests, security fixes, spellcheck off for Bangla typing |
+| 9️⃣ | **Communication** | Professional README, Contact developer section in the app and guide, What's new announcement shown to users after each update |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>
@@ -143,6 +150,7 @@ The app was built in stages. Each stage was tested and confirmed working before 
 - Account dialog staying open above the login screen after sign-out
 - A task coming back after delete while autosave was pending (found in review, fix pending deployment)
 - Red spellcheck lines under Bangla text making editing hard on mobile (fixed and live)
+- Updates appearing one reload late: the service worker served a cached `script.js` next to a fresh `index.html`, so a new button could appear before its code. Reloading twice resolves it; a network-first strategy for app code is being evaluated
 
 </details>
 
@@ -222,9 +230,10 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
    git push
    ```
 2. 🔢 Bump `VERSION` in `sw.js` on every release so installed apps refresh.
+   📣 Update `APP_UPDATE` and `WHATS_NEW` in `script.js` so users see the new announcement.
 3. ⚙️ If `worker/index.js` changed: `cd worker` then `npx wrangler deploy`.
 4. 📜 If `firestore.rules` changed: paste it in the Firebase console and **keep the previous rules for rollback**.
-5. ⏳ Wait 1-2 minutes, then reload the app twice (or close and reopen the installed app).
+5. ⏳ Wait 1-2 minutes, then reload the app twice (or close and reopen the installed app). The first reload fetches the new files, the second runs them.
 6. 🧪 **Smoke test:** sign in, add a task with an alarm, confirm a document appears in the `reminders` collection, sign out and sign back in.
 
 ---
@@ -266,7 +275,7 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 ### Abdur Rahman
 **Developer of To-Do Pro**
 
-Questions, bug reports, feature ideas or collaboration? Reach out through any of the links below.
+Questions, bug reports, feature ideas or collaboration? Reach out through any of the links below, or open **Account → Contact developer** inside the app.
 
 [![Portfolio](https://img.shields.io/badge/🌐_Portfolio-abdurrahmancce.github.io-2ea44f?style=for-the-badge)](https://abdurrahmancce.github.io/Personal-Portfolio/)
 [![GitHub](https://img.shields.io/badge/GitHub-abdurrahmancce-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/abdurrahmancce)
