@@ -75,20 +75,25 @@ let cloud = null;
 let unsubscribe = null;
 let installEvent = null;
 
+const validDate = (v) => { const d = new Date(v); return v && !isNaN(d) ? d : null; };
 function normalize(t, i = 0) {
+  t = t && typeof t === 'object' ? t : {};
+  const id = String(t.id ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 100) || newId(); // ids end up in database paths
+  const created = validDate(t.createdAt);
+  const alarm = validDate(t.alarm);
   return {
-    id: String(t.id ?? newId()),
+    id,
     title: String(t.title ?? '').slice(0, 200),
-    heading: String(t.heading ?? ''),
-    notes: String(t.notes ?? ''),
-    date: t.date || '',
+    heading: String(t.heading ?? '').slice(0, 100),
+    notes: String(t.notes ?? '').slice(0, 2000),
+    date: /^\d{4}-\d{2}-\d{2}$/.test(String(t.date || '')) ? t.date : '',
     priority: ['low', 'medium', 'high'].includes(t.priority) ? t.priority : 'medium',
     completed: !!t.completed,
-    completedAt: t.completedAt || null,
-    createdAt: t.createdAt || new Date().toISOString(),
+    completedAt: validDate(t.completedAt) ? t.completedAt : null,
+    createdAt: created ? created.toISOString() : new Date().toISOString(),
     updatedAt: Number(t.updatedAt) || Date.now(),
-    order: typeof t.order === 'number' ? t.order : i,
-    alarm: t.alarm || null,
+    order: Number.isFinite(t.order) ? t.order : i,
+    alarm: alarm ? alarm.toISOString() : null,
     alarmRepeat: ['daily', 'weekly'].includes(t.alarmRepeat) ? t.alarmRepeat : 'none',
     alarmFired: !!t.alarmFired,
     deletedAt: Number(t.deletedAt) || 0,   // set while the task sits in Trash
@@ -669,9 +674,10 @@ function autoStatus(kind) {
   const el = $('#autosave-state'); if (!el) return;
   const offline = !navigator.onLine;
   el.dataset.s = kind;
-  el.textContent = kind === 'saving' ? 'Saving…'
+  const next = kind === 'saving' ? 'Saving…'
     : kind === 'saved' ? (!cloudOn() ? 'Saved on this device' : offline ? 'Saved on this device · will sync when online' : 'All changes saved')
     : kind === 'idle' ? 'Changes save automatically' : '';
+  if (el.textContent !== next) el.textContent = next; // untouched DOM while typing keeps the mobile keyboard steady
 }
 function autoReset() { clearTimeout(autoTimer); autoTimer = null; autoDirty = false; autoStatus('idle'); }
 function readForm() {
@@ -690,6 +696,7 @@ function autoSave() {
   autoDirty = false;
   const f = readForm();
   const existing = state.editingId ? state.tasks.find((x) => x.id === state.editingId) : null;
+  if (state.editingId && !existing) { autoStatus('idle'); return; } // task was deleted while the editor was open
   if (!existing && !f.title && !f.notes) { autoStatus('idle'); return; } // nothing to save yet
   if (!f.title) f.title = 'Untitled task';
   // an alarm in the past would ring immediately, so it is only stored when you press Done
@@ -744,7 +751,7 @@ $('#editor-form').addEventListener('submit', (e) => {
   if (alarm) ensureNotifyPermission();
   editor.close();
 });
-$('#f-delete').addEventListener('click', () => { const id = state.editingId; editor.close(); if (id) deleteWithUndo(id); });
+$('#f-delete').addEventListener('click', () => { const id = state.editingId; clearTimeout(autoTimer); autoTimer = null; autoDirty = false; editor.close(); if (id) deleteWithUndo(id); });
 editor.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') $('#editor-form').requestSubmit(); });
 
 ['#btn-new-side', '#fab'].forEach((s) => $(s).addEventListener('click', () => openEditor(null)));
@@ -1217,7 +1224,11 @@ function renderAccount() {
       <div class="acc-status"><span class="sync-dot" data-s="${state.sync}"></span> ${SYNC_TEXT[state.sync]}</div>
       ${state.sync === 'error' ? `<div class="note">${esc(state.syncDetail)}</div>` : ''}
       <button type="button" class="btn btn-ghost" id="btn-signout">${icon('logout')} Sign out</button>`;
-    $('#btn-signout').onclick = async () => { await cloud.logout(); toast('Signed out'); };
+    $('#btn-signout').onclick = async () => {
+      await cloud.logout();
+      try { Object.keys(localStorage).filter((k) => k.startsWith(LS.cachePrefix) || k === 'tp-last-uid').forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
+      location.reload(); // restart with a clean in-memory state
+    };
   }
   renderPush();
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
@@ -1312,10 +1323,11 @@ $('#btn-import').addEventListener('click', () => $('#import-file').click());
 $('#import-file').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
+    if (f.size > 5e6) throw new Error('too large');
     const data = JSON.parse(await f.text());
     const arr = Array.isArray(data) ? data : data.tasks;
     if (!Array.isArray(arr)) throw new Error('bad file');
-    const list = arr.filter((t) => t && t.title).map((t, i) => normalize(t, i));
+    const list = arr.slice(0, 2000).filter((t) => t && typeof t === 'object' && t.title).map((t, i) => normalize(t, i));
     list.forEach((t) => upsert(t, { silent: true }));
     render(); toast(`Imported ${list.length} task${list.length === 1 ? '' : 's'}`);
   } catch { toast('That file could not be imported'); }

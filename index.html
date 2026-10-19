@@ -123,7 +123,7 @@
 
       <div class="search" role="search">
         <svg class="i"><use href="#i-search"/></svg>
-        <input id="search" type="search" placeholder="Search tasks…  ( / )" aria-label="Search tasks" autocomplete="off" />
+        <input id="search" spellcheck="false" autocorrect="off" type="search" placeholder="Search tasks…  ( / )" aria-label="Search tasks" autocomplete="off" />
         <button class="icon-btn sm" id="search-clear" type="button" aria-label="Clear search" hidden><svg class="i"><use href="#i-x"/></svg></button>
       </div>
 
@@ -161,7 +161,7 @@
 
       <form class="quick-add" id="quick-form" autocomplete="off">
         <svg class="i lead"><use href="#i-plus"/></svg>
-        <input id="q-title" type="text" placeholder="Add a task… try “tomorrow 9am call mom”" maxlength="200" aria-label="Quick add task" />
+        <input id="q-title" spellcheck="false" autocorrect="off" type="text" placeholder="Add a task… try “tomorrow 9am call mom”" maxlength="200" aria-label="Quick add task" />
         <button class="btn btn-ghost sm" id="q-more" type="button">Details</button>
         <button class="btn btn-primary sm" type="submit">Add</button>
       </form>
@@ -198,8 +198,8 @@
     </header>
 
     <div class="sheet-body">
-      <input id="f-title" class="field-title" type="text" placeholder="What needs to be done?" maxlength="200" aria-label="Task title" />
-      <textarea id="f-notes" rows="3" maxlength="2000" placeholder="Notes or description…" aria-label="Notes"></textarea>
+      <input id="f-title" spellcheck="false" autocorrect="off" class="field-title" type="text" placeholder="What needs to be done?" maxlength="200" aria-label="Task title" />
+      <textarea id="f-notes" spellcheck="false" autocorrect="off" rows="3" maxlength="2000" placeholder="Notes or description…" aria-label="Notes"></textarea>
 
       <div class="grid2">
         <div class="field">
@@ -213,7 +213,7 @@
         </div>
         <div class="field">
           <label for="f-heading"><svg class="i"><use href="#i-text"/></svg> Section</label>
-          <input id="f-heading" type="text" list="headings-list" maxlength="100" placeholder="e.g. Work, Home…" autocomplete="off" />
+          <input id="f-heading" spellcheck="false" autocorrect="off" type="text" list="headings-list" maxlength="100" placeholder="e.g. Work, Home…" autocomplete="off" />
           <datalist id="headings-list"></datalist>
           <label class="mt">Priority</label>
           <div class="seg" id="f-priority" role="radiogroup" aria-label="Priority">
