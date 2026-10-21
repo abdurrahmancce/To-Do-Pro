@@ -295,6 +295,6 @@ Questions, bug reports, feature ideas or collaboration? Reach out through any of
 
 <div align="center">
 
-Built step by step, tested at every stage. 🧡
+Built step by step, tested at every stage.
 
 </div>
