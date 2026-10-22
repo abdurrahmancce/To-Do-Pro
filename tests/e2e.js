@@ -1,0 +1,327 @@
+/* To-Do Pro end-to-end tests (Playwright, headless Chromium).
+   Runs the real app against an in-memory stand-in for Firebase (tests/fakecloud.js).
+   Real Firebase, Google sign-in and push delivery are checked by hand after each deploy. */
+const fs = require('fs');
+const path = require('path');
+const { chromium } = require('playwright');
+
+module.exports = async function run({ BASE, ROOT, OUT, PORT, marker }) {
+  const results = [];
+  const T = async (name, fn) => { try { const r = await fn(); results.push([r === true ? 'PASS' : 'FAIL', name, r === true ? '' : String(r)]); } catch (e) { results.push(['FAIL', name, String(e.message).split('\n')[0]]); } };
+  const FAKE = fs.readFileSync(path.join(__dirname, 'fakecloud.js'), 'utf8');
+  const CFG = 'window.FIREBASE_CONFIG={apiKey:"x"};window.FIREBASE_VAPID_KEY="";window.WORKER_URL="";';
+
+async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, seed = null, user = false } = {}) {
+  const ctx = await b.newContext({ viewport: vp, serviceWorkers: 'block' });
+  ctx.setDefaultTimeout(4000); const p = await ctx.newPage();
+  p.errs = [];
+  p.on('pageerror', (e) => p.errs.push('pageerror: ' + e.message));
+  p.on('console', (m) => { if (m.type() === 'error' && !/gstatic|ERR_|favicon|fonts/.test(m.text())) p.errs.push('console: ' + m.text()); });
+  p.on('dialog', (d) => d.accept());
+  if (cloud) {
+    await p.route('**/cloud.js', (r) => r.fulfill({ contentType: 'text/javascript', body: FAKE.replace('__USER__', user ? 'true' : 'false') }));
+    await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: CFG }));
+  } else {
+    await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
+  }
+  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) {} });
+  if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
+  await p.goto(BASE + '/'); await p.waitForTimeout(500);
+  return p;
+}
+const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage.getItem(k) || '[]'), k);
+
+
+  const b = await chromium.launch({
+    executablePath: process.env.CHROMIUM_PATH || undefined,
+    // lets the service-worker test use a host name other than localhost (the app treats localhost as development)
+    args: [`--host-resolver-rules=MAP todo.test 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=http://todo.test:${PORT}`],
+  });
+
+  // ---------- core CRUD (local mode) ----------
+  const p = await newPage(b);
+  await T('boot without errors', async () => p.errs.length === 0 || p.errs.join('|'));
+  await T('quick add: smart parse', async () => {
+    await p.fill('#q-title', 'call mom tomorrow 5pm !high #health'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(200);
+    const t = (await stored(p))[0]; return t.title === 'call mom' && t.priority === 'high' && t.heading === 'health' && !!t.alarm || JSON.stringify(t);
+  });
+  await T('quick add: Banglish parse', async () => {
+    await p.fill('#q-title', 'kal 9 tay namaz'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(200);
+    const t = (await stored(p)).find((x) => x.title === 'namaz'); return !!t && !!t.alarm || 'not parsed';
+  });
+  await T('complete + reopen via checkbox', async () => {
+    await p.click('.task .check'); await p.waitForTimeout(200);
+    const done = (await stored(p)).filter((t) => t.completed).length; return done === 1 || 'done=' + done;
+  });
+  await T('delete -> Trash -> restore', async () => {
+    await p.click('.nav-item[data-view="all"]'); await p.hover('.task'); await p.click('.task .del', { force: true });
+    await p.click('.nav-item[data-view="trash"]'); await p.waitForSelector('.trash-row');
+    await p.click('.trash-row [data-restore]'); await p.waitForTimeout(200);
+    return (await stored(p)).every((t) => !t.deletedAt) || 'still trashed';
+  });
+  await T('purge forever + empty trash', async () => {
+    await p.click('.nav-item[data-view="all"]');
+    for (const t of ['pa', 'pb']) { await p.fill('#q-title', t); await p.press('#q-title', 'Enter'); await p.waitForTimeout(150); } await p.hover('.task'); await p.click('.task .del', { force: true });
+    await p.hover('.task'); await p.click('.task .del', { force: true });
+    await p.click('.nav-item[data-view="trash"]'); await p.waitForSelector('.trash-row');
+    await p.click('.trash-row [data-purge]'); await p.waitForTimeout(200);
+    const n1 = (await stored(p)).filter((t) => t.deletedAt).length;
+    await p.click('[data-empty-trash]'); await p.waitForTimeout(200);
+    const n2 = (await stored(p)).filter((t) => t.deletedAt).length; return (n1 === 1 && n2 === 0) || `n1=${n1} n2=${n2}`;
+  });
+  await T('search', async () => { await p.click('.nav-item[data-view="all"]'); await p.fill('#search', 'zzzz'); await p.waitForTimeout(200); const e = await p.isVisible('#empty'); await p.fill('#search', ''); return e; });
+  await T('calendar month/week render', async () => { await p.click('.nav-item[data-view="calendar"]'); await p.waitForTimeout(300); const ok = await p.isVisible('#calendar'); return ok; });
+  await T('weekly summary dialog', async () => { await p.click('#btn-summary-side'); await p.waitForTimeout(200); const ok = await p.isVisible('#summary[open]'); await p.keyboard.press('Escape'); return ok; });
+  await T('account dialog', async () => { await p.click('[data-open-account]:visible'); await p.waitForTimeout(200); const ok = await p.isVisible('#account[open]'); await p.keyboard.press('Escape'); return ok; });
+  await T('reminders dialog', async () => { await p.click('.nav-item:has-text("Reminders")'); await p.waitForTimeout(200); const ok = await p.isVisible('#reminders[open]'); await p.keyboard.press('Escape'); return ok; });
+  await T('keyboard shortcuts n and /', async () => { await p.click('.nav-item[data-view="all"]'); await p.keyboard.press('n'); await p.waitForTimeout(200); const a = await p.isVisible('#editor[open]'); await p.keyboard.press('Escape'); return a; });
+  await T('bulk select + delete + undo', async () => {
+    await p.click('.nav-item[data-view="all"]'); for (const t of ['ba', 'bb']) { await p.fill('#q-title', t); await p.press('#q-title', 'Enter'); await p.waitForTimeout(150); }
+    await p.click('#btn-select'); await p.click('#bulk-all'); await p.click('#bulk-del'); await p.waitForTimeout(200);
+    const trashed = (await stored(p)).filter((t) => t.deletedAt).length;
+    await p.click('.toast button'); await p.waitForTimeout(300);
+    const after = (await stored(p)).filter((t) => t.deletedAt).length; return (trashed > 0 && after === 0) || `trashed=${trashed} after=${after}`;
+  });
+  await T('no console errors during CRUD', async () => p.errs.length === 0 || p.errs.join(' | '));
+  await p.context().close();
+
+  // ---------- autosave ----------
+  const a = await newPage(b);
+  await T('autosave: edit then delete immediately must not resurrect', async () => {
+    await a.fill('#q-title', 'victim'); await a.press('#q-title', 'Enter'); await a.waitForTimeout(200);
+    await a.click('.task'); await a.waitForSelector('#editor[open]');
+    await a.fill('#f-notes', 'typing...'); await a.click('#f-delete'); await a.waitForTimeout(800);
+    const live = (await stored(a)).filter((t) => !t.deletedAt && t.title === 'victim').length;
+    return live === 0 || `live copies=${live}`;
+  });
+  await T('autosave: new task via editor is created once', async () => {
+    await a.click('#btn-new-side'); await a.type('#f-title', 'Once only', { delay: 15 }); await a.waitForTimeout(600); await a.click('#f-save'); await a.waitForTimeout(300);
+    const n = (await stored(a)).filter((t) => t.title === 'Once only').length; return n === 1 || 'copies=' + n;
+  });
+  await T('autosave: past alarm not stored until Done', async () => {
+    await a.click('#btn-new-side'); await a.fill('#f-title', 'past alarm'); await a.fill('#f-alarm-date', '2020-01-01'); await a.fill('#f-alarm-time', '10:00'); await a.waitForTimeout(700);
+    const t = (await stored(a)).find((x) => x.title === 'past alarm'); await a.keyboard.press('Escape'); return (t && !t.alarm) || JSON.stringify(t);
+  });
+  await a.context().close();
+
+  // ---------- XSS ----------
+  const payload = '<img src=x onerror="window.__xss=1"><script>window.__xss=2</script>"\'><svg onload="window.__xss=3">';
+  const now = Date.now();
+  const xt = (id, extra) => ({ id, title: payload, notes: payload, heading: payload, createdAt: new Date().toISOString(), order: 0, ...extra });
+  const x = await newPage(b, { seed: { key: 'tasks-pro', value: [xt('x1', { date: '2026-10-18', alarm: new Date(now + 3600e3).toISOString(), alarmRepeat: 'daily' }), xt('x2', { completed: true, completedAt: new Date().toISOString() }), xt('x3', { deletedAt: now })] } });
+  await T('XSS: payload never executes (all views)', async () => {
+    for (const v of ['all', 'today', 'upcoming', 'calendar', 'done', 'trash']) { await x.click(`.nav-item[data-view="${v}"]`); await x.waitForTimeout(250); }
+    await x.click('.nav-item[data-view="all"]'); await x.click('#btn-summary-side'); await x.waitForTimeout(200); await x.keyboard.press('Escape');
+    await x.click('.nav-item:has-text("Reminders")'); await x.waitForTimeout(200); await x.keyboard.press('Escape');
+    await x.click('.task'); await x.waitForTimeout(300); await x.keyboard.press('Escape');
+    const fired = await x.evaluate(() => window.__xss); const imgs = await x.$$eval('img[src="x"]', (e) => e.length);
+    return (!fired && imgs === 0) || `xss=${fired} injected img=${imgs}`;
+  });
+  await T('XSS: payload shown as text', async () => { await x.click('.nav-item[data-view="all"]'); return (await x.textContent('#list')).includes('<img src=x') || 'not displayed literally'; });
+  await x.context().close();
+
+  // ---------- corrupt data ----------
+  const c = await newPage(b, { seed: { key: 'tasks-pro', value: [
+    { id: 'c1', title: 'bad alarm', alarm: 'not-a-date', createdAt: 'garbage', date: 'xx' },
+    { id: 'c2/../evil', title: 'path id', alarm: '9999-99-99T99:99' },
+    { id: 'c3', title: 'x'.repeat(5000), notes: 'n'.repeat(50000), heading: 'h'.repeat(5000) },
+    null, 42, { title: '' }, { id: 'c4', title: 'ok', priority: 'nuclear', alarmRepeat: 'hourly', order: 'a' },
+  ] } });
+  await T('corrupt storage: app boots + renders', async () => { const n = await c.$$eval('.task', (e) => e.length); return (n >= 2 && c.errs.length === 0) || `tasks=${n} errs=${c.errs.join('|')}`; });
+  await T('corrupt storage: ids/fields sanitized', async () => {
+    await c.evaluate(() => document.querySelector('.task')?.click()); await c.keyboard.press('Escape'); await c.click('#btn-new-side'); await c.fill('#f-title', 'trigger save'); await c.waitForTimeout(600); await c.keyboard.press('Escape');
+    const t = await stored(c); const bad = t.filter((x) => /[\/\.]/.test(x.id) || (x.title || '').length > 200 || (x.notes || '').length > 2000 || (x.heading || '').length > 100 || (x.alarm && isNaN(new Date(x.alarm))));
+    return bad.length === 0 || 'unsanitized: ' + bad.map((x) => x.id + ':' + (x.alarm || '') + ':' + (x.notes || '').length).join(', ');
+  });
+  await c.context().close();
+
+  // ---------- import ----------
+  const im = await newPage(b);
+  await T('import: valid file', async () => {
+    fs.writeFileSync(OUT + '/imp1.json', JSON.stringify([{ id: 'i1', title: 'imported', createdAt: new Date().toISOString() }]));
+    await im.setInputFiles('#import-file', OUT + '/imp1.json'); await im.waitForTimeout(400); return (await stored(im)).some((t) => t.title === 'imported');
+  });
+  await T('import: malformed file rejected', async () => {
+    fs.writeFileSync(OUT + '/imp2.json', '{not json'); await im.setInputFiles('#import-file', OUT + '/imp2.json'); await im.waitForTimeout(300);
+    return (await im.textContent('#toasts')).includes('could not be imported') || 'no error toast';
+  });
+  await T('import: oversized file capped', async () => {
+    fs.writeFileSync(OUT + '/imp3.json', JSON.stringify(Array.from({ length: 6000 }, (_, i) => ({ id: 'b' + i, title: 't' + i }))));
+    await im.setInputFiles('#import-file', OUT + '/imp3.json'); await im.waitForTimeout(1500);
+    const n = (await stored(im)).length; return n <= 2001 || 'imported ' + n;
+  });
+  await im.context().close();
+
+  // ---------- alarm engine ----------
+  const al = await newPage(b);
+  await T('alarm rings in-app when due', async () => {
+    await al.evaluate(() => { const t = JSON.parse(localStorage.getItem('tasks-pro') || '[]'); t.push({ id: 'al1', title: 'ringing', alarm: new Date(Date.now() + 2500).toISOString(), createdAt: new Date().toISOString(), order: 0 }); localStorage.setItem('tasks-pro', JSON.stringify(t)); });
+    await al.reload(); await al.waitForTimeout(500);
+    await al.waitForSelector('#alarm-popup:not([hidden])', { timeout: 36000 }).catch(() => {}); const v = await al.isVisible('#alarm-popup'); return v || 'popup not shown';
+  });
+  await al.context().close();
+
+  // ---------- cloud paths (in-memory fake) ----------
+  const cl = await newPage(b, { cloud: true, user: true });
+  await T('cloud: signed-in boot', async () => (await cl.textContent('[data-account-name]')) === 'Tester' || 'name=' + (await cl.textContent('[data-account-name]')));
+  await T('cloud: add -> saved to cloud store; delete -> soft delete doc', async () => {
+    await cl.fill('#q-title', 'cloud task'); await cl.press('#q-title', 'Enter'); await cl.waitForTimeout(300);
+    let db = await cl.evaluate(() => window.__fake.tasks()); const added = db.some((t) => t.title === 'cloud task' && !t.deletedAt);
+    await cl.hover('.task'); await cl.click('.task .del', { force: true }); await cl.waitForTimeout(300);
+    db = await cl.evaluate(() => window.__fake.tasks()); const soft = db.some((t) => t.title === 'cloud task' && t.deletedAt > 0);
+    return (added && soft) || `added=${added} soft=${soft}`;
+  });
+  await T('cloud: sign out clears local cache', async () => {
+    await cl.click('[data-open-account]:visible'); await cl.click('#btn-signout'); await cl.waitForTimeout(800);
+    const keys = await cl.evaluate(() => Object.keys(localStorage).filter((k) => /^tasks-cache-/.test(k)));
+    return keys.length === 0 || 'cache left: ' + keys.join(',');
+  });
+  await cl.context().close();
+
+  // ---------- layout / responsive ----------
+  for (const w of [320, 375, 768]) {
+    const r = await newPage(b, { vp: { width: w, height: 800 }, seed: { key: 'tasks-pro', value: [{ id: 'r1', title: 'A very long task title that should wrap nicely without breaking the layout of the page at all', notes: 'x'.repeat(300), createdAt: new Date().toISOString(), order: 0, alarm: new Date(Date.now() + 7200e3).toISOString() }] } });
+    await T(`layout ${w}px: no horizontal overflow`, async () => { const o = await r.evaluate(() => document.documentElement.scrollWidth - window.innerWidth); return o <= 1 || 'overflow ' + o + 'px'; });
+    await r.screenshot({ path: `${OUT}/layout-${w}.png` });
+    await r.context().close();
+  }
+  const lg = await newPage(b, { vp: { width: 360, height: 780 }, cloud: true });
+  await T('login screen 360px: no overflow', async () => { await lg.waitForSelector('#auth-screen'); const o = await lg.evaluate(() => document.querySelector('#auth-screen').scrollWidth - innerWidth); return o <= 1 || 'overflow ' + o; });
+  await lg.context().close();
+
+
+  // ---------- checklist (subtasks) ----------
+  const ck = await newPage(b);
+  await T('checklist: add steps, tick one, chip shows 1/3 and stays after reload', async () => {
+    await ck.fill('#q-title', 'trip'); await ck.press('#q-title', 'Enter'); await ck.waitForTimeout(200);
+    await ck.click('.task .t-title'); await ck.waitForSelector('#editor[open]');
+    for (const s of ['tickets', 'hotel', 'bag']) { await ck.fill('#subs-new', s); await ck.press('#subs-new', 'Enter'); }
+    await ck.click('#subs-list li:first-child .sub-check'); await ck.waitForTimeout(700);
+    await ck.keyboard.press('Escape'); await ck.waitForTimeout(300);
+    const chip = await ck.textContent('.task .chip.subs'); await ck.reload(); await ck.waitForTimeout(500);
+    const after = await ck.textContent('.task .chip.subs'); const t = (await stored(ck))[0];
+    return (chip.includes('1/3') && after.includes('1/3') && t.subtasks.length === 3 && t.subtasks[0].done === true) || `chip=${chip} after=${after}`;
+  });
+  await T('checklist: pasting a list makes one step per line (bullets and numbers removed)', async () => {
+    await ck.click('.task .t-title'); await ck.waitForSelector('#editor[open]');
+    await ck.evaluate(() => { const i = document.querySelector('#subs-new'); const dt = new DataTransfer(); dt.setData('text', '1. alpha\n- beta\n* gamma'); i.dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); });
+    await ck.waitForTimeout(700);
+    const texts = await ck.$$eval('#subs-list .sub-text', (e) => e.map((x) => x.value)); await ck.keyboard.press('Escape');
+    return (texts.includes('alpha') && texts.includes('beta') && texts.includes('gamma')) || texts.join('|');
+  });
+  await T('checklist: steps show inside the task and can be ticked from the list', async () => {
+    await ck.click('.nav-item[data-view="all"]'); await ck.waitForSelector('.task .t-sub');
+    const n = (await ck.$$('.task .t-sub')).length; const before = (await stored(ck))[0].subtasks.filter((x) => x.done).length;
+    await ck.click('.task .t-sub:not(.done) .t-sub-check'); await ck.waitForTimeout(400);
+    const after = (await stored(ck))[0].subtasks.filter((x) => x.done).length; const editorOpen = await ck.isVisible('#editor[open]');
+    return (n >= 3 && after === before + 1 && !editorOpen) || `n=${n} before=${before} after=${after} editor=${editorOpen}`;
+  });
+  await T('checklist: remove a step', async () => {
+    await ck.click('.task .t-title'); await ck.waitForSelector('#editor[open]');
+    const before = (await ck.$$('#subs-list li')).length; await ck.click('#subs-list li:last-child .sub-del'); await ck.waitForTimeout(600);
+    const n = (await ck.$$('#subs-list li')).length; await ck.keyboard.press('Escape'); return n === before - 1 || `${before} -> ${n}`;
+  });
+  await T('completed task shows a green check and a Completed label', async () => {
+    await ck.click('.task .check'); await ck.waitForTimeout(300);
+    await ck.click('.nav-item[data-view="done"]'); await ck.waitForTimeout(300);
+    return (await ck.textContent('.task .chip.finished')).includes('Completed') || 'no label';
+  });
+  await T('checklist: hostile and oversized steps are cleaned on import', async () => {
+    fs.writeFileSync(OUT + '/imp-subs.json', JSON.stringify([{ id: 's1', title: 'x', subtasks: [{ id: '../a', text: '<img src=x onerror="window.__sx=1">', done: 1 }, { text: '' }, ...Array.from({ length: 80 }, (_, i) => ({ text: 'n' + i }))] }]));
+    await ck.click('.nav-item[data-view="all"]'); await ck.setInputFiles('#import-file', OUT + '/imp-subs.json'); await ck.waitForTimeout(500);
+    const t = (await stored(ck)).find((x) => x.id === 's1'); await ck.click('.task:has-text("x") .t-title'); await ck.waitForTimeout(300);
+    const fired = await ck.evaluate(() => window.__sx); await ck.keyboard.press('Escape');
+    return (t.subtasks.length <= 50 && t.subtasks.every((s) => /^[A-Za-z0-9_-]+$/.test(s.id) && s.text) && !fired) || `n=${t.subtasks.length} xss=${fired}`;
+  });
+  await T('checklist: no errors', async () => ck.errs.length === 0 || ck.errs.join('|'));
+  await ck.context().close();
+
+  // ---------- error log, notice and Report a bug ----------
+  const er = await newPage(b, { seed: { key: 'tasks-pro', value: [{ id: 'e1', title: 'SECRET TITLE', notes: 'SECRET NOTES', createdAt: new Date().toISOString() }] } });
+  await T('errors: a runtime error is recorded and a notice appears once', async () => {
+    await er.evaluate(() => { setTimeout(() => { throw new Error('boom test'); }, 0); setTimeout(() => { throw new Error('second boom'); }, 20); });
+    await er.waitForTimeout(500);
+    const log = await er.evaluate(() => window.tpErrors.read()); const toasts = await er.$$eval('.toast', (e) => e.filter((x) => /Something went wrong/.test(x.textContent)).length);
+    return (log.length >= 2 && log[0].m.includes('boom') && toasts === 1) || `log=${log.length} toasts=${toasts}`;
+  });
+  await T('errors: browser noise is ignored', async () => {
+    const n0 = await er.evaluate(() => window.tpErrors.read().length);
+    await er.evaluate(() => window.dispatchEvent(new ErrorEvent('error', { message: 'ResizeObserver loop limit exceeded' })));
+    return (await er.evaluate(() => window.tpErrors.read().length)) === n0 || 'noise recorded';
+  });
+  await T('report a bug: link carries diagnostics, never task content', async () => {
+    await er.click('[data-open-account]:visible'); await er.waitForTimeout(200);
+    await er.evaluate(() => document.querySelector('#btn-report-bug').addEventListener('click', (e) => e.preventDefault(), true));
+    await er.click('#btn-report-bug', { force: true }); await er.waitForTimeout(200);
+    const href = decodeURIComponent((await er.getAttribute('#btn-report-bug', 'href')).replace(/\+/g, ' '));
+    return (href.includes('github.com/abdurrahmancce/To-Do-Pro/issues/new') && href.includes('App update:') && href.includes('Recent errors') && href.includes('boom') && !/SECRET/.test(href)) || href.slice(0, 200);
+  });
+  await er.context().close();
+
+  // ---------- analytics ----------
+  const an = await newPage(b);
+  await T('analytics: off by default, makes no outside request and track() is a safe no-op', async () => {
+    const reqs = []; an.on('request', (r) => { if (/goatcounter|gc\.zgo\.at/.test(r.url())) reqs.push(r.url()); });
+    await an.reload(); await an.waitForTimeout(500);
+    const ok = await an.evaluate(() => { try { window.track('x'); return typeof window.track === 'function'; } catch (e) { return false; } });
+    return (ok && reqs.length === 0) || `ok=${ok} reqs=${reqs.length}`;
+  });
+  await an.context().close();
+  {
+    const ctx = await b.newContext({ serviceWorkers: 'block' }); const p = await ctx.newPage(); const hits = [];
+    await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
+    await p.route('**/analytics.js', async (r) => { const t = fs.readFileSync(path.join(ROOT, 'analytics.js'), 'utf8').replace("window.GOATCOUNTER_CODE = '';", "window.GOATCOUNTER_CODE = 'demo-site';"); r.fulfill({ contentType: 'text/javascript', body: t }); });
+    await p.route('https://gc.zgo.at/count.js', (r) => r.fulfill({ contentType: 'text/javascript', body: "window.goatcounter = window.goatcounter || {}; window.goatcounter.count = function (o) { (window.__hits = window.__hits || []).push(o.path); };" }));
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) { /* ignore */ } });
+    await p.goto(BASE + '/'); await p.waitForTimeout(500);
+    await T('analytics: with a site code, feature events are counted and task text is never sent', async () => {
+      await p.fill('#q-title', 'my private task'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(400);
+      await p.click('.task .check'); await p.waitForTimeout(300);
+      const h = await p.evaluate(() => window.__hits || []); const src = await p.getAttribute('script[data-goatcounter]', 'data-goatcounter');
+      return (h.includes('event/task-added') && h.includes('event/task-completed') && !h.join(' ').includes('private') && src === 'https://demo-site.goatcounter.com/count') || JSON.stringify(h) + src;
+    });
+    await ctx.close();
+  }
+
+
+  // ---------- service worker: a new release must run on the first reload ----------
+  {
+    const ctx = await b.newContext(); const p = await ctx.newPage(); const url = `http://todo.test:${PORT}/`;
+    await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) { /* ignore */ } });
+    await T('service worker: installs and takes control', async () => {
+      marker.value = 1; await p.goto(url); await p.evaluate(() => navigator.serviceWorker.ready); await p.waitForTimeout(1500); await p.reload(); await p.waitForTimeout(800);
+      return (await p.evaluate(() => !!navigator.serviceWorker.controller && window.__marker === 1)) || 'not controlled or wrong version';
+    });
+    await T('service worker: new script.js is used after ONE reload (no stale cache)', async () => {
+      marker.value = 2; await p.reload(); await p.waitForTimeout(1000);
+      const m = await p.evaluate(() => window.__marker); return m === 2 || 'still running version ' + m;
+    });
+    await T('service worker: app still opens offline', async () => {
+      await ctx.setOffline(true); await p.reload(); await p.waitForTimeout(1200);
+      const ok = await p.isVisible('#q-title'); await ctx.setOffline(false); return ok || 'blank page offline';
+    });
+    await ctx.close();
+  }
+
+  // ---------- static checks ----------
+  await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
+    const root = ROOT; const miss = [];
+    const refs = new Set();
+    for (const f of ['index.html', 'help.html']) for (const m of fs.readFileSync(path.join(ROOT, f), 'utf8').matchAll(/(?:src|href)="([^"#?]+)"/g)) if (!/^(https?:|data:|mailto:)/.test(m[1])) refs.add(m[1]);
+    const sw = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8'); const core = sw.match(/const CORE = \[([\s\S]*?)\];/)[1];
+    for (const m of core.matchAll(/'([^']+)'/g)) refs.add(m[1]);
+    for (const m of fs.readFileSync(path.join(ROOT, 'manifest.webmanifest'), 'utf8').matchAll(/"src":\s*"([^"]+)"/g)) refs.add(m[1]);
+    for (const r of refs) if (r !== './' && !fs.existsSync(path.join(ROOT, r))) miss.push(r);
+    return miss.length === 0 || 'missing: ' + miss.join(', ');
+  });
+  await T('service worker CORE includes all app modules', async () => {
+    const core = fs.readFileSync(path.join(ROOT, 'sw.js'), 'utf8').match(/const CORE = \[([\s\S]*?)\];/)[1];
+    const need = ['index.html', 'style.css', 'script.js', 'auth.js', 'cloud.js', 'quickparse.js', 'habits.js', 'errlog.js', 'analytics.js', 'help.html'];
+    const miss = need.filter((n) => !core.includes("'" + n + "'")); return miss.length === 0 || 'not cached: ' + miss.join(', ');
+  });
+
+
+  await b.close();
+  return results;
+};

@@ -1,0 +1,7 @@
+{
+  "name": "to-do-pro-tests",
+  "private": true,
+  "description": "End-to-end tests for To-Do Pro",
+  "scripts": { "test": "node run.js" },
+  "devDependencies": { "playwright": "^1.47.0" }
+}

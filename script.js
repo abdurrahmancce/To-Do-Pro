@@ -31,6 +31,7 @@ const hm = (d) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 const todayStr = () => ymd(new Date());
 const shiftDay = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return ymd(d); };
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const track = (name) => { try { window.track?.(name); } catch { /* analytics is optional */ } };
 const icon = (n) => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2, 8));
 const lsGet = (k, fb) => { try { const v = localStorage.getItem(k); return v === null ? fb : v; } catch { return fb; } };
@@ -76,6 +77,15 @@ let cloud = null;
 let unsubscribe = null;
 let installEvent = null;
 
+const MAX_SUBS = 50;
+function cleanSubs(list) { // checklist steps: { id, text, done }
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, MAX_SUBS).map((x) => ({
+    id: String(x?.id ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || newId().slice(0, 12),
+    text: String(x?.text ?? '').trim().slice(0, 200),
+    done: !!x?.done,
+  })).filter((x) => x.text);
+}
 const validDate = (v) => { const d = new Date(v); return v && !isNaN(d) ? d : null; };
 function normalize(t, i = 0) {
   t = t && typeof t === 'object' ? t : {};
@@ -98,6 +108,7 @@ function normalize(t, i = 0) {
     alarmRepeat: ['daily', 'weekly'].includes(t.alarmRepeat) ? t.alarmRepeat : 'none',
     alarmFired: !!t.alarmFired,
     deletedAt: Number(t.deletedAt) || 0,   // set while the task sits in Trash
+    subtasks: cleanSubs(t.subtasks),
     doneDates: Array.isArray(t.doneDates) ? t.doneDates.filter((x) => typeof x === 'string').slice(-400) : [], // habit check-ins (repeating tasks)
   };
 }
@@ -205,6 +216,7 @@ function topOrder() {
   return state.tasks.length ? Math.min(...state.tasks.map((t) => t.order)) - 1 : 0;
 }
 function createTask(fields) {
+  track(fields.alarm ? 'task-added-with-alarm' : 'task-added');
   const t = normalize({ ...fields, id: newId(), order: topOrder(), createdAt: new Date().toISOString() });
   state.justAdded = t.id;
   upsert(t);
@@ -217,6 +229,7 @@ function toggleComplete(id) {
   const t = state.tasks.find((x) => x.id === id);
   if (!t) return;
   const was = { ...t };
+  if (!t.completed) track('task-completed');
   const undo = { action: { label: 'Undo', fn: () => upsert(was) } };
   if (t.completed) { upsert({ ...t, completed: false, completedAt: null }); toast('Marked as pending', undo); return; }
   const copy = finishTask(t);
@@ -335,6 +348,11 @@ function taskHTML(t, td) {
   if (t.alarm && !t.completed) {
     chips.push(`<span class="chip alarm">${icon('bell')}${esc(whenLabel(t.alarm))}${t.alarmRepeat !== 'none' ? ` ${icon('repeat')}${t.alarmRepeat}` : ''}</span>`);
   }
+  if (t.subtasks?.length) {
+    const d = t.subtasks.filter((x) => x.done).length, all = d === t.subtasks.length;
+    chips.push(`<span class="chip subs${all ? ' all' : ''}" title="Checklist progress">${icon('listcheck')}${d}/${t.subtasks.length}</span>`);
+  }
+  if (t.completed) chips.push(`<span class="chip finished" title="Completed">\u2714 Completed</span>`);
   if (isHabit(t) && !t.completed) {
     const n = streakOf(t.doneDates, t.alarmRepeat).cur;
     if (n > 0) chips.push(`<span class="chip streak" title="Current streak">\u{1F525} ${n}</span>`);
@@ -349,6 +367,7 @@ function taskHTML(t, td) {
     <div class="t-body">
       <div class="t-title">${esc(t.title)}</div>
       ${t.notes ? `<div class="t-notes">${esc(t.notes)}</div>` : ''}
+      ${t.subtasks?.length ? `<ul class="t-subs">${t.subtasks.slice(0, 8).map((x) => `<li class="t-sub${x.done ? ' done' : ''}" data-sid="${esc(x.id)}"><button type="button" class="t-sub-check" role="checkbox" aria-checked="${x.done}" aria-label="${x.done ? 'Mark step as not done' : 'Mark step as done'}">${icon('check')}</button><span>${esc(x.text)}</span></li>`).join('')}${t.subtasks.length > 8 ? `<li class="t-sub-more">+${t.subtasks.length - 8} more</li>` : ''}</ul>` : ''}
       ${chips.length ? `<div class="t-meta">${chips.join('')}</div>` : ''}
     </div>
     <div class="t-actions">
@@ -460,6 +479,12 @@ function onListClick(e) {
     if (state.trash.length && confirm(`Delete all ${state.trash.length} task${state.trash.length === 1 ? '' : 's'} in Trash forever? This cannot be undone.`)) {
       const n = state.trash.length; [...state.trash].forEach((t) => purgeTask(t.id, { silent: true })); render(); toast(`Trash emptied (${n})`);
     }
+    return;
+  }
+  const stepRow = e.target.closest('.t-sub[data-sid]');
+  if (stepRow) { // tick a checklist step without opening the task
+    const li = stepRow.closest('.task'); const t = li && state.tasks.find((x) => x.id === li.dataset.id);
+    if (t) { e.stopPropagation(); upsert({ ...t, subtasks: t.subtasks.map((x) => (x.id === stepRow.dataset.sid ? { ...x, done: !x.done } : x)) }); track('checklist-step'); }
     return;
   }
   const head = e.target.closest('.group-head');
@@ -630,6 +655,22 @@ const F = {
   aDate: $('#f-alarm-date'), aTime: $('#f-alarm-time'), repeat: $('#f-repeat'),
 };
 let editPriority = 'medium';
+let editSubs = [];           // checklist of the task being edited
+function renderSubs() {
+  const done = editSubs.filter((x) => x.done).length;
+  $('#subs-count').textContent = editSubs.length ? `${done}/${editSubs.length} done` : '';
+  $('#subs-list').innerHTML = editSubs.map((x) => `<li data-sid="${esc(x.id)}" class="${x.done ? 'done' : ''}">
+    <button type="button" class="sub-check" role="checkbox" aria-checked="${x.done}" aria-label="${x.done ? 'Mark step as not done' : 'Mark step as done'}">${icon('check')}</button>
+    <input class="sub-text" type="text" value="${esc(x.text)}" maxlength="200" spellcheck="false" autocorrect="off" aria-label="Step" />
+    <button type="button" class="icon-btn sm sub-del" aria-label="Remove step">${icon('x')}</button></li>`).join('');
+}
+function addSubs(text) {
+  const lines = String(text).split(/\r?\n/).map((l) => l.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s*/, '').trim()).filter(Bool);
+  if (!lines.length) return;
+  lines.forEach((l) => { if (editSubs.length < MAX_SUBS) editSubs.push({ id: newId().slice(0, 12), text: l.slice(0, 200), done: false }); });
+  renderSubs(); autoSchedule();
+}
+const Bool = Boolean;
 function setPriority(p) {
   editPriority = p;
   $$('#f-priority button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.priority === p)));
@@ -649,6 +690,7 @@ function openEditor(id, preset = {}) {
   setPriority(v.priority);
   if (v.alarm) { const d = new Date(v.alarm); F.aDate.value = ymd(d); F.aTime.value = hm(d); } else { F.aDate.value = ''; F.aTime.value = ''; }
   F.repeat.value = v.alarmRepeat || 'none';
+  editSubs = cleanSubs(v.subtasks); renderSubs(); $('#subs-new').value = '';
   $('#headings-list').innerHTML = [...new Set(state.tasks.map((x) => x.heading).filter(Boolean))].map((h) => `<option value="${esc(h)}">`).join('');
 
   if (!editor.open) editor.showModal();
@@ -688,7 +730,7 @@ function readForm() {
   const alarm = aDate && aTime ? new Date(`${aDate}T${aTime}`).toISOString() : null;
   return {
     title: F.title.value.trim(), notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
-    priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none',
+    priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none', subtasks: cleanSubs(editSubs),
   };
 }
 function autoSave() {
@@ -698,7 +740,7 @@ function autoSave() {
   const f = readForm();
   const existing = state.editingId ? state.tasks.find((x) => x.id === state.editingId) : null;
   if (state.editingId && !existing) { autoStatus('idle'); return; } // task was deleted while the editor was open
-  if (!existing && !f.title && !f.notes) { autoStatus('idle'); return; } // nothing to save yet
+  if (!existing && !f.title && !f.notes && !f.subtasks.length) { autoStatus('idle'); return; } // nothing to save yet
   if (!f.title) f.title = 'Untitled task';
   // an alarm in the past would ring immediately, so it is only stored when you press Done
   const alarmOk = !f.alarm || new Date(f.alarm).getTime() > Date.now() || (existing && existing.alarm === f.alarm);
@@ -716,6 +758,24 @@ function autoSave() {
 }
 function autoSchedule() { autoDirty = true; autoStatus('saving'); clearTimeout(autoTimer); autoTimer = setTimeout(autoSave, 350); }
 ['input', 'change'].forEach((ev) => $('#editor-form').addEventListener(ev, autoSchedule));
+/* checklist editing */
+$('#subs-list').addEventListener('click', (e) => {
+  const li = e.target.closest('li[data-sid]'); if (!li) return;
+  const i = editSubs.findIndex((x) => x.id === li.dataset.sid); if (i < 0) return;
+  if (e.target.closest('.sub-check')) { editSubs[i].done = !editSubs[i].done; renderSubs(); autoSchedule(); }
+  else if (e.target.closest('.sub-del')) { editSubs.splice(i, 1); renderSubs(); autoSchedule(); }
+});
+$('#subs-list').addEventListener('input', (e) => {
+  const li = e.target.closest('li[data-sid]'); const x = li && editSubs.find((y) => y.id === li.dataset.sid);
+  if (x && e.target.classList.contains('sub-text')) x.text = e.target.value;
+});
+$('#subs-list').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); $('#subs-new').focus(); } });
+$('#subs-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); addSubs(e.target.value); e.target.value = ''; } });
+$('#subs-new').addEventListener('paste', (e) => {
+  const t = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+  if (/\r?\n/.test(t.trim())) { e.preventDefault(); addSubs(t); } // pasting a list makes one step per line
+});
+$('#subs-add').addEventListener('click', () => { const i = $('#subs-new'); addSubs(i.value); i.value = ''; i.focus(); });
 $('#editor-form').addEventListener('click', (e) => { if (e.target.closest('[data-date], [data-alarm], #f-priority button')) setTimeout(autoSchedule, 0); });
 editor.addEventListener('close', () => { autoSave(); render(); });
 window.addEventListener('pagehide', autoSave);
@@ -735,7 +795,7 @@ $('#editor-form').addEventListener('submit', (e) => {
   const repeat = alarm ? F.repeat.value : 'none';
   const base = {
     title, notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
-    priority: editPriority, alarm, alarmRepeat: repeat,
+    priority: editPriority, alarm, alarmRepeat: repeat, subtasks: cleanSubs(editSubs),
   };
 
   if (state.editingId) {
@@ -1316,6 +1376,7 @@ $('#account').addEventListener('close', stopAlarmSound);
 
 /* backup */
 $('#btn-export').addEventListener('click', () => {
+  track('export');
   const blob = new Blob([JSON.stringify(state.tasks, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `todo-pro-backup-${todayStr()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
@@ -1521,31 +1582,43 @@ function boot() {
   if (act || qp.get('view') || qp.get('do')) history.replaceState(null, '', location.pathname);
 }
 
+
+/* ---------- Report a bug and error notice ---------- */
+function bugReportURL() {
+  const errs = window.tpErrors?.read() || [];
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const lines = [
+    '**What happened?**', '', '', '**What did you expect?**', '', '', '**Steps to reproduce**', '1. ', '',
+    '---', '_Diagnostics (no task content is included):_',
+    `- App update: ${APP_UPDATE.id}`,
+    `- Browser: ${navigator.userAgent}`,
+    `- Screen: ${innerWidth}x${innerHeight}, installed app: ${standalone ? 'yes' : 'no'}, online: ${navigator.onLine ? 'yes' : 'no'}`,
+    `- Signed in: ${state.user ? 'yes' : 'no'}, sync: ${state.sync}`,
+    `- Tasks: ${state.tasks.length}, in Trash: ${state.trash.length}`,
+    errs.length ? '- Recent errors:' : '- Recent errors: none',
+    ...errs.slice(-4).map((e) => `  - ${e.t.slice(0, 19)} ${e.m} (${e.s})`),
+  ];
+  const q = new URLSearchParams({ title: 'Bug: ', body: lines.join('\n'), labels: 'bug' });
+  return `https://github.com/abdurrahmancce/To-Do-Pro/issues/new?${q}`.slice(0, 7000);
+}
+$('#btn-report-bug')?.addEventListener('click', (e) => { e.currentTarget.href = bugReportURL(); track('report-bug'); });
+let errToastShown = false;
+window.addEventListener('tp-error', () => {
+  if (errToastShown) return; errToastShown = true; // once per visit, so it never nags
+  toast('Something went wrong. If it keeps happening, open Account \u2192 Report a bug.', { duration: 7000 });
+});
+
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-10-19', label: 'Update of 19 October 2026' };
+const APP_UPDATE = { id: '2026-10-22', label: 'Update of 22 October 2026' };
 const WHATS_NEW = [
   { icon: '\u2728', title: 'New', items: [
-    ['Contact developer', 'Reach the developer, report a bug or visit the portfolio from Account \u2192 Contact developer.'],
-    ['Trash with 30-day restore', 'Deleted tasks wait in Trash for 30 days. Restore them any time, on any device. Every delete also has a 5-second Undo.'],
-    ['Autosave', 'Everything you type is saved automatically, online or offline, so nothing is lost if you close the app by mistake.'],
-    ['Email and password sign-in', 'Create an account with your email, sign in on every device and reset your password if you forget it. Google sign-in is still available.'],
-    ['Smarter reminders', 'Optional heads-up before an alarm, a backup reminder if you miss it, and Done / Snooze buttons right on the notification. Handle it on one device and it disappears from the others.'],
-    ['User guide', 'A step-by-step guide in English and Bangla is available under Account \u2192 Help.'],
+    ['Checklist for every task', 'Break a task into steps. Every step shows right on the task and you can tick it with a \u2714 without opening the task. Progress like 3/4 is shown too. Paste a list into the step box to add one step per line.'],
+    ['Report a bug', 'Found a problem? Account \u2192 Contact developer \u2192 Report a bug opens a ready-to-send report with the technical details filled in. None of your task content is included.'],
+    ['Problem notice', 'If something goes wrong inside the app, you now get a short notice pointing you to Report a bug.'],
   ] },
   { icon: '\u{1F680}', title: 'Improved', items: [
-    ['Bangla typing', 'Red underlines no longer appear while you type Bangla, and editing in the middle of a sentence is steadier on phones.'],
-    ['Cleaner interface', 'The app is now fully in English, with a restyled dropdown and a smoother sign-out.'],
-    ['Search, calendar and summary', 'Faster, clearer views with swipe actions, bulk select and a weekly summary.'],
-  ] },
-  { icon: '\u{1F41E}', title: 'Fixed', items: [
-    ['Deleted tasks coming back', 'Deleting a task right after editing it could bring it back. This is fixed.'],
-    ['Broken backup files', 'Importing a damaged or very large backup file no longer breaks the app.'],
-    ['Guide links', 'Navigation links in the Bangla guide now work.'],
-    ['Account window', 'The Account window no longer stays open after you sign out.'],
-  ] },
-  { icon: '\u{1F512}', title: 'Privacy and safety', items: [
-    ['Sign out clears this device', 'Signing out removes your saved task list from the browser, which matters on shared computers.'],
-    ['Safer data handling', 'Task text has sensible length limits and imported data is checked before it is used.'],
+    ['Completed tasks are easier to spot', 'Finished tasks now show a green \u2714 Completed label as well as the tick.'],
+    ['Faster updates', 'New versions of the app now appear on the first reload instead of the second.'],
   ] },
 ];
 function renderWhatsNew() {
@@ -1554,6 +1627,7 @@ function renderWhatsNew() {
     g.items.map(([t, d]) => `<li><b>${esc(t)}</b><span>${esc(d)}</span></li>`).join('')}</ul></section>`).join('');
 }
 function openWhatsNew() {
+  track('whatsnew-opened');
   renderWhatsNew();
   lsSet(LS.seenUpdate, APP_UPDATE.id);
   const d = $('#whatsnew'); if (!d.open) d.showModal();

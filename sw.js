@@ -1,10 +1,10 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v23';
+const VERSION = 'v26';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
 const CORE = [
-  './', 'index.html', 'style.css', 'script.js', 'quickparse.js', 'habits.js', 'cloud.js', 'auth.js', 'help.html', 'firebase-config.js', 'manifest.webmanifest',
+  './', 'index.html', 'style.css', 'script.js', 'quickparse.js', 'habits.js', 'cloud.js', 'auth.js', 'errlog.js', 'analytics.js', 'help.html', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png', 'icons/favicon-32.png',
 ];
@@ -48,7 +48,7 @@ self.addEventListener('fetch', (e) => {
   }
 
   if (url.origin === self.location.origin) {
-    e.respondWith(DEV ? networkFirst(req, SHELL) : staleWhileRevalidate(req, SHELL));
+    e.respondWith(DEV || isCode(url) ? networkFirst(req, SHELL) : staleWhileRevalidate(req, SHELL));
   } else if (STATIC_CDN.test(req.url)) {
     e.respondWith(staleWhileRevalidate(req, RUNTIME));
   }
@@ -62,11 +62,17 @@ function staleWhileRevalidate(req, cacheName) {
     })
   );
 }
+// App code (pages, scripts, styles) is fetched fresh first so a new index.html never runs with an old script.js.
+// Falls back to the cache when offline or when the network takes longer than 4 seconds.
 function networkFirst(req, cacheName) {
-  return fetch(req)
-    .then((res) => { const copy = res.clone(); caches.open(cacheName).then((c) => c.put(req, copy)); return res; })
-    .catch(() => caches.match(req));
+  const fresh = fetch(req, { cache: 'no-cache' }).then((res) => {
+    if (res && res.ok) { const copy = res.clone(); caches.open(cacheName).then((c) => c.put(req, copy)); }
+    return res;
+  });
+  const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('slow')), 4000));
+  return Promise.race([fresh, timeout]).catch(() => caches.match(req).then((r) => r || fresh));
 }
+const isCode = (u) => /\.(?:js|css|html|webmanifest)$/.test(u.pathname) || u.pathname.endsWith('/');
 
 /* ---------- worker URL (sent by the page) used by the notification buttons ---------- */
 self.addEventListener('message', (e) => {

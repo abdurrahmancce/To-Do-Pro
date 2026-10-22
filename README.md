@@ -33,6 +33,7 @@
 ### 📝 Tasks
 - ⚡ **Smart quick add**: type `Call mom tomorrow 6pm !high #family` and the date, time, priority and section are filled in for you. Common Bangla and Banglish time words are understood too.
 - 🎯 Priorities (low, medium, high), due dates, sections, notes
+- ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
@@ -61,6 +62,7 @@
 - 🔕 Handle a reminder on one device and the notification disappears on your other devices
 
 ### 📣 Updates and support
+- 🐞 **Report a bug:** one tap opens a ready-to-send GitHub report with technical details filled in (browser, screen, recent errors). Task content is never included. A short notice also appears if the app hits an error.
 - 🆕 **What's new announcement:** after each update the app shows a short summary of what is new, improved and fixed. It appears once per device and can be reopened any time from **Account → See what's new**.
 - 👨‍💻 **Contact developer:** Account dialog and user guide include the developer's portfolio, GitHub and a bug-report link.
 
@@ -81,7 +83,9 @@
 | Contact developer (Account dialog and user guide) | 🟢 **Live** |
 | What's new announcement (popup once per update, reopen from Account) | 🟢 **Live** |
 | Security hardening: `worker/index.js`, `firestore.rules`, sign-out cache clearing in `cloud.js`, 8-character password minimum in `auth.js`, updated `SETUP.md` and `PUSH-SETUP.md` | 🟡 **Prepared and tested, not yet deployed** |
-| Usage analytics (GoatCounter) | ⚪ Planned, not added |
+| Checklist, Report a bug, error notice, faster updates (network-first service worker), tests folder | 🟡 **Ready, deploy with the next push** |
+| Usage analytics (GoatCounter) | 🟡 **Built, off until you add a site code** in `analytics.js` |
+| Shared lists | ⚪ Design stage |
 
 > 💡 Until the pending hardening update is deployed, the live app still accepts 6-character passwords, and the previous Firestore rules and worker stay in use. Sections below describe the full repository state and mark items that depend on the pending update.
 
@@ -137,6 +141,7 @@ The app was built in stages. Each stage was tested and confirmed working before 
 | 6️⃣ | **Documentation** | Bilingual user guide with working navigation, Firebase and push setup guides |
 | 7️⃣ | **Data safety and polish** | Trash (5-second undo, 30-day restore, synced), autosave for every field, English-only app text, dropdown restyle, bell animation and dialog fixes |
 | 8️⃣ | **Review and hardening** | Full post-mortem, automated browser tests, security fixes, spellcheck off for Bangla typing |
+| 🔟 | **Checklists, reporting, analytics, tests** | Checklist (subtasks) with ✔ on the task list, error recorder with Report a bug, optional GoatCounter analytics, network-first service worker, `tests/` folder with 49 automated checks |
 | 9️⃣ | **Communication** | Professional README, Contact developer section in the app and guide, What's new announcement shown to users after each update |
 
 <details>
@@ -179,9 +184,9 @@ A full review was done in stage 8. The fixes below are in the repository files a
 
 ## 🧪 Testing
 
-An automated **Playwright** suite (headless Chromium) runs the real app against an in-memory stand-in for Firebase.
+An automated **Playwright** suite (headless Chromium) runs the real app against an in-memory stand-in for Firebase. It lives in the [`tests/`](tests) folder: `cd tests && npm install && npx playwright install chromium && npm test`.
 
-**🎯 Result: 34 of 34 checks pass.**
+**🎯 Result: 49 of 49 checks pass.**
 
 | Area | What is checked |
 |---|---|
@@ -193,6 +198,10 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | 🔔 Alarms | Popup rings when due |
 | ☁️ Cloud flow | Add, soft delete, sign-out clears local cache |
 | 📐 Layout | No horizontal overflow at 320, 375 and 768 px; login screen at 360 px |
+| ✅ Checklist | Add, tick, remove and paste steps, steps shown and ticked from the list, hostile step text cleaned |
+| 🐞 Reporting | Errors recorded, notice shown once, Report a bug link has diagnostics and no task content |
+| 📊 Analytics | Off by default with no outside requests; with a code, events are counted and task text is never sent |
+| 📴 Service worker | New release runs after one reload; app opens offline |
 | 📦 Assets | Every file referenced by HTML, manifest and service worker exists; all app modules are cached |
 | ⚙️ Worker | Traversal ids, bad signatures, bad actions, oversized and malformed bodies are rejected before any Google call |
 
@@ -247,6 +256,9 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | ☁️ `cloud.js` | Firebase Auth, Firestore sync, push registration |
 | 💬 `quickparse.js` | Natural-language quick-add parser |
 | 🔥 `habits.js` | Repeat and streak helpers |
+| 🩺 `errlog.js` | Records recent errors on the device for Report a bug (no network, no task data) |
+| 📊 `analytics.js` | Optional GoatCounter loader and feature counters (off until a site code is set) |
+| 🧪 `tests/` | Automated end-to-end tests (`npm test`) |
 | 📖 `help.html` | User guide (English and Bangla) |
 | 📴 `sw.js`, `manifest.webmanifest`, `icons/` | Offline cache, push handling, install metadata |
 | ⚙️ `firebase-config.js` | Firebase web config and worker URL |
@@ -264,7 +276,8 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 - 🍎 Push reminders on iPhone need the app installed to the Home screen.
 - ⏱️ The worker runs every minute and sends at most 5 reminders per run to stay inside the free plan.
 - 🛡️ A Content Security Policy is not set yet. Add one only after testing Google and email sign-in on the live site.
-- 📊 Usage analytics are not included. A privacy-friendly option such as GoatCounter can be added.
+- 📊 **Analytics:** built but off. To turn it on, create a free site at goatcounter.com, put its code in `analytics.js` (`window.GOATCOUNTER_CODE = 'yourcode'`) and push. It uses no cookies, sends no task text, and respects Do Not Track.
+- 🤝 **Shared lists** (family or team) are not built yet; they need a new data structure and security rules.
 
 ---
 
