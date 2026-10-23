@@ -24,7 +24,7 @@ async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, se
   } else {
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
   }
-  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) {} });
+  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) {} });
   if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
   await p.goto(BASE + '/'); await p.waitForTimeout(500);
   return p;
@@ -272,7 +272,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
     await p.route('**/analytics.js', async (r) => { const t = fs.readFileSync(path.join(ROOT, 'analytics.js'), 'utf8').replace("window.GOATCOUNTER_CODE = '';", "window.GOATCOUNTER_CODE = 'demo-site';"); r.fulfill({ contentType: 'text/javascript', body: t }); });
     await p.route('https://gc.zgo.at/count.js', (r) => r.fulfill({ contentType: 'text/javascript', body: "window.goatcounter = window.goatcounter || {}; window.goatcounter.count = function (o) { (window.__hits = window.__hits || []).push(o.path); };" }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) { /* ignore */ } });
     await p.goto(BASE + '/'); await p.waitForTimeout(500);
     await T('analytics: with a site code, feature events are counted and task text is never sent', async () => {
       await p.fill('#q-title', 'my private task'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(400);
@@ -288,7 +288,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
   {
     const ctx = await b.newContext(); const p = await ctx.newPage(); const url = `http://todo.test:${PORT}/`;
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-22'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) { /* ignore */ } });
     await T('service worker: installs and takes control', async () => {
       marker.value = 1; await p.goto(url); await p.evaluate(() => navigator.serviceWorker.ready); await p.waitForTimeout(1500); await p.reload(); await p.waitForTimeout(800);
       return (await p.evaluate(() => !!navigator.serviceWorker.controller && window.__marker === 1)) || 'not controlled or wrong version';
@@ -303,6 +303,34 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     });
     await ctx.close();
   }
+
+  // ---------- update history, future updates, notes box ----------
+  const uh = await newPage(b, { vp: { width: 400, height: 800 } });
+  await T('update history opens numbered with dates, oldest first', async () => {
+    await uh.evaluate(() => document.querySelector('#btn-history').click());
+    await uh.waitForSelector('#history[open]');
+    const r = await uh.evaluate(() => { const li = [...document.querySelectorAll('.hist-list li')]; return { n: li.length, first: li[0].textContent, last: li[li.length - 1].textContent, dates: li.every((x) => /\d{2} \w{3} \d{4}/.test(x.textContent)) }; });
+    return (r.n >= 20 && r.dates && /01 May 2026/.test(r.first) && /23 Oct 2026/.test(r.last)) || JSON.stringify(r).slice(0, 200);
+  });
+  await T('future updates tab lists planned items', async () => {
+    await uh.click('#history [data-htab="future"]');
+    const n = await uh.$$eval('.fut-list li', (e) => e.length); const ok = await uh.$$eval('.fut-status', (e) => e.every((x) => /Ready|Planned|Idea/.test(x.textContent)));
+    return (n >= 5 && ok) || 'n=' + n;
+  });
+  await uh.click('#hist-ok');
+  await T('notes box is large and resize handle is centred below it', async () => {
+    await uh.click('#fab'); await uh.waitForSelector('#f-notes', { state: 'visible' });
+    const r = await uh.evaluate(() => { const t = document.querySelector('#f-notes').getBoundingClientRect(), g = document.querySelector('#notes-grip').getBoundingClientRect(); return { h: t.height, below: g.top >= t.bottom - 1, dx: Math.abs((g.left + g.width / 2) - (t.left + t.width / 2)) }; });
+    return (r.h >= 140 && r.below && r.dx < 3) || JSON.stringify(r);
+  });
+  await T('dragging the handle resizes the notes box', async () => {
+    await uh.locator('#notes-grip').scrollIntoViewIfNeeded(); const g = await uh.locator('#notes-grip').boundingBox(); const h0 = await uh.evaluate(() => document.querySelector('#f-notes').offsetHeight);
+    await uh.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await uh.mouse.down(); await uh.mouse.move(g.x + g.width / 2, g.y + 100, { steps: 5 }); await uh.mouse.up();
+    const h1 = await uh.evaluate(() => document.querySelector('#f-notes').offsetHeight);
+    return h1 > h0 + 50 || `${h0} -> ${h1}`;
+  });
+  await T('update history: no errors', async () => uh.errs.length === 0 || uh.errs.join('|'));
+  await uh.context().close();
 
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {

@@ -201,7 +201,10 @@
 
     <div class="sheet-body">
       <input id="f-title" spellcheck="false" autocorrect="off" class="field-title" type="text" placeholder="What needs to be done?" maxlength="200" aria-label="Task title" />
-      <textarea id="f-notes" spellcheck="false" autocorrect="off" rows="3" maxlength="2000" placeholder="Notes or description…" aria-label="Notes"></textarea>
+      <div class="notes-wrap">
+        <textarea id="f-notes" spellcheck="false" autocorrect="off" rows="6" maxlength="2000" placeholder="Notes or description…" aria-label="Notes"></textarea>
+        <div class="notes-grip" id="notes-grip" role="separator" aria-orientation="horizontal" aria-label="Drag to resize the notes box. Arrow keys also work." tabindex="0" title="Drag to resize (double-click to reset)"><span></span></div>
+      </div>
 
       <div class="field subs-field" id="subs-field">
         <label for="subs-new"><svg class="i"><use href="#i-listcheck"/></svg> Checklist <span class="subs-count" id="subs-count"></span></label>
@@ -368,7 +371,11 @@
     <div class="acc-section">
       <h3>What&rsquo;s new</h3>
       <p class="muted">See the latest updates, improvements and fixes.</p>
-      <button type="button" class="btn btn-ghost" id="btn-whatsnew">See what&rsquo;s new</button>
+      <div class="row">
+        <button type="button" class="btn btn-ghost" id="btn-whatsnew">See what&rsquo;s new</button>
+        <button type="button" class="btn btn-ghost" id="btn-history">Update history</button>
+        <button type="button" class="btn btn-ghost" id="btn-future">Future updates</button>
+      </div>
     </div>
 
     <div class="acc-section" id="dev-section">
@@ -392,6 +399,23 @@
       <p class="muted" id="install-text">Install To-Do Pro as an app on this device.</p>
       <button type="button" class="btn btn-ghost" data-install hidden><svg class="i"><use href="#i-download"/></svg> Install app</button>
     </div>
+  </div>
+</dialog>
+
+<!-- ============ UPDATE HISTORY + FUTURE UPDATES ============ -->
+<dialog id="history" class="sheet" aria-labelledby="hist-title">
+  <header class="sheet-head">
+    <h2 id="hist-title">Updates</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </header>
+  <div class="sheet-body">
+    <div class="seg seg2" role="radiogroup" aria-label="Updates">
+      <button type="button" role="radio" data-htab="history" aria-checked="true">Update history</button>
+      <button type="button" role="radio" data-htab="future" aria-checked="false">Future updates</button>
+    </div>
+    <p class="muted" id="hist-intro"></p>
+    <div id="hist-body" class="hist-body"></div>
+    <button type="button" class="btn btn-primary" id="hist-ok">Close</button>
   </div>
 </dialog>
 

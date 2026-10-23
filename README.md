@@ -22,7 +22,7 @@
 | | | |
 |---|---|---|
 | [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
-| [🧭 Project history](#-project-history) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
+| [🧭 Update history](#-update-history) · [🔮 Future updates](#-future-updates) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
 | [🚀 Quick start](#-quick-start-for-users) | [🛠️ Owner setup](#️-setup-for-the-owner-one-time) | [📦 Deploying updates](#-deploying-updates) |
 | [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | [👨‍💻 Contact developer](#-contact-developer) |
 
@@ -127,22 +127,52 @@
 
 ---
 
-## 🧭 Project history
+## 🧭 Update history
 
-The app was built in stages. Each stage was tested and confirmed working before the next began.
+Every update since the project started, oldest first, with the date it was implemented. The same list is in the app under **Account → Update history**.
 
-| # | Stage | Highlights |
-|---|---|---|
-| 1️⃣ | **Core app** | Task list, priorities, due dates, sections, calendar, search, swipe, bulk select, undo, weekly summary, themes, export/import, installable PWA with offline cache |
-| 2️⃣ | **Smart input** | Natural-language quick add (dates, times, `!priority`, `#section`, Bangla and Banglish words), saved quick-add draft |
-| 3️⃣ | **Cloud sync** | Firebase Auth (Google), Firestore sync across devices, offline persistence, per-user data, guest mode |
-| 4️⃣ | **Reminders** | In-app alarm engine, repeat alarms with streaks, FCM push with a Cloudflare Worker, heads-up and backup reminders, Done/Snooze on notifications, dismiss on other devices, push token self-healing |
-| 5️⃣ | **Email login** | Animated sign in / create account / reset password screen, friendly errors, Google and guest kept as options |
-| 6️⃣ | **Documentation** | Bilingual user guide with working navigation, Firebase and push setup guides |
-| 7️⃣ | **Data safety and polish** | Trash (5-second undo, 30-day restore, synced), autosave for every field, English-only app text, dropdown restyle, bell animation and dialog fixes |
-| 8️⃣ | **Review and hardening** | Full post-mortem, automated browser tests, security fixes, spellcheck off for Bangla typing |
-| 🔟 | **Checklists, reporting, analytics, tests** | Checklist (subtasks) with ✔ on the task list, error recorder with Report a bug, optional GoatCounter analytics, network-first service worker, `tests/` folder with 49 automated checks |
-| 9️⃣ | **Communication** | Professional README, Contact developer section in the app and guide, What's new announcement shown to users after each update |
+| # | Date | Update | What changed |
+|---|---|---|---|
+| 1 | **01 May 2026** | **Project started** | First version of the to-do app and its README published on GitHub. |
+| 2 | **13 May 2026** | **App files updated** | Updated app files uploaded. |
+| 3 | **15 May 2026** | **App and README updated** | Another round of app and README improvements. |
+| 4 | **06 Oct 2026** | **MIT License added** | The project now ships with an open-source MIT License. |
+| 5 | **15 Oct 2026** | **To-Do Pro: new interface, installable app and cloud sync** | Redesigned interface, installable PWA, Firebase sign-in and Firestore sync across devices, with offline support. |
+| 6 | **15 Oct 2026** | **Reminder sound length** | Choose how long the alarm rings: 3 seconds, 5 seconds, 10 seconds or until dismissed. |
+| 7 | **15 Oct 2026** | **Background push reminders** | Reminders arrive even when the app is closed (Firebase Cloud Messaging with a Cloudflare Worker). |
+| 8 | **15 Oct 2026** | **Push fix for multiple devices** | Reminders now reach every device correctly when the app is open on another one. |
+| 9 | **15 Oct 2026** | **Touch gestures and productivity tools** | Swipe actions, undo, bulk select, calendar view, keyboard shortcuts and accent colours. |
+| 10 | **16 Oct 2026** | **Smarter reminders and quick add** | Done and Snooze on notifications, quick add from one sentence, repeating tasks with streaks and a weekly summary. |
+| 11 | **17 Oct 2026** | **Settings and push reliability** | Reminder settings shared across devices, automatic repair of expired push tokens and worker setup. |
+| 12 | **17 Oct 2026** | **Dismiss on other devices** | Handling a reminder on one device removes the notification on your other devices. |
+| 13 | **18 Oct 2026** | **Email and password sign-in** | New animated login page with sign in, create account and password reset, plus English and Bangla documentation. |
+| 14 | **18 Oct 2026** | **Dropdown and dialog polish** | Restyled reminder dropdowns, and dialogs close when the login screen opens. |
+| 15 | **18 Oct 2026** | **Trash and Undo** | Deleted tasks stay in Trash for 30 days and can be restored; every delete has a 5-second Undo. |
+| 16 | **18 Oct 2026** | **Autosave and English interface** | Everything you type is saved automatically, online or offline. All app text is now English. |
+| 17 | **18 Oct 2026** | **Bangla and English on login and guide** | The login page and user guide show both languages clearly. |
+| 18 | **18 Oct 2026** | **Guide links fixed** | Navigation links in the Bangla user guide now work. |
+| 19 | **19 Oct 2026** | **Typing and data safety** | No red spellcheck lines under Bangla text, steadier keyboard while editing, safer import files, cleaner stored data, fix for deleted tasks coming back, and sign out clears saved tasks from the browser. |
+| 20 | **19 Oct 2026** | **Project README** | Complete English README with features, architecture, security, testing and setup guides. |
+| 21 | **19 Oct 2026** | **Contact developer** | Developer card with portfolio, GitHub and bug-report links in the app and the user guide. |
+| 22 | **19 Oct 2026** | **What's new announcement** | A short summary of each update appears once after you update, and can be reopened from Account. |
+| 23 | **22 Oct 2026** | **Checklist, bug reports and tests** | Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite. |
+| 24 | **23 Oct 2026** | **Bigger notes box, update history and roadmap** | Larger description box with a centred drag handle, a dated update history and a Future updates list. |
+
+## 🔮 Future updates
+
+What is coming next. Plans can change. The same list is in the app under **Account → Future updates**.
+
+| # | Status | Update | What it brings |
+|---|---|---|---|
+| 1 | 🟢 Ready | **Security hardening pack** | Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on. |
+| 2 | 🟢 Ready | **Visitor statistics** | Privacy-friendly counts of visitors and popular features. Built, turns on when the site code is added. |
+| 3 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
+| 4 | 🔵 Planned | **Tags and filters** | Filter tasks by priority, tag or section, for example only High priority or only Work. |
+| 5 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 6 | 🔵 Planned | **Export to CSV and PDF** | Download tasks as a spreadsheet or a printable file. |
+| 7 | 🔵 Planned | **First-time tour** | A short walkthrough for new users. |
+| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 9 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>
@@ -308,6 +338,6 @@ Questions, bug reports, feature ideas or collaboration? Reach out through any of
 
 <div align="center">
 
-Built step by step, tested at every stage.
+Built step by step, tested at every stage. 🧡
 
 </div>

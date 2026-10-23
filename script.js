@@ -758,6 +758,24 @@ function autoSave() {
 }
 function autoSchedule() { autoDirty = true; autoStatus('saving'); clearTimeout(autoTimer); autoTimer = setTimeout(autoSave, 350); }
 ['input', 'change'].forEach((ev) => $('#editor-form').addEventListener(ev, autoSchedule));
+
+/* resizable notes box: the drag handle sits under the box, centred */
+(() => {
+  const ta = $('#f-notes'), grip = $('#notes-grip'); if (!ta || !grip) return;
+  const MIN = 150, max = () => Math.round(innerHeight * 0.7);
+  const setH = (h) => { ta.style.height = Math.max(MIN, Math.min(max(), Math.round(h))) + 'px'; };
+  let startY = 0, startH = 0, drag = false;
+  grip.addEventListener('pointerdown', (e) => { drag = true; startY = e.clientY; startH = ta.offsetHeight; grip.setPointerCapture(e.pointerId); e.preventDefault(); });
+  grip.addEventListener('pointermove', (e) => { if (drag) setH(startH + e.clientY - startY); });
+  const stop = () => { drag = false; };
+  grip.addEventListener('pointerup', stop); grip.addEventListener('pointercancel', stop);
+  grip.addEventListener('keydown', (e) => { // keyboard: arrow keys resize, Home resets
+    if (e.key === 'ArrowDown') { e.preventDefault(); setH(ta.offsetHeight + 24); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setH(ta.offsetHeight - 24); }
+    else if (e.key === 'Home') { e.preventDefault(); ta.style.height = ''; }
+  });
+  grip.addEventListener('dblclick', () => { ta.style.height = ''; });
+})();
 /* checklist editing */
 $('#subs-list').addEventListener('click', (e) => {
   const li = e.target.closest('li[data-sid]'); if (!li) return;
@@ -1608,17 +1626,74 @@ window.addEventListener('tp-error', () => {
   toast('Something went wrong. If it keeps happening, open Account \u2192 Report a bug.', { duration: 7000 });
 });
 
+/* ---------- Update history and future updates (Account \u2192 Update history) ---------- */
+const UPDATE_HISTORY = [ // [date, title, detail], oldest first
+  ["2026-05-01", "Project started", "First version of the to-do app and its README published on GitHub."],
+  ["2026-05-13", "App files updated", "Updated app files uploaded."],
+  ["2026-05-15", "App and README updated", "Another round of app and README improvements."],
+  ["2026-10-06", "MIT License added", "The project now ships with an open-source MIT License."],
+  ["2026-10-15", "To-Do Pro: new interface, installable app and cloud sync", "Redesigned interface, installable PWA, Firebase sign-in and Firestore sync across devices, with offline support."],
+  ["2026-10-15", "Reminder sound length", "Choose how long the alarm rings: 3 seconds, 5 seconds, 10 seconds or until dismissed."],
+  ["2026-10-15", "Background push reminders", "Reminders arrive even when the app is closed (Firebase Cloud Messaging with a Cloudflare Worker)."],
+  ["2026-10-15", "Push fix for multiple devices", "Reminders now reach every device correctly when the app is open on another one."],
+  ["2026-10-15", "Touch gestures and productivity tools", "Swipe actions, undo, bulk select, calendar view, keyboard shortcuts and accent colours."],
+  ["2026-10-16", "Smarter reminders and quick add", "Done and Snooze on notifications, quick add from one sentence, repeating tasks with streaks and a weekly summary."],
+  ["2026-10-17", "Settings and push reliability", "Reminder settings shared across devices, automatic repair of expired push tokens and worker setup."],
+  ["2026-10-17", "Dismiss on other devices", "Handling a reminder on one device removes the notification on your other devices."],
+  ["2026-10-18", "Email and password sign-in", "New animated login page with sign in, create account and password reset, plus English and Bangla documentation."],
+  ["2026-10-18", "Dropdown and dialog polish", "Restyled reminder dropdowns, and dialogs close when the login screen opens."],
+  ["2026-10-18", "Trash and Undo", "Deleted tasks stay in Trash for 30 days and can be restored; every delete has a 5-second Undo."],
+  ["2026-10-18", "Autosave and English interface", "Everything you type is saved automatically, online or offline. All app text is now English."],
+  ["2026-10-18", "Bangla and English on login and guide", "The login page and user guide show both languages clearly."],
+  ["2026-10-18", "Guide links fixed", "Navigation links in the Bangla user guide now work."],
+  ["2026-10-19", "Typing and data safety", "No red spellcheck lines under Bangla text, steadier keyboard while editing, safer import files, cleaner stored data, fix for deleted tasks coming back, and sign out clears saved tasks from the browser."],
+  ["2026-10-19", "Project README", "Complete English README with features, architecture, security, testing and setup guides."],
+  ["2026-10-19", "Contact developer", "Developer card with portfolio, GitHub and bug-report links in the app and the user guide."],
+  ["2026-10-19", "What's new announcement", "A short summary of each update appears once after you update, and can be reopened from Account."],
+  ["2026-10-22", "Checklist, bug reports and tests", "Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite."],
+  ["2026-10-23", "Bigger notes box, update history and roadmap", "Larger description box with a centred drag handle, a dated update history and a Future updates list."],
+];
+const FUTURE_UPDATES = [ // [status, title, detail]
+  ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
+  ["Ready", "Visitor statistics", "Privacy-friendly counts of visitors and popular features. Built, turns on when the site code is added."],
+  ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
+  ["Planned", "Tags and filters", "Filter tasks by priority, tag or section, for example only High priority or only Work."],
+  ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
+  ["Planned", "Export to CSV and PDF", "Download tasks as a spreadsheet or a printable file."],
+  ["Planned", "First-time tour", "A short walkthrough for new users."],
+  ["Planned", "Home screen shortcuts", "Jump straight to Today or a new task from the app icon."],
+  ["Idea", "Crash reports dashboard", "See errors from all devices in one place."],
+];
+const fmtDate = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+function renderHistory(tab) {
+  const t = tab === 'future' ? 'future' : 'history';
+  $$('#history [data-htab]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.htab === t)));
+  $('#hist-intro').textContent = t === 'history'
+    ? `${UPDATE_HISTORY.length} updates since the project started, oldest first.`
+    : 'What is coming next. Plans can change.';
+  $('#hist-body').innerHTML = t === 'history'
+    ? `<ol class="hist-list">${UPDATE_HISTORY.map(([d, ti, de]) => `<li><span class="hist-date">${esc(fmtDate(d))}</span><div><b>${esc(ti)}</b><span>${esc(de)}</span></div></li>`).join('')}</ol>`
+    : `<ul class="fut-list">${FUTURE_UPDATES.map(([s, ti, de]) => `<li><span class="fut-status s-${esc(s.toLowerCase())}">${esc(s)}</span><div><b>${esc(ti)}</b><span>${esc(de)}</span></div></li>`).join('')}</ul>`;
+}
+function openHistory(tab) {
+  renderHistory(tab); track('history-opened');
+  const d = $('#history'); if (!d.open) d.showModal();
+  $('#hist-body').scrollTop = 0;
+}
+$('#btn-history').addEventListener('click', () => { $('#account').close(); openHistory('history'); });
+$('#btn-future').addEventListener('click', () => { $('#account').close(); openHistory('future'); });
+$$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => renderHistory(b.dataset.htab)));
+$('#hist-ok').addEventListener('click', () => $('#history').close());
+
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-10-22', label: 'Update of 22 October 2026' };
+const APP_UPDATE = { id: '2026-10-23', label: 'Update of 23 October 2026' };
 const WHATS_NEW = [
   { icon: '\u2728', title: 'New', items: [
-    ['Checklist for every task', 'Break a task into steps. Every step shows right on the task and you can tick it with a \u2714 without opening the task. Progress like 3/4 is shown too. Paste a list into the step box to add one step per line.'],
-    ['Report a bug', 'Found a problem? Account \u2192 Contact developer \u2192 Report a bug opens a ready-to-send report with the technical details filled in. None of your task content is included.'],
-    ['Problem notice', 'If something goes wrong inside the app, you now get a short notice pointing you to Report a bug.'],
+    ['Update history', 'See every update since the project started, numbered and dated. Open it from Account \u2192 Update history.'],
+    ['Future updates', 'A list of what is coming next, from shared lists to tags and filters. Open it from Account \u2192 Future updates.'],
   ] },
   { icon: '\u{1F680}', title: 'Improved', items: [
-    ['Completed tasks are easier to spot', 'Finished tasks now show a green \u2714 Completed label as well as the tick.'],
-    ['Faster updates', 'New versions of the app now appear on the first reload instead of the second.'],
+    ['Bigger notes box', 'The description box is taller, and a handle at the bottom centre lets you drag it to any size.'],
   ] },
 ];
 function renderWhatsNew() {
