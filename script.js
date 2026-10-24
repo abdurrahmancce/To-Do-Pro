@@ -1688,7 +1688,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-19", "What's new announcement", "A short summary of each update appears once after you update, and can be reopened from Account."],
   ["2026-10-22", "Checklist, bug reports and tests", "Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite."],
   ["2026-10-23", "Bigger notes box, update history and roadmap", "Larger description box with a centred drag handle, a dated update history and a Future updates list."],
-  ["2026-10-23", "Easy install and sharing", "A Get the app section with an Install button, a QR code, Copy link and WhatsApp invite."],
+  ["2026-10-23", "Easy install and sharing", "A Get the app section with an Install button, a QR code, Copy link, WhatsApp and Share, plus an install banner on phones."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -1726,10 +1726,9 @@ $('#hist-ok').addEventListener('click', () => $('#history').close());
 const APP_UPDATE = { id: '2026-10-23', label: 'Update of 23 October 2026' };
 const WHATS_NEW = [
   { icon: '\u2728', title: 'New', items: [
-    ['Easy install and sharing', 'Account \u2192 Get the app has an Install button, a QR code, Copy link and a WhatsApp invite, so friends can install the app in seconds.'],
+    ['Easy install and sharing', 'Account \u2192 Get the app has an Install button, a QR code, Copy link, WhatsApp and Share, and phones now show an install banner, so friends can install the app in seconds.'],
     ['Update history', 'See every update since the project started, numbered and dated. Open it from Account \u2192 Update history.'],
     ['Future updates', 'A list of what is coming next, from shared lists to tags and filters. Open it from Account \u2192 Future updates.'],
-    ['Easier install and sharing', 'A banner now offers to install the app, and Account has a Share button for your phone\u2019s share sheet.'],
   ] },
   { icon: '\u{1F680}', title: 'Improved', items: [
     ['Bigger notes box', 'The description box is taller, and a handle at the bottom centre lets you drag it to any size.'],
