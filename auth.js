@@ -9,7 +9,7 @@ const T = {
     signin: 'Sign in', signup: 'Create account', reset: 'Reset password',
     h_signin: 'Welcome back', h_signup: 'Create your account', h_reset: 'Reset your password',
     p_signin: 'Sign in with your email and password.', p_signup: 'It takes less than a minute and it is free.', p_reset: 'Enter your email and we will send a reset link.',
-    name: 'Name', name_ph: 'Your name', email: 'Email', pass: 'Password', pass_new: 'Password (6+ characters)',
+    name: 'Name', name_ph: 'Your name', email: 'Email', pass: 'Password', pass_new: 'Password (8+ characters)',
     show: 'Show password', hide: 'Hide password',
     forgot: 'Forgot password?', to_signup: 'New here? Create an account', to_signin: 'Have an account? Sign in', back: 'Back to sign in',
     send: 'Send reset link', skip: 'Continue without an account', skip_note: 'Tasks stay on this device only.',
@@ -19,12 +19,12 @@ const T = {
     done: 'Signed in',
     r1: 'Pay electricity bill', r2: 'Team call at 4:30', r3: 'Buy groceries', r4: 'Read 20 pages',
     streak: 'day streak', phone: 'Phone', laptop: 'Laptop', synced: 'Synced',
-    e_email: 'Enter a valid email address.', e_pass: 'Enter your password.', e_short: 'Password must be at least 6 characters.',
+    e_email: 'Enter a valid email address.', e_pass: 'Enter your password.', e_short: 'Password must be at least 8 characters.',
     'auth/invalid-credential': 'Email or password is wrong. Check both and try again.',
     'auth/wrong-password': 'Email or password is wrong. Check both and try again.',
     'auth/user-not-found': 'No account with this email. Create one instead.',
     'auth/email-already-in-use': 'This email already has an account. Sign in instead.',
-    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/weak-password': 'Password must be at least 8 characters.',
     'auth/invalid-email': 'Enter a valid email address.',
     'auth/too-many-requests': 'Too many attempts. Wait a few minutes, then try again.',
     'auth/network-request-failed': 'No internet connection. Connect and try again.',
@@ -38,7 +38,7 @@ const T = {
     signin: 'সাইন ইন', signup: 'অ্যাকাউন্ট খুলুন', reset: 'পাসওয়ার্ড রিসেট',
     h_signin: 'আবার স্বাগতম', h_signup: 'নতুন অ্যাকাউন্ট খুলুন', h_reset: 'পাসওয়ার্ড রিসেট করুন',
     p_signin: 'ইমেইল ও পাসওয়ার্ড দিয়ে সাইন ইন করুন।', p_signup: 'এক মিনিটের কম সময় লাগবে, সম্পূর্ণ ফ্রি।', p_reset: 'ইমেইল দিন, আমরা রিসেট লিংক পাঠাব।',
-    name: 'নাম', name_ph: 'আপনার নাম', email: 'ইমেইল', pass: 'পাসওয়ার্ড', pass_new: 'পাসওয়ার্ড (কমপক্ষে ৬ অক্ষর)',
+    name: 'নাম', name_ph: 'আপনার নাম', email: 'ইমেইল', pass: 'পাসওয়ার্ড', pass_new: 'পাসওয়ার্ড (কমপক্ষে ৮ অক্ষর)',
     show: 'পাসওয়ার্ড দেখুন', hide: 'পাসওয়ার্ড লুকান',
     forgot: 'পাসওয়ার্ড ভুলে গেছেন?', to_signup: 'নতুন? অ্যাকাউন্ট খুলুন', to_signin: 'অ্যাকাউন্ট আছে? সাইন ইন করুন', back: 'সাইন ইনে ফিরে যান',
     send: 'রিসেট লিংক পাঠান', skip: 'অ্যাকাউন্ট ছাড়া চালিয়ে যান', skip_note: 'টাস্ক শুধু এই ডিভাইসে থাকবে।',
@@ -48,12 +48,12 @@ const T = {
     done: 'সাইন ইন হয়েছে',
     r1: 'বিদ্যুৎ বিল দেওয়া', r2: 'বিকেল ৪:৩০ এ টিম কল', r3: 'বাজার করা', r4: '২০ পৃষ্ঠা পড়া',
     streak: 'দিনের স্ট্রিক', phone: 'ফোন', laptop: 'ল্যাপটপ', synced: 'সিঙ্ক হয়েছে',
-    e_email: 'সঠিক ইমেইল ঠিকানা দিন।', e_pass: 'পাসওয়ার্ড দিন।', e_short: 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
+    e_email: 'সঠিক ইমেইল ঠিকানা দিন।', e_pass: 'পাসওয়ার্ড দিন।', e_short: 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।',
     'auth/invalid-credential': 'ইমেইল বা পাসওয়ার্ড ভুল। দুটোই আবার দেখে চেষ্টা করুন।',
     'auth/wrong-password': 'ইমেইল বা পাসওয়ার্ড ভুল। দুটোই আবার দেখে চেষ্টা করুন।',
     'auth/user-not-found': 'এই ইমেইলে কোনো অ্যাকাউন্ট নেই। নতুন অ্যাকাউন্ট খুলুন।',
     'auth/email-already-in-use': 'এই ইমেইলে আগেই অ্যাকাউন্ট আছে। সাইন ইন করুন।',
-    'auth/weak-password': 'পাসওয়ার্ড কমপক্ষে ৬ অক্ষরের হতে হবে।',
+    'auth/weak-password': 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে।',
     'auth/invalid-email': 'সঠিক ইমেইল ঠিকানা দিন।',
     'auth/too-many-requests': 'অনেকবার চেষ্টা হয়েছে। কয়েক মিনিট পরে আবার চেষ্টা করুন।',
     'auth/network-request-failed': 'ইন্টারনেট সংযোগ নেই। সংযোগ দিয়ে আবার চেষ্টা করুন।',
@@ -111,7 +111,7 @@ function formHTML() {
       ${su ? `<label class="ax-f"><span>${esc(t('name'))}</span><input name="name" type="text" autocomplete="name" placeholder="${esc(t('name_ph'))}" maxlength="60"></label>` : ''}
       <label class="ax-f"><span>${esc(t('email'))}</span><input name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="off" spellcheck="false" required></label>
       ${rs ? '' : `<label class="ax-f"><span>${esc(t(su ? 'pass_new' : 'pass'))}</span>
-        <span class="ax-pw"><input name="password" type="password" autocomplete="${su ? 'new-password' : 'current-password'}" required minlength="6">
+        <span class="ax-pw"><input name="password" type="password" autocomplete="${su ? 'new-password' : 'current-password'}" required minlength="8">
         <button type="button" class="ax-eye" aria-label="${esc(t('show'))}" aria-pressed="false">${EYE}</button></span></label>
         ${su ? `<div class="ax-meter" aria-hidden="true"><i></i><i></i><i></i><i></i><em></em></div>` : ''}`}
       <div class="ax-msg" id="ax-msg" role="alert" aria-live="polite"></div>
@@ -181,7 +181,7 @@ async function onSubmit(ev) {
   if (!/^\S+@\S+\.\S+$/.test(email)) { setMsg(t('e_email')); f.email.focus(); return shake(); }
   if (mode !== 'reset') {
     if (!password) { setMsg(t('e_pass')); f.password.focus(); return shake(); }
-    if (mode === 'signup' && password.length < 6) { setMsg(t('e_short')); f.password.focus(); return shake(); }
+    if (mode === 'signup' && password.length < 8) { setMsg(t('e_short')); f.password.focus(); return shake(); }
   }
   setBusy(true);
   try {

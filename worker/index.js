@@ -9,16 +9,18 @@
 
 const MAX_PER_RUN = 5; // stay under the free-plan subrequest limit (50 per run)
 
+const ALLOWED_ORIGIN = 'https://abdurrahmancce.github.io'; // the app's origin; the notification buttons call /act from the service worker of this site
+const ID_RE = /^[A-Za-z0-9_-]{1,128}$/; // user ids and task ids end up inside Firestore REST paths, so only plain characters are allowed
 const ECHO_DELAY = 90e3; // backup push this long after the main one (cancelled if you act on it)
 
 export default {
   async scheduled(_event, env, ctx) { ctx.waitUntil(run(env)); },
   async fetch(req, env) {
-    const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
+    const cors = { 'Access-Control-Allow-Origin': ALLOWED_ORIGIN, 'Vary': 'Origin', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
     if (req.method === 'OPTIONS') return new Response(null, { headers: cors });
     if (req.method === 'POST' && new URL(req.url).pathname === '/act') {
       try { return new Response(JSON.stringify(await act(req, env)), { headers: { ...cors, 'Content-Type': 'application/json' } }); }
-      catch (e) { console.error('[act] failed', e); return new Response(JSON.stringify({ ok: false, error: String(e.message || e) }), { status: 400, headers: cors }); }
+      catch (e) { console.error('[act] failed', e); return new Response(JSON.stringify({ ok: false, error: 'request rejected' }), { status: 400, headers: cors }); }
     }
     return new Response('To-Do Pro reminder worker is running.', { headers: cors });
   },
@@ -28,7 +30,9 @@ export default {
 const b64url = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const enc = (o) => b64url(new TextEncoder().encode(JSON.stringify(o)));
 
+let tokenCache = { token: '', exp: 0 }; // reused between requests while the worker instance stays warm (saves OAuth calls)
 async function accessToken(sa) {
+  if (tokenCache.token && tokenCache.exp > Date.now() + 120e3) return tokenCache.token;
   const now = Math.floor(Date.now() / 1000);
   const head = enc({ alg: 'RS256', typ: 'JWT' });
   const claim = enc({
@@ -44,7 +48,9 @@ async function accessToken(sa) {
     body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: `${head}.${claim}.${b64url(sig)}` }),
   });
   if (!res.ok) throw new Error('Token exchange failed: ' + res.status + ' ' + (await res.text()));
-  return (await res.json()).access_token;
+  const j = await res.json();
+  tokenCache = { token: j.access_token, exp: Date.now() + (Number(j.expires_in) || 3600) * 1000 };
+  return j.access_token;
 }
 
 /* ---------- shared helpers ---------- */
@@ -56,8 +62,15 @@ async function sign(sa, uid, id) {
   return hex(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(`${uid}.${id}`))).slice(0, 40);
 }
 
-async function makeCtx(env) {
-  const sa = JSON.parse(env.SERVICE_ACCOUNT_JSON);
+function safeEqual(a, b) { // constant-time string compare
+  a = String(a); b = String(b);
+  let d = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return d === 0;
+}
+
+async function makeCtx(env, saIn) {
+  const sa = saIn || JSON.parse(env.SERVICE_ACCOUNT_JSON);
   const pid = sa.project_id;
   const token = await accessToken(sa);
   const fs = `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents`;
@@ -95,11 +108,14 @@ async function dismissOthers(c, uid, id) {
 
 /* ---------- notification buttons: POST /act  {uid,id,act:'done'|'snooze'|'ack',min,sig} ---------- */
 async function act(req, env) {
-  const b = JSON.parse(await req.text());
+  const raw = await req.text();
+  if (raw.length > 2048) throw new Error('too large');
+  const b = JSON.parse(raw);
   const { uid, id } = b;
-  if (!uid || !id || !['done', 'snooze', 'ack'].includes(b.act)) throw new Error('bad request');
-  const c = await makeCtx(env);
-  if (b.sig !== (await sign(c.sa, uid, id))) throw new Error('bad signature');
+  if (!ID_RE.test(String(uid)) || !ID_RE.test(String(id)) || !['done', 'snooze', 'ack'].includes(b.act)) throw new Error('bad request');
+  const sa = JSON.parse(env.SERVICE_ACCOUNT_JSON);
+  if (!safeEqual(b.sig, await sign(sa, uid, id))) throw new Error('bad signature'); // checked before any Google call is made
+  const c = await makeCtx(env, sa);
   const taskUrl = `${c.fs}/users/${uid}/tasks/${id}`;
   const rem = (suffix = '') => `${c.fs}/reminders/${id}${suffix}`;
   const now = Date.now();
@@ -195,6 +211,7 @@ async function run(env) {
       const stage = str(f, 'stage') || 'main';
       const uid = str(f, 'uid'), alarm = str(f, 'alarm'), repeat = str(f, 'repeat') || 'none';
       const pre = int(f, 'pre'), echo = bool(f, 'echo');
+      if (!ID_RE.test(uid) || !ID_RE.test(id) || !ID_RE.test(docId)) { console.log(`[skip] ${docId} invalid ids`); await call(`${fs}/reminders/${encodeURIComponent(docId)}`, { method: 'DELETE' }); continue; }
       const reminderUrl = `${fs}/reminders/${docId}`;
       const taskUrl = `${fs}/users/${uid}/tasks/${id}`;
 
@@ -212,7 +229,7 @@ async function run(env) {
       // Send to every registered device
       const dRes = await call(`${fs}/users/${uid}/devices?pageSize=20`);
       const devices = dRes.ok ? ((await dRes.json()).documents || []) : [];
-      console.log(`[send] ${docId} ${stage} "${str(f, 'title')}" -> ${devices.length} device(s)`);
+      console.log(`[send] ${docId} ${stage} -> ${devices.length} device(s)`);
 
       // Backup push is created BEFORE sending so an open device cancelling it can never lose the race.
       if (stage === 'main' && echo) {

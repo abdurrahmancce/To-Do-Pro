@@ -10,7 +10,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch,
+  collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, terminate, clearIndexedDbPersistence, waitForPendingWrites,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let app, auth, db;
@@ -58,7 +58,12 @@ export async function emailSignUp(name, email, password) {
 }
 export const resetPassword = (email) => sendPasswordResetEmail(auth, email);
 
-export const logout = () => signOut(auth);
+/* Sign out and wipe the offline copy of the account's data from this browser (shared-device privacy). */
+export async function logout() {
+  try { await Promise.race([waitForPendingWrites(db), new Promise((r) => setTimeout(r, 4000))]); } catch { /* offline: best effort */ }
+  await signOut(auth);
+  try { await terminate(db); await clearIndexedDbPersistence(db); } catch { /* cache cleared on next start at the latest */ }
+}
 
 const tasksCol = (uid) => collection(db, 'users', uid, 'tasks');
 
