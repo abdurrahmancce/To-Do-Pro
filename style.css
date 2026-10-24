@@ -954,3 +954,7 @@ a.btn { text-decoration: none; display: inline-flex; align-items: center; justif
 .install-banner b { display: block; font-size: 14px; }
 .install-banner span { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
 .install-banner .btn { padding: 8px 14px; }
+
+.wn-group h3 { text-transform: none; letter-spacing: 0; font-size: 14px; color: var(--accent-text, var(--accent)); }
+#wn-all { margin-top: 14px; width: 100%; }
+#wn-ok { margin-top: 8px; }

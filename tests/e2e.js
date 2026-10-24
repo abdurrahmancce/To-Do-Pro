@@ -24,7 +24,7 @@ async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, se
   } else {
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
   }
-  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) {} });
+  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) {} });
   if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
   await p.goto(BASE + '/'); await p.waitForTimeout(500);
   return p;
@@ -272,7 +272,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
     await p.route('**/analytics.js', async (r) => { const t = fs.readFileSync(path.join(ROOT, 'analytics.js'), 'utf8').replace("window.GOATCOUNTER_CODE = '';", "window.GOATCOUNTER_CODE = 'demo-site';"); r.fulfill({ contentType: 'text/javascript', body: t }); });
     await p.route('https://gc.zgo.at/count.js', (r) => r.fulfill({ contentType: 'text/javascript', body: "window.goatcounter = window.goatcounter || {}; window.goatcounter.count = function (o) { (window.__hits = window.__hits || []).push(o.path); };" }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) { /* ignore */ } });
     await p.goto(BASE + '/'); await p.waitForTimeout(500);
     await T('analytics: with a site code, feature events are counted and task text is never sent', async () => {
       await p.fill('#q-title', 'my private task'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(400);
@@ -288,7 +288,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
   {
     const ctx = await b.newContext(); const p = await ctx.newPage(); const url = `http://todo.test:${PORT}/`;
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-23'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) { /* ignore */ } });
     await T('service worker: installs and takes control', async () => {
       marker.value = 1; await p.goto(url); await p.evaluate(() => navigator.serviceWorker.ready); await p.waitForTimeout(1500); await p.reload(); await p.waitForTimeout(800);
       return (await p.evaluate(() => !!navigator.serviceWorker.controller && window.__marker === 1)) || 'not controlled or wrong version';
@@ -310,7 +310,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await uh.evaluate(() => document.querySelector('#btn-history').click());
     await uh.waitForSelector('#history[open]');
     const r = await uh.evaluate(() => { const li = [...document.querySelectorAll('.hist-list li')]; return { n: li.length, first: li[0].textContent, last: li[li.length - 1].textContent, dates: li.every((x) => /\d{2} \w{3} \d{4}/.test(x.textContent)) }; });
-    return (r.n >= 20 && r.dates && /01 May 2026/.test(r.first) && /23 Oct 2026/.test(r.last)) || JSON.stringify(r).slice(0, 200);
+    return (r.n >= 20 && r.dates && /01 May 2026/.test(r.first) && /24 Oct 2026/.test(r.last)) || JSON.stringify(r).slice(0, 200);
   });
   await T('future updates tab lists planned items', async () => {
     await uh.click('#history [data-htab="future"]');
@@ -335,6 +335,11 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     return (r.qr && r.copy && /wa\.me\/\?text=.*abdurrahmancce\.github\.io/.test(r.wa)) || JSON.stringify(r);
   });
   await T('QR image file is served', async () => { const x = await uh.request.get(BASE + '/icons/qr.svg'); return (x.ok() && (await x.text()).includes('<svg')) || 'missing qr.svg'; });
+  await T('What\u2019s new lists updates by date, newest first', async () => {
+    await uh.evaluate(() => document.querySelector('#btn-whatsnew').click()); await uh.waitForSelector('#whatsnew[open]');
+    const h = await uh.$$eval('#wn-list h3', (e) => e.map((x) => x.textContent)); await uh.click('#wn-ok');
+    return (h.length >= 5 && /24 Oct 2026/.test(h[0]) && /15 Oct 2026/.test(h[h.length - 1])) || h.join('|');
+  });
   await T('update history: no errors', async () => uh.errs.length === 0 || uh.errs.join('|'));
   await uh.context().close();
 
