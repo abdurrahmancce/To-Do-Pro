@@ -37,6 +37,7 @@
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
+- 📲 **Easy install and sharing:** Account → Get the app has an Install button, a QR code, Copy link and a WhatsApp invite.
 - ⌨️ Shortcuts: `n` new task · `/` or `Ctrl+K` search · `Ctrl+Enter` save in the editor
 
 ### 🛡️ Your data stays safe
@@ -157,6 +158,8 @@ Every update since the project started, oldest first, with the date it was imple
 | 22 | **19 Oct 2026** | **What's new announcement** | A short summary of each update appears once after you update, and can be reopened from Account. |
 | 23 | **22 Oct 2026** | **Checklist, bug reports and tests** | Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite. |
 | 24 | **23 Oct 2026** | **Bigger notes box, update history and roadmap** | Larger description box with a centred drag handle, a dated update history and a Future updates list. |
+| 25 | **23 Oct 2026** | **Easier install and sharing** | An install banner, plus a Share button that opens your phone’s share sheet. |
+| 25 | **23 Oct 2026** | **Easy install and sharing** | A Get the app section with an Install button, a QR code, Copy link and WhatsApp invite. |
 
 ## 🔮 Future updates
 

@@ -1312,8 +1312,11 @@ function renderAccount() {
   renderPush();
   const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
-  $('#install-section').hidden = standalone || (!installEvent && !isIOS);
-  $('#install-text').textContent = installEvent ? 'Install To-Do Pro as an app on this device.' : 'On iPhone/iPad: tap the Share button, then “Add to Home Screen”.';
+  $('#install-text').textContent = standalone ? 'You are using the installed app.'
+    : installEvent ? 'Install To-Do Pro as an app on this device.'
+    : isIOS ? 'On iPhone/iPad: tap the Share button, then \u201cAdd to Home Screen\u201d.'
+    : 'Open the menu of your browser and choose \u201cInstall app\u201d or \u201cAdd to Home screen\u201d.';
+  $$('[data-install]').forEach((x) => (x.hidden = !installEvent || standalone));
 }
 /* ---------- background push (account dialog) ---------- */
 const PUSH_KEY = 'tp-push-token';
@@ -1413,6 +1416,39 @@ $('#import-file').addEventListener('change', async (e) => {
   } catch { toast('That file could not be imported'); }
 });
 
+/* share: copy link + WhatsApp */
+const APP_LINK = 'https://abdurrahmancce.github.io/To-Do-Pro/';
+$('#btn-wa').href = 'https://wa.me/?text=' + encodeURIComponent('Try To-Do Pro, a free to-do app with reminders that works on your phone: ' + APP_LINK);
+$('#btn-wa').addEventListener('click', () => track('share-whatsapp'));
+$('#btn-copylink').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(APP_LINK); toast('Link copied'); }
+  catch { toast('Copy failed. Link: ' + APP_LINK); }
+  track('share-copy');
+});
+
+
+/* install banner: shown once in the browser until installed or hidden */
+(() => {
+  const bar = $('#install-banner'); if (!bar) return;
+  const standalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+  const hidden = () => { try { return localStorage.getItem('tp-install-hide') === '1'; } catch { return false; } };
+  const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const show = () => { if (!standalone() && !hidden() && matchMedia('(max-width: 899px)').matches) bar.hidden = false; };
+  if (isIOS) $('#ib-sub').textContent = 'Tap Share, then \u201cAdd to Home Screen\u201d.';
+  $('#ib-install').addEventListener('click', async () => {
+    track('install-banner');
+    if (installEvent) { installEvent.prompt(); await installEvent.userChoice; installEvent = null; bar.hidden = true; return; }
+    bar.hidden = true; renderAccount(); $('#account').showModal(); $('#install-section').scrollIntoView({ block: 'center' });
+  });
+  $('#ib-close').addEventListener('click', () => { bar.hidden = true; try { localStorage.setItem('tp-install-hide', '1'); } catch { /* ignore */ } });
+  window.addEventListener('appinstalled', () => { bar.hidden = true; });
+  setTimeout(show, 2500);
+})();
+/* share sheet on phones */
+if (navigator.share) {
+  const sb = $('#btn-sharelink'); sb.hidden = false;
+  sb.addEventListener('click', () => { track('share-native'); navigator.share({ title: 'To-Do Pro', text: 'A free to-do app with reminders that works on your phone.', url: APP_LINK }).catch(() => {}); });
+}
 /* install prompt */
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault(); installEvent = e;
@@ -1652,6 +1688,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-19", "What's new announcement", "A short summary of each update appears once after you update, and can be reopened from Account."],
   ["2026-10-22", "Checklist, bug reports and tests", "Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite."],
   ["2026-10-23", "Bigger notes box, update history and roadmap", "Larger description box with a centred drag handle, a dated update history and a Future updates list."],
+  ["2026-10-23", "Easy install and sharing", "A Get the app section with an Install button, a QR code, Copy link and WhatsApp invite."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -1689,8 +1726,10 @@ $('#hist-ok').addEventListener('click', () => $('#history').close());
 const APP_UPDATE = { id: '2026-10-23', label: 'Update of 23 October 2026' };
 const WHATS_NEW = [
   { icon: '\u2728', title: 'New', items: [
+    ['Easy install and sharing', 'Account \u2192 Get the app has an Install button, a QR code, Copy link and a WhatsApp invite, so friends can install the app in seconds.'],
     ['Update history', 'See every update since the project started, numbered and dated. Open it from Account \u2192 Update history.'],
     ['Future updates', 'A list of what is coming next, from shared lists to tags and filters. Open it from Account \u2192 Future updates.'],
+    ['Easier install and sharing', 'A banner now offers to install the app, and Account has a Share button for your phone\u2019s share sheet.'],
   ] },
   { icon: '\u{1F680}', title: 'Improved', items: [
     ['Bigger notes box', 'The description box is taller, and a handle at the bottom centre lets you drag it to any size.'],

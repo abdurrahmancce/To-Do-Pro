@@ -394,13 +394,33 @@
       </div>
     </div>
 
-    <div class="acc-section" id="install-section" hidden>
-      <h3>Install</h3>
+    <div class="acc-section" id="install-section">
+      <h3>Get the app</h3>
       <p class="muted" id="install-text">Install To-Do Pro as an app on this device.</p>
-      <button type="button" class="btn btn-ghost" data-install hidden><svg class="i"><use href="#i-download"/></svg> Install app</button>
+      <button type="button" class="btn btn-primary" data-install hidden><svg class="i"><use href="#i-download"/></svg> Install app</button>
+      <div class="share-card">
+        <img src="icons/qr.svg" width="120" height="120" alt="QR code that opens To-Do Pro" class="qr">
+        <div>
+          <b>Share with friends</b>
+          <p class="muted">Scan the code or send the link. Opening it in the browser lets anyone install the app.</p>
+          <div class="row">
+            <button type="button" class="btn btn-ghost" id="btn-copylink">Copy link</button>
+            <a class="btn btn-ghost" id="btn-wa" target="_blank" rel="noopener">WhatsApp</a>
+            <button type="button" class="btn btn-ghost" id="btn-sharelink" hidden>Share&hellip;</button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </dialog>
+
+<!-- install banner (shown in the browser, hidden in the installed app) -->
+<div class="install-banner" id="install-banner" hidden>
+  <img src="icons/icon-192.png" width="40" height="40" alt="">
+  <div><b>Get the To-Do Pro app</b><span id="ib-sub">Opens faster and sends reminders even when closed.</span></div>
+  <button type="button" class="btn btn-primary" id="ib-install">Install</button>
+  <button type="button" class="icon-btn" id="ib-close" aria-label="Hide"><svg class="i"><use href="#i-x"/></svg></button>
+</div>
 
 <!-- ============ UPDATE HISTORY + FUTURE UPDATES ============ -->
 <dialog id="history" class="sheet" aria-labelledby="hist-title">

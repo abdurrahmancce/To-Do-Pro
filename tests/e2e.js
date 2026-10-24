@@ -329,8 +329,33 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     const h1 = await uh.evaluate(() => document.querySelector('#f-notes').offsetHeight);
     return h1 > h0 + 50 || `${h0} -> ${h1}`;
   });
+  await T('Get the app: QR, copy link and WhatsApp share are present', async () => {
+    await uh.click('#btn-account, [data-account], #btn-user').catch(() => {});
+    const r = await uh.evaluate(() => ({ qr: !!document.querySelector('#install-section img.qr'), wa: document.querySelector('#btn-wa')?.href || '', copy: !!document.querySelector('#btn-copylink') }));
+    return (r.qr && r.copy && /wa\.me\/\?text=.*abdurrahmancce\.github\.io/.test(r.wa)) || JSON.stringify(r);
+  });
+  await T('QR image file is served', async () => { const x = await uh.request.get(BASE + '/icons/qr.svg'); return (x.ok() && (await x.text()).includes('<svg')) || 'missing qr.svg'; });
   await T('update history: no errors', async () => uh.errs.length === 0 || uh.errs.join('|'));
   await uh.context().close();
+
+  // ---------- install banner ----------
+  {
+    const ib = await newPage(b, { vp: { width: 400, height: 800 } });
+    await T('install banner appears in the browser, opens install help, and can be hidden for good', async () => {
+      await ib.waitForSelector('#install-banner:not([hidden])', { timeout: 5000 });
+      await ib.click('#ib-install'); await ib.waitForSelector('#account[open]');
+      const inAccount = await ib.isVisible('#install-section'); await ib.keyboard.press('Escape');
+      await ib.reload(); await ib.waitForSelector('#install-banner:not([hidden])', { timeout: 5000 });
+      await ib.click('#ib-close'); await ib.reload(); await ib.waitForTimeout(3200);
+      const gone = await ib.evaluate(() => document.querySelector('#install-banner').hidden);
+      return (inAccount && gone) || `inAccount=${inAccount} gone=${gone}`;
+    });
+    await T('QR code image loads and WhatsApp link is set', async () => {
+      const r = await ib.evaluate(async () => { const i = new Image(); i.src = 'icons/qr.svg'; await i.decode(); return { w: i.naturalWidth, wa: document.querySelector('#btn-wa').href }; });
+      return (r.w > 0 && /wa\.me/.test(r.wa) && r.wa.includes(encodeURIComponent('abdurrahmancce.github.io'))) || JSON.stringify(r);
+    });
+    await ib.context().close();
+  }
 
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {

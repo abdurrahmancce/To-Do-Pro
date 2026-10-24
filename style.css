@@ -937,3 +937,20 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
   .hist-list li div { grid-column: 2; }
 }
 @media (max-width: 520px) { .hist-list li { row-gap: 2px; } .hist-list li::before { grid-row: 1 / span 2; } }
+
+/* ---------- Get the app / share ---------- */
+.share-card { display: flex; gap: 14px; align-items: center; margin-top: 12px; padding: 12px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); }
+.share-card .qr { flex: none; width: 112px; height: 112px; border-radius: 10px; background: #fff; }
+.share-card b { display: block; margin-bottom: 2px; }
+.share-card p { margin: 0 0 8px; font-size: 13px; }
+.share-card .row { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 380px) { .share-card { flex-direction: column; text-align: center; } }
+a.btn { text-decoration: none; display: inline-flex; align-items: center; justify-content: center; }
+
+/* ---------- Install banner ---------- */
+.install-banner { position: fixed; left: 12px; right: 12px; bottom: calc(88px + env(safe-area-inset-bottom)); z-index: 40; max-width: 520px; margin: 0 auto; display: grid; grid-template-columns: 40px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 10px 10px 12px; border-radius: 16px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 10px 30px rgb(0 0 0 / .22); }
+.install-banner[hidden] { display: none; }
+.install-banner img { border-radius: 10px; }
+.install-banner b { display: block; font-size: 14px; }
+.install-banner span { display: block; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.install-banner .btn { padding: 8px 14px; }
