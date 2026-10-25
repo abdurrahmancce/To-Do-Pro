@@ -6,6 +6,7 @@
 
 import { parseQuick, fmtDay, fmtTime } from './quickparse.js';
 import { isHabit, completeHabit, streakOf, weekStats } from './habits.js';
+import * as ph from './photos.js';
 
 const LS = {
   local: 'tasks-pro',           // local-only task list (same key as the old version)
@@ -77,13 +78,20 @@ let cloud = null;
 let unsubscribe = null;
 let installEvent = null;
 
-const MAX_SUBS = 50;
-function cleanSubs(list) { // checklist steps: { id, text, done }
+const MAX_SUBS = 50, MAX_PHOTOS = 10, MAX_STEP_PHOTOS = 3;
+function cleanPhotos(list, max) { // photo references: { id, cap }; the pictures themselves live in photos.js
+  if (!Array.isArray(list)) return [];
+  const seen = new Set();
+  return list.slice(0, max).map((p) => ({ id: String(p?.id ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40), cap: String(p?.cap ?? '').slice(0, 200) }))
+    .filter((p) => p.id && !seen.has(p.id) && seen.add(p.id));
+}
+function cleanSubs(list) { // checklist steps: { id, text, done, photos }
   if (!Array.isArray(list)) return [];
   return list.slice(0, MAX_SUBS).map((x) => ({
     id: String(x?.id ?? '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40) || newId().slice(0, 12),
     text: String(x?.text ?? '').trim().slice(0, 200),
     done: !!x?.done,
+    photos: cleanPhotos(x?.photos, MAX_STEP_PHOTOS),
   })).filter((x) => x.text);
 }
 const validDate = (v) => { const d = new Date(v); return v && !isNaN(d) ? d : null; };
@@ -109,6 +117,7 @@ function normalize(t, i = 0) {
     alarmFired: !!t.alarmFired,
     deletedAt: Number(t.deletedAt) || 0,   // set while the task sits in Trash
     subtasks: cleanSubs(t.subtasks),
+    photos: cleanPhotos(t.photos, MAX_PHOTOS),
     doneDates: Array.isArray(t.doneDates) ? t.doneDates.filter((x) => typeof x === 'string').slice(-400) : [], // habit check-ins (repeating tasks)
   };
 }
@@ -158,7 +167,10 @@ function removeTask(id, { silent = false } = {}) {
   }
   if (!silent) render();
 }
+const photoIdsOf = (t) => [...(t.photos || []), ...(t.subtasks || []).flatMap((x) => x.photos || [])].map((p) => p.id);
 function purgeTask(id, { silent = false } = {}) { // permanent
+  const gone = state.trash.find((t) => t.id === id);
+  if (gone) photoIdsOf(gone).forEach((p) => ph.removePhoto(p));
   state.trash = state.trash.filter((t) => t.id !== id);
   persist();
   if (cloudOn()) { setSync('syncing'); cloud.remove(state.user.uid, id).catch(onCloudError); }
@@ -352,6 +364,8 @@ function taskHTML(t, td) {
     const d = t.subtasks.filter((x) => x.done).length, all = d === t.subtasks.length;
     chips.push(`<span class="chip subs${all ? ' all' : ''}" title="Checklist progress">${icon('listcheck')}${d}/${t.subtasks.length}</span>`);
   }
+  const nPh = photoIdsOf(t).length;
+  if (nPh) chips.push(`<span class="chip photos" title="Photos">${icon('image')}${nPh}</span>`);
   if (t.completed) chips.push(`<span class="chip finished" title="Completed">\u2714 Completed</span>`);
   if (isHabit(t) && !t.completed) {
     const n = streakOf(t.doneDates, t.alarmRepeat).cur;
@@ -367,7 +381,8 @@ function taskHTML(t, td) {
     <div class="t-body">
       <div class="t-title">${esc(t.title)}</div>
       ${t.notes ? `<div class="t-notes">${esc(t.notes)}</div>` : ''}
-      ${t.subtasks?.length ? `<ul class="t-subs">${t.subtasks.slice(0, 8).map((x) => `<li class="t-sub${x.done ? ' done' : ''}" data-sid="${esc(x.id)}"><button type="button" class="t-sub-check" role="checkbox" aria-checked="${x.done}" aria-label="${x.done ? 'Mark step as not done' : 'Mark step as done'}">${icon('check')}</button><span>${esc(x.text)}</span></li>`).join('')}${t.subtasks.length > 8 ? `<li class="t-sub-more">+${t.subtasks.length - 8} more</li>` : ''}</ul>` : ''}
+      ${t.subtasks?.length ? `<ul class="t-subs">${t.subtasks.slice(0, 8).map((x) => `<li class="t-sub${x.done ? ' done' : ''}" data-sid="${esc(x.id)}"><button type="button" class="t-sub-check" role="checkbox" aria-checked="${x.done}" aria-label="${x.done ? 'Mark step as not done' : 'Mark step as done'}">${icon('check')}</button><span>${esc(x.text)}</span>${x.photos?.length ? `<button type="button" class="t-sub-photo" aria-label="Show photos of this step">${icon('image')}${x.photos.length}</button>` : ''}</li>`).join('')}${t.subtasks.length > 8 ? `<li class="t-sub-more">+${t.subtasks.length - 8} more</li>` : ''}</ul>` : ''}
+      ${t.photos?.length ? `<div class="t-photos">${t.photos.slice(0, 4).map((p, i) => `<button type="button" class="t-photo" data-i="${i}" aria-label="Open photo ${i + 1}"><img data-pid="${esc(p.id)}" alt="${esc(p.cap || 'Photo')}"></button>`).join('')}${t.photos.length > 4 ? `<span class="t-photo-more">+${t.photos.length - 4}</span>` : ''}</div>` : ''}
       ${chips.length ? `<div class="t-meta">${chips.join('')}</div>` : ''}
     </div>
     <div class="t-actions">
@@ -454,6 +469,7 @@ function render() {
       <button class="group-head" type="button" aria-expanded="${!collapsed}">${icon('chevron')}<span>${esc(g.label)}</span><span class="count">${g.tasks.length}</span></button>${body}</section>`;
   }).join('');
   state.justAdded = null;
+  hydratePhotos(listEl);
 
   const empty = !tasks.length;
   $('#empty').hidden = !empty;
@@ -481,6 +497,10 @@ function onListClick(e) {
     }
     return;
   }
+  const thumb = e.target.closest('.t-photo');
+  if (thumb) { const li = thumb.closest('.task'); const t = li && state.tasks.find((x) => x.id === li.dataset.id); if (t) { e.stopPropagation(); openViewer(t.photos, +thumb.dataset.i || 0); } return; }
+  const stepPh = e.target.closest('.t-sub-photo');
+  if (stepPh) { const li = stepPh.closest('.task'); const t = li && state.tasks.find((x) => x.id === li.dataset.id); const st = t?.subtasks.find((x) => x.id === stepPh.closest('.t-sub').dataset.sid); if (st) { e.stopPropagation(); openViewer(st.photos, 0); } return; }
   const stepRow = e.target.closest('.t-sub[data-sid]');
   if (stepRow) { // tick a checklist step without opening the task
     const li = stepRow.closest('.task'); const t = li && state.tasks.find((x) => x.id === li.dataset.id);
@@ -656,13 +676,18 @@ const F = {
 };
 let editPriority = 'medium';
 let editSubs = [];           // checklist of the task being edited
+let editPhotos = [];         // photos of the task being edited
+const openSteps = new Set(); // checklist steps whose photo panel is open
 function renderSubs() {
   const done = editSubs.filter((x) => x.done).length;
   $('#subs-count').textContent = editSubs.length ? `${done}/${editSubs.length} done` : '';
   $('#subs-list').innerHTML = editSubs.map((x) => `<li data-sid="${esc(x.id)}" class="${x.done ? 'done' : ''}">
     <button type="button" class="sub-check" role="checkbox" aria-checked="${x.done}" aria-label="${x.done ? 'Mark step as not done' : 'Mark step as done'}">${icon('check')}</button>
     <input class="sub-text" type="text" value="${esc(x.text)}" maxlength="200" spellcheck="false" autocorrect="off" aria-label="Step" />
-    <button type="button" class="icon-btn sm sub-del" aria-label="Remove step">${icon('x')}</button></li>`).join('');
+    <button type="button" class="icon-btn sm sub-photo${x.photos?.length ? ' has' : ''}" aria-label="Photos for this step" aria-expanded="${openSteps.has(x.id)}">${icon('image')}${x.photos?.length ? `<b>${x.photos.length}</b>` : ''}</button>
+    <button type="button" class="icon-btn sm sub-del" aria-label="Remove step">${icon('x')}</button>
+    ${openSteps.has(x.id) ? `<div class="step-photos" data-owner="${esc(x.id)}">${photoPanelHTML(x.photos || [], MAX_STEP_PHOTOS)}</div>` : ''}</li>`).join('');
+  hydratePhotos($('#subs-list'));
 }
 function addSubs(text) {
   const lines = String(text).split(/\r?\n/).map((l) => l.replace(/^\s*(?:[-*\u2022]|\d+[.)])\s*/, '').trim()).filter(Bool);
@@ -690,7 +715,8 @@ function openEditor(id, preset = {}) {
   setPriority(v.priority);
   if (v.alarm) { const d = new Date(v.alarm); F.aDate.value = ymd(d); F.aTime.value = hm(d); } else { F.aDate.value = ''; F.aTime.value = ''; }
   F.repeat.value = v.alarmRepeat || 'none';
-  editSubs = cleanSubs(v.subtasks); renderSubs(); $('#subs-new').value = '';
+  editPhotos = cleanPhotos(v.photos, MAX_PHOTOS); openSteps.clear();
+  editSubs = cleanSubs(v.subtasks); renderSubs(); renderTaskPhotos(); $('#subs-new').value = '';
   $('#headings-list').innerHTML = [...new Set(state.tasks.map((x) => x.heading).filter(Boolean))].map((h) => `<option value="${esc(h)}">`).join('');
 
   if (!editor.open) editor.showModal();
@@ -730,7 +756,7 @@ function readForm() {
   const alarm = aDate && aTime ? new Date(`${aDate}T${aTime}`).toISOString() : null;
   return {
     title: F.title.value.trim(), notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
-    priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none', subtasks: cleanSubs(editSubs),
+    priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none', subtasks: cleanSubs(editSubs), photos: cleanPhotos(editPhotos, MAX_PHOTOS),
   };
 }
 function autoSave() {
@@ -740,7 +766,7 @@ function autoSave() {
   const f = readForm();
   const existing = state.editingId ? state.tasks.find((x) => x.id === state.editingId) : null;
   if (state.editingId && !existing) { autoStatus('idle'); return; } // task was deleted while the editor was open
-  if (!existing && !f.title && !f.notes && !f.subtasks.length) { autoStatus('idle'); return; } // nothing to save yet
+  if (!existing && !f.title && !f.notes && !f.subtasks.length && !f.photos.length) { autoStatus('idle'); return; } // nothing to save yet
   if (!f.title) f.title = 'Untitled task';
   // an alarm in the past would ring immediately, so it is only stored when you press Done
   const alarmOk = !f.alarm || new Date(f.alarm).getTime() > Date.now() || (existing && existing.alarm === f.alarm);
@@ -813,7 +839,7 @@ $('#editor-form').addEventListener('submit', (e) => {
   const repeat = alarm ? F.repeat.value : 'none';
   const base = {
     title, notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
-    priority: editPriority, alarm, alarmRepeat: repeat, subtasks: cleanSubs(editSubs),
+    priority: editPriority, alarm, alarmRepeat: repeat, subtasks: cleanSubs(editSubs), photos: cleanPhotos(editPhotos, MAX_PHOTOS),
   };
 
   if (state.editingId) {
@@ -834,6 +860,121 @@ $('#f-delete').addEventListener('click', () => { const id = state.editingId; cle
 editor.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') $('#editor-form').requestSubmit(); });
 
 ['#btn-new-side', '#fab'].forEach((s) => $(s).addEventListener('click', () => openEditor(null)));
+
+/* =====================================================
+   PHOTOS — camera, gallery, pasted screenshots; caption on every picture
+   Pictures are shrunk on this device, kept in IndexedDB and synced to your account (photos.js).
+   ===================================================== */
+function photoPanelHTML(arr, max) {
+  return `<div class="ph-tools">
+      <button type="button" class="btn btn-ghost sm ph-cam">${icon('camera')} Take photo</button>
+      <button type="button" class="btn btn-ghost sm ph-gal">${icon('image')} Add photos</button>
+      <span class="ph-count">${arr.length}/${max}</span>
+    </div>${arr.length ? `<ul class="ph-grid">${arr.map((p, i) => `<li data-pid="${esc(p.id)}">
+      <button type="button" class="ph-open" data-i="${i}" aria-label="View photo ${i + 1}"><img data-pid="${esc(p.id)}" alt=""></button>
+      <button type="button" class="icon-btn sm ph-del" aria-label="Remove photo">${icon('x')}</button>
+      <input class="ph-cap" type="text" maxlength="200" value="${esc(p.cap)}" placeholder="Add a description" spellcheck="false" autocorrect="off" aria-label="Photo description" />
+    </li>`).join('')}</ul>` : ''}`;
+}
+function hydratePhotos(root) {
+  root.querySelectorAll('img[data-pid]:not([src])').forEach(async (img) => {
+    const d = await ph.photoURL(img.dataset.pid);
+    if (d) img.src = d; else img.classList.add('missing');
+  });
+}
+function renderTaskPhotos() {
+  $('#task-photos').innerHTML = photoPanelHTML(editPhotos, MAX_PHOTOS);
+  hydratePhotos($('#task-photos'));
+}
+const ownerList = (owner) => {
+  if (owner === 'task') return editPhotos;
+  const st = editSubs.find((x) => x.id === owner); if (!st) return null;
+  return (st.photos = st.photos || []);
+};
+let photoOwner = 'task';
+async function addFiles(files, owner = 'task') {
+  const list = [...files].filter((f) => /^image\//.test(f.type || ''));
+  if (!list.length) return;
+  const arr = ownerList(owner); if (!arr) return;
+  const max = owner === 'task' ? MAX_PHOTOS : MAX_STEP_PHOTOS;
+  let added = 0, failed = 0;
+  for (const f of list) {
+    if (arr.length >= max) { toast(`You can add up to ${max} photos here`); break; }
+    try {
+      const rec = await ph.compress(f);
+      const id = 'p' + newId().replace(/[^A-Za-z0-9]/g, '').slice(0, 20);
+      await ph.savePhoto(id, rec);
+      arr.push({ id, cap: '' }); added++;
+    } catch { failed++; }
+  }
+  if (owner === 'task') renderTaskPhotos(); else { openSteps.add(owner); renderSubs(); }
+  if (added) { autoSchedule(); track('photo-added'); toast(added === 1 ? 'Photo added' : `${added} photos added`); }
+  if (failed) toast(failed === 1 ? 'One file could not be added' : `${failed} files could not be added`);
+}
+const camInput = $('#ph-cam-input'), galInput = $('#ph-gal-input');
+camInput.addEventListener('change', () => { const f = [...camInput.files]; camInput.value = ''; addFiles(f, photoOwner); });
+galInput.addEventListener('change', () => { const f = [...galInput.files]; galInput.value = ''; addFiles(f, photoOwner); });
+editor.addEventListener('click', (e) => {
+  const own = e.target.closest('[data-owner]')?.dataset.owner;
+  if (e.target.closest('.ph-cam')) { photoOwner = own || 'task'; camInput.click(); return; }
+  if (e.target.closest('.ph-gal')) { photoOwner = own || 'task'; galInput.click(); return; }
+  if (e.target.closest('.sub-photo')) {
+    const id = e.target.closest('li[data-sid]').dataset.sid;
+    if (openSteps.has(id)) openSteps.delete(id); else openSteps.add(id);
+    renderSubs(); return;
+  }
+  const li = e.target.closest('.ph-grid li'); if (!li || !own) return;
+  const arr = ownerList(own); const i = arr ? arr.findIndex((p) => p.id === li.dataset.pid) : -1; if (i < 0) return;
+  if (e.target.closest('.ph-del')) {
+    const [gone] = arr.splice(i, 1); ph.removePhoto(gone.id);
+    if (own === 'task') renderTaskPhotos(); else renderSubs();
+    autoSchedule();
+  } else if (e.target.closest('.ph-open')) openViewer(arr, i);
+});
+editor.addEventListener('input', (e) => {
+  if (!e.target.classList.contains('ph-cap')) return;
+  const own = e.target.closest('[data-owner]')?.dataset.owner; const arr = own && ownerList(own);
+  const p = arr && arr.find((x) => x.id === e.target.closest('li').dataset.pid); if (p) p.cap = e.target.value.slice(0, 200);
+});
+editor.addEventListener('paste', (e) => { // paste a screenshot with Ctrl+V
+  const files = [...(e.clipboardData?.files || [])].filter((f) => /^image\//.test(f.type));
+  if (files.length) { e.preventDefault(); addFiles(files, 'task'); }
+});
+const phField = $('#photos-field');
+['dragover', 'dragenter'].forEach((ev) => phField.addEventListener(ev, (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { e.preventDefault(); phField.classList.add('drop'); } }));
+['dragleave', 'drop'].forEach((ev) => phField.addEventListener(ev, () => phField.classList.remove('drop')));
+phField.addEventListener('drop', (e) => { if (e.dataTransfer?.files?.length) { e.preventDefault(); addFiles(e.dataTransfer.files, 'task'); } });
+
+/* full-screen photo viewer */
+const viewer = $('#viewer');
+let vList = [], vI = 0;
+async function showViewer() {
+  const p = vList[vI]; if (!p) return;
+  const img = $('#viewer-img'); img.removeAttribute('src'); img.alt = p.cap || 'Photo';
+  $('#viewer-cap').textContent = p.cap || '';
+  $('#viewer-cap').hidden = !p.cap;
+  $('#viewer-count').textContent = vList.length > 1 ? `${vI + 1} / ${vList.length}` : '';
+  $('#viewer-prev').hidden = $('#viewer-next').hidden = vList.length < 2;
+  const d = await ph.photoURL(p.id);
+  if (vList[vI] === p) {
+    if (d) img.src = d;
+    else { $('#viewer-cap').textContent = 'This photo is not available on this device yet. Connect to the internet and try again.'; $('#viewer-cap').hidden = false; }
+  }
+}
+function openViewer(list, i = 0) {
+  if (!list?.length) return;
+  vList = list.slice(); vI = Math.min(Math.max(0, i), vList.length - 1); showViewer(); track('photo-viewed');
+  if (!viewer.open) viewer.showModal();
+}
+const vStep = (n) => { if (vList.length < 2) return; vI = (vI + n + vList.length) % vList.length; showViewer(); };
+$('#viewer-prev').addEventListener('click', () => vStep(-1));
+$('#viewer-next').addEventListener('click', () => vStep(1));
+$('#viewer-close').addEventListener('click', () => viewer.close());
+viewer.addEventListener('click', (e) => { if (e.target === viewer || e.target.closest('figure') === null && !e.target.closest('button')) viewer.close(); });
+viewer.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') vStep(-1); else if (e.key === 'ArrowRight') vStep(1); });
+let vX = null;
+viewer.addEventListener('touchstart', (e) => { vX = e.touches[0].clientX; }, { passive: true });
+viewer.addEventListener('touchend', (e) => { if (vX == null) return; const dx = e.changedTouches[0].clientX - vX; vX = null; if (Math.abs(dx) > 50) vStep(dx < 0 ? 1 : -1); }, { passive: true });
 
 /* =====================================================
    REMINDERS PANEL
@@ -1305,6 +1446,7 @@ function renderAccount() {
       <button type="button" class="btn btn-ghost" id="btn-signout">${icon('logout')} Sign out</button>`;
     $('#btn-signout').onclick = async () => {
       await cloud.logout();
+      await ph.clearLocal();
       try { Object.keys(localStorage).filter((k) => k.startsWith(LS.cachePrefix) || k === 'tp-last-uid').forEach((k) => localStorage.removeItem(k)); } catch { /* ignore */ }
       location.reload(); // restart with a clean in-memory state
     };
@@ -1396,9 +1538,11 @@ $('#btn-test-sound').addEventListener('click', () => {
 $('#account').addEventListener('close', stopAlarmSound);
 
 /* backup */
-$('#btn-export').addEventListener('click', () => {
+$('#btn-export').addEventListener('click', async () => {
   track('export');
-  const blob = new Blob([JSON.stringify(state.tasks, null, 2)], { type: 'application/json' });
+  const pics = await ph.allLocal(state.tasks.flatMap(photoIdsOf)); // photos travel inside the backup
+  const payload = Object.keys(pics).length ? { app: 'to-do-pro', version: 2, tasks: state.tasks, photos: pics } : state.tasks;
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `todo-pro-backup-${todayStr()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
@@ -1406,10 +1550,13 @@ $('#btn-import').addEventListener('click', () => $('#import-file').click());
 $('#import-file').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   try {
-    if (f.size > 5e6) throw new Error('too large');
+    if (f.size > 40e6) throw new Error('too large');
     const data = JSON.parse(await f.text());
     const arr = Array.isArray(data) ? data : data.tasks;
     if (!Array.isArray(arr)) throw new Error('bad file');
+    if (f.size > 5e6 && !(data && !Array.isArray(data) && data.photos)) throw new Error('too large'); // only photo backups may be larger
+    const pics = data && !Array.isArray(data) && data.photos && typeof data.photos === 'object' ? Object.entries(data.photos).slice(0, 300) : [];
+    for (const [id, d] of pics) if (ph.validPhotoId(id) && ph.validPhotoData(d)) await ph.savePhoto(id, { d, w: 0, h: 0, t: Date.now() });
     const list = arr.slice(0, 2000).filter((t) => t && typeof t === 'object' && t.title).map((t, i) => normalize(t, i));
     list.forEach((t) => upsert(t, { silent: true }));
     render(); toast(`Imported ${list.length} task${list.length === 1 ? '' : 's'}`);
@@ -1495,12 +1642,14 @@ async function handleAuth(user) {
   mirrorBoot = { prefs: false, tasks: false, done: false };
   if (!user) {
     state.user = null; lsSet(LS.lastUid, '');
+    ph.setRemote(null);
     setAll(loadList(LS.local));
     renderAvatar(); setSync('local'); render();
     showLoginScreen();
     return;
   }
   state.user = user; lsSet(LS.lastUid, user.uid);
+  ph.setRemote({ get: (id) => cloud.getPhoto(user.uid, id), put: (id, rec) => cloud.savePhoto(user.uid, id, rec), del: (id) => cloud.deletePhoto(user.uid, id) });
   import('./auth.js').then((a) => { a.clearGuest(); a.hideLogin(); }).catch(() => {});
   setAll(loadList(cacheKey()));
   renderAvatar(); setSync('syncing'); render();
@@ -1511,6 +1660,7 @@ async function handleAuth(user) {
     const backup = lsGet(LS.local);
     lsSet('tasks-pro-uploaded-backup', backup);
     lsSet(LS.local, '[]');
+    local.flatMap(photoIdsOf).forEach((id) => ph.photoURL(id).then((d) => d && cloud.savePhoto(user.uid, id, { d }).catch(() => {})));
     cloud.saveMany(user.uid, local).then(() => toast(`${local.length} local task${local.length === 1 ? '' : 's'} uploaded to your account`)).catch((e) => {
       lsSet(LS.local, backup); onCloudError(e);
     });
@@ -1690,6 +1840,8 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-23", "Bigger notes box, update history and roadmap", "Larger description box with a centred drag handle, a dated update history and a Future updates list."],
   ["2026-10-23", "Easy install and sharing", "A Get the app section in Account with an Install button, a QR code, Copy link and a WhatsApp invite."],
   ["2026-10-24", "Install banner and Share button", "Phones now offer to install the app with a banner, a Share button opens your phone\u2019s share sheet, and the QR code image is fixed."],
+  ["2026-10-24", "New app logo", "A new To Do logo on the home-screen icon, the browser tab, the login page and the app header."],
+  ["2026-10-24", "Photos on tasks and checklist steps", "Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -1724,7 +1876,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-10-24', label: 'Latest update: 24 October 2026' };
+const APP_UPDATE = { id: '2026-10-24-photos', label: 'Latest update: 24 October 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();

@@ -10,7 +10,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, deleteDoc, onSnapshot, writeBatch, terminate, clearIndexedDbPersistence, waitForPendingWrites,
+  collection, doc, setDoc, getDoc, deleteDoc, onSnapshot, writeBatch, terminate, clearIndexedDbPersistence, waitForPendingWrites,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let app, auth, db;
@@ -142,3 +142,8 @@ export function subscribePrefs(uid, onData) {
 export const dropDevice = (uid, token) => deleteDoc(doc(db, 'users', uid, 'devices', token));
 export const saveReminder = (r) => setDoc(doc(db, 'reminders', r.id), r);
 export const deleteReminder = (id) => deleteDoc(doc(db, 'reminders', id));
+
+/* Photos attached to tasks and checklist steps: users/{uid}/photos/{id} = { d: dataURL, w, h, t } */
+export const savePhoto = (uid, id, rec) => setDoc(doc(db, 'users', uid, 'photos', id), { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now() });
+export async function getPhoto(uid, id) { const s = await getDoc(doc(db, 'users', uid, 'photos', id)); return s.exists() ? s.data() : null; }
+export const deletePhoto = (uid, id) => deleteDoc(doc(db, 'users', uid, 'photos', id));

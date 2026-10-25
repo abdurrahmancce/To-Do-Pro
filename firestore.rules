@@ -13,11 +13,21 @@ service cloud.firestore {
           && request.resource.data.title is string && request.resource.data.title.size() <= 200
           && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 2000))
           && (!('heading' in request.resource.data) || (request.resource.data.heading is string && request.resource.data.heading.size() <= 100))
-          && (!('subtasks' in request.resource.data) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 50));
+          && (!('subtasks' in request.resource.data) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 50))
+          && (!('photos' in request.resource.data) || (request.resource.data.photos is list && request.resource.data.photos.size() <= 10));
       }
 
       match /devices/{deviceId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Pictures attached to tasks and checklist steps (shrunk to small JPEGs by the app)
+      match /photos/{photoId} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId
+          && photoId.matches('^[A-Za-z0-9_-]{1,40}$')
+          && request.resource.data.keys().hasOnly(['d', 'w', 'h', 't'])
+          && request.resource.data.d is string && request.resource.data.d.size() <= 400000;
       }
 
       match /settings/{docId} {

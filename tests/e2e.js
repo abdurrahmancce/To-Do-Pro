@@ -24,7 +24,7 @@ async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, se
   } else {
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
   }
-  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) {} });
+  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); } catch (e) {} });
   if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
   await p.goto(BASE + '/'); await p.waitForTimeout(500);
   return p;
@@ -272,7 +272,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
     await p.route('**/analytics.js', async (r) => { const t = fs.readFileSync(path.join(ROOT, 'analytics.js'), 'utf8').replace("window.GOATCOUNTER_CODE = '';", "window.GOATCOUNTER_CODE = 'demo-site';"); r.fulfill({ contentType: 'text/javascript', body: t }); });
     await p.route('https://gc.zgo.at/count.js', (r) => r.fulfill({ contentType: 'text/javascript', body: "window.goatcounter = window.goatcounter || {}; window.goatcounter.count = function (o) { (window.__hits = window.__hits || []).push(o.path); };" }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); } catch (e) { /* ignore */ } });
     await p.goto(BASE + '/'); await p.waitForTimeout(500);
     await T('analytics: with a site code, feature events are counted and task text is never sent', async () => {
       await p.fill('#q-title', 'my private task'); await p.press('#q-title', 'Enter'); await p.waitForTimeout(400);
@@ -288,7 +288,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
   {
     const ctx = await b.newContext(); const p = await ctx.newPage(); const url = `http://todo.test:${PORT}/`;
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
-    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24'); } catch (e) { /* ignore */ } });
+    await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); } catch (e) { /* ignore */ } });
     await T('service worker: installs and takes control', async () => {
       marker.value = 1; await p.goto(url); await p.evaluate(() => navigator.serviceWorker.ready); await p.waitForTimeout(1500); await p.reload(); await p.waitForTimeout(800);
       return (await p.evaluate(() => !!navigator.serviceWorker.controller && window.__marker === 1)) || 'not controlled or wrong version';
@@ -342,6 +342,67 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
   });
   await T('update history: no errors', async () => uh.errs.length === 0 || uh.errs.join('|'));
   await uh.context().close();
+
+  // ---------- photos on tasks and checklist steps ----------
+  {
+    const pp = await newPage(b, { cloud: true, user: true, vp: { width: 1000, height: 900 } });
+    const mk = async (label, w = 2400, h = 1800) => Buffer.from((await pp.evaluate(({ w, h, label }) => { const c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); for (let i = 0; i < 600; i++) { x.fillStyle = `hsl(${(i * 37) % 360} 70% 50%)`; x.fillRect(Math.random() * w, Math.random() * h, w / 6, h / 6); } x.fillStyle = '#000'; x.font = '90px sans-serif'; x.fillText(label, 60, 140); return c.toDataURL('image/png'); }, { w, h, label })).split(',')[1], 'base64');
+    const file = async (n) => ({ name: n + '.png', mimeType: 'image/png', buffer: await mk(n) });
+    const cloudTask = async () => (await stored(pp, 'tasks-cache-u1')).find((x) => x.title === 'photo task');
+    await pp.click('#btn-new-side'); await pp.fill('#f-title', 'photo task');
+    await T('photos: adding two big pictures shrinks them and shows both in the editor', async () => {
+      await pp.setInputFiles('#ph-gal-input', [await file('one'), await file('two')]);
+      await pp.waitForSelector('#task-photos .ph-grid li:nth-child(2)'); await pp.waitForTimeout(500);
+      const sizes = await pp.evaluate(() => [...window.__photos.values()].map((r) => r.d.length));
+      return (sizes.length === 2 && sizes.every((n) => n > 1000 && n <= 380000)) || JSON.stringify(sizes);
+    });
+    await T('photos: description is saved with the picture and shows in the viewer', async () => {
+      await pp.fill('#task-photos .ph-cap >> nth=0', 'Receipt for the shop'); await pp.waitForTimeout(700);
+      const t = await cloudTask(); if (!t || t.photos.length !== 2 || t.photos[0].cap !== 'Receipt for the shop') return JSON.stringify(t && t.photos);
+      await pp.click('#task-photos .ph-open >> nth=0'); await pp.waitForSelector('#viewer[open]');
+      const cap = await pp.textContent('#viewer-cap'); const counter = await pp.textContent('#viewer-count');
+      await pp.click('#viewer-next'); const cap2 = await pp.evaluate(() => document.querySelector('#viewer-cap').hidden); await pp.keyboard.press('Escape');
+      return (cap === 'Receipt for the shop' && /1 \/ 2/.test(counter) && cap2) || `${cap}|${counter}|${cap2}`;
+    });
+    await T('photos: a pasted screenshot is added', async () => {
+      const b64 = (await mk('shot', 400, 300)).toString('base64');
+      await pp.evaluate(async (b64) => { const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0)); const dt = new DataTransfer(); dt.items.add(new File([bytes], 'shot.png', { type: 'image/png' })); document.querySelector('#f-notes').dispatchEvent(new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })); }, b64);
+      await pp.waitForSelector('#task-photos .ph-grid li:nth-child(3)', { timeout: 4000 }); return true;
+    });
+    await T('photos: removing a picture deletes it everywhere', async () => {
+      const before = await pp.evaluate(() => window.__photos.size);
+      await pp.click('#task-photos .ph-del >> nth=2'); await pp.waitForTimeout(500);
+      const after = await pp.evaluate(() => window.__photos.size); const t = await cloudTask();
+      return (before === 3 && after === 2 && t.photos.length === 2) || `${before}->${after} refs=${t && t.photos.length}`;
+    });
+    await T('photos: a checklist step can hold its own pictures (max 3)', async () => {
+      await pp.fill('#subs-new', 'step with picture'); await pp.press('#subs-new', 'Enter');
+      await pp.click('#subs-list .sub-photo'); await pp.waitForSelector('#subs-list .step-photos');
+      const fc = pp.waitForEvent('filechooser'); await pp.click('#subs-list .step-photos .ph-gal'); await (await fc).setFiles([await file('s1'), await file('s2'), await file('s3'), await file('s4')]);
+      await pp.waitForSelector('#subs-list .ph-grid li:nth-child(3)'); await pp.waitForTimeout(800);
+      const t = await cloudTask(); const n = t.subtasks[0].photos.length; const extra = await pp.$$eval('#subs-list .ph-grid li', (e) => e.length);
+      return (n === 3 && extra === 3) || `saved=${n} shown=${extra}`;
+    });
+    await T('photos: task card shows thumbnails, a photo count and step photos open the viewer', async () => {
+      await pp.keyboard.press('Escape'); await pp.waitForTimeout(400);
+      const thumbs = await pp.$$eval('.task .t-photo', (e) => e.length); const chip = await pp.textContent('.task .chip.photos');
+      await pp.waitForFunction(() => document.querySelector('.task .t-photo img')?.getAttribute('src'), null, { timeout: 4000 });
+      await pp.click('.task .t-sub-photo'); await pp.waitForSelector('#viewer[open]'); const n = await pp.evaluate(() => document.querySelector('#viewer-count').textContent); await pp.keyboard.press('Escape');
+      return (thumbs === 2 && /5/.test(chip) && /1 \/ 3/.test(n)) || `thumbs=${thumbs} chip=${chip} count=${n}`;
+    });
+    await T('photos: a backup contains the pictures and restores them', async () => {
+      const dl = pp.waitForEvent('download'); await pp.evaluate(() => document.querySelector('#btn-export').click()); const d = await dl;
+      const p = OUT + '/backup-photos.json'; await d.saveAs(p); const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return (Array.isArray(j.tasks) && Object.keys(j.photos || {}).length === 5) || 'photos in backup: ' + Object.keys(j.photos || {}).length;
+    });
+    await T('photos: deleting the task for good removes its pictures', async () => {
+      await pp.click('.nav-item[data-view="all"]'); await pp.hover('.task'); await pp.click('.task .del', { force: true });
+      await pp.click('.nav-item[data-view="trash"]'); await pp.waitForSelector('.trash-row'); await pp.click('.trash-row [data-purge]'); await pp.waitForTimeout(600);
+      const n = await pp.evaluate(() => window.__photos.size); return n === 0 || 'left in cloud: ' + n;
+    });
+    await T('photos: no errors', async () => pp.errs.length === 0 || pp.errs.join('|'));
+    await pp.context().close();
+  }
 
   // ---------- install banner ----------
   {

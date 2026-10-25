@@ -34,6 +34,8 @@
 - ⚡ **Smart quick add**: type `Call mom tomorrow 6pm !high #family` and the date, time, priority and section are filled in for you. Common Bangla and Banglish time words are understood too.
 - 🎯 Priorities (low, medium, high), due dates, sections, notes
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
+- 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
+- 📷 **Photos:** attach pictures to a task or to a checklist step. Take a photo, pick several from the gallery or paste a screenshot, and give every picture a description. Pictures are shrunk on your device and sync to your account.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
@@ -160,6 +162,8 @@ Every update since the project started, oldest first, with the date it was imple
 | 24 | **23 Oct 2026** | **Bigger notes box, update history and roadmap** | Larger description box with a centred drag handle, a dated update history and a Future updates list. |
 | 25 | **23 Oct 2026** | **Easy install and sharing** | A Get the app section in Account with an Install button, a QR code, Copy link and a WhatsApp invite. |
 | 26 | **24 Oct 2026** | **Install banner and Share button** | Phones now offer to install the app with a banner, a Share button opens your phone’s share sheet, and the QR code image is fixed. |
+| 27 | **24 Oct 2026** | **New app logo** | A new To Do logo on the home-screen icon, the browser tab, the login page and the app header. |
+| 28 | **24 Oct 2026** | **Photos on tasks and checklist steps** | Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups. |
 
 ## 🔮 Future updates
 
