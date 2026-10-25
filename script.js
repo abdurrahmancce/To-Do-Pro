@@ -914,9 +914,36 @@ async function addFiles(files, owner = 'task') {
 const camInput = $('#ph-cam-input'), galInput = $('#ph-gal-input');
 camInput.addEventListener('change', () => { const f = [...camInput.files]; camInput.value = ''; addFiles(f, photoOwner); });
 galInput.addEventListener('change', () => { const f = [...galInput.files]; galInput.value = ''; addFiles(f, photoOwner); });
+
+/* Take photo: phones open the camera app; laptops open a live webcam preview. */
+const camDlg = $('#cam-dialog'), camVideo = $('#cam-video');
+let camStream = null, camOwner = 'task';
+function stopCam() { if (camStream) camStream.getTracks().forEach((t) => t.stop()); camStream = null; camVideo.srcObject = null; }
+async function takePhoto(owner) {
+  const phone = matchMedia('(pointer: coarse)').matches;
+  if (phone || !navigator.mediaDevices?.getUserMedia) { camInput.click(); return; }
+  camOwner = owner;
+  try {
+    camStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } }, audio: false });
+    camVideo.srcObject = camStream; await camVideo.play().catch(() => {});
+    if (!camDlg.open) camDlg.showModal();
+  } catch (e) {
+    stopCam();
+    toast(e?.name === 'NotAllowedError' ? 'Camera is blocked. Allow camera access in the browser address bar.' : 'No camera found on this device.');
+  }
+}
+$('#cam-shot').addEventListener('click', () => {
+  if (!camVideo.videoWidth) return;
+  const c = document.createElement('canvas'); c.width = camVideo.videoWidth; c.height = camVideo.videoHeight;
+  c.getContext('2d').drawImage(camVideo, 0, 0);
+  c.toBlob((b) => { if (b) addFiles([new File([b], 'camera.jpg', { type: 'image/jpeg' })], camOwner); }, 'image/jpeg', 0.92);
+  camDlg.close();
+});
+$('#cam-cancel').addEventListener('click', () => camDlg.close());
+camDlg.addEventListener('close', stopCam);
 editor.addEventListener('click', (e) => {
   const own = e.target.closest('[data-owner]')?.dataset.owner;
-  if (e.target.closest('.ph-cam')) { photoOwner = own || 'task'; camInput.click(); return; }
+  if (e.target.closest('.ph-cam')) { photoOwner = own || 'task'; takePhoto(photoOwner); return; }
   if (e.target.closest('.ph-gal')) { photoOwner = own || 'task'; galInput.click(); return; }
   if (e.target.closest('.sub-photo')) {
     const id = e.target.closest('li[data-sid]').dataset.sid;
@@ -958,7 +985,7 @@ async function showViewer() {
   const d = await ph.photoURL(p.id);
   if (vList[vI] === p) {
     if (d) img.src = d;
-    else { $('#viewer-cap').textContent = 'This photo is not available on this device yet. Connect to the internet and try again.'; $('#viewer-cap').hidden = false; }
+    else { $('#viewer-cap').textContent = 'This photo is not available on this device. Open it once on the device that took it while online, and make sure the latest Firestore rules are published.'; $('#viewer-cap').hidden = false; }
   }
 }
 function openViewer(list, i = 0) {
@@ -1414,7 +1441,7 @@ function onCloudError(err) {
   console.error('Sync error', err);
   setSync('error', err?.message || String(err));
 }
-window.addEventListener('online', () => cloudOn() && setSync('syncing'));
+window.addEventListener('online', () => { if (cloudOn()) { setSync('syncing'); ph.syncAll(state.tasks.flatMap(photoIdsOf)).catch(() => {}); } });
 window.addEventListener('offline', () => cloudOn() && setSync('offline'));
 
 function renderAvatar() {
@@ -1636,6 +1663,7 @@ async function showLoginScreen(force = false) {
   } catch (e) { console.error('login screen failed', e); }
 }
 
+let photoSyncT = null;
 async function handleAuth(user) {
   if (unsubscribe) { unsubscribe(); unsubscribe = null; }
   if (unsubPrefs) { unsubPrefs(); unsubPrefs = null; }
@@ -1649,6 +1677,7 @@ async function handleAuth(user) {
     return;
   }
   state.user = user; lsSet(LS.lastUid, user.uid);
+  ph.setErrorHandler((e) => { console.warn('[photos] upload failed', e?.code || e); if (e?.code === 'permission-denied') toast('Photos cannot sync yet: publish the latest Firestore rules.'); });
   ph.setRemote({ get: (id) => cloud.getPhoto(user.uid, id), put: (id, rec) => cloud.savePhoto(user.uid, id, rec), del: (id) => cloud.deletePhoto(user.uid, id) });
   import('./auth.js').then((a) => { a.clearGuest(); a.hideLogin(); }).catch(() => {});
   setAll(loadList(cacheKey()));
@@ -1684,7 +1713,7 @@ async function handleAuth(user) {
     persist(); purgeExpired();
     if (!meta.fromCache) { mirrorBoot.tasks = true; bootMirror(); }
     setSync(!navigator.onLine ? 'offline' : meta.hasPendingWrites || meta.fromCache ? 'syncing' : 'synced');
-    if (!meta.fromCache) { flushPendingAct(); ackEchoes(); }
+    if (!meta.fromCache) { flushPendingAct(); ackEchoes(); clearTimeout(photoSyncT); photoSyncT = setTimeout(() => ph.syncAll(state.tasks.flatMap(photoIdsOf)).catch(() => {}), 1500); }
     render(); checkAlarms();
   }, onCloudError);
   refreshPush();
@@ -1840,8 +1869,9 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-23", "Bigger notes box, update history and roadmap", "Larger description box with a centred drag handle, a dated update history and a Future updates list."],
   ["2026-10-23", "Easy install and sharing", "A Get the app section in Account with an Install button, a QR code, Copy link and a WhatsApp invite."],
   ["2026-10-24", "Install banner and Share button", "Phones now offer to install the app with a banner, a Share button opens your phone\u2019s share sheet, and the QR code image is fixed."],
-  ["2026-10-24", "New app logo", "A new To Do logo on the home-screen icon, the browser tab, the login page and the app header."],
-  ["2026-10-24", "Photos on tasks and checklist steps", "Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups."],
+  ["2026-10-25", "New app logo", "A new To Do logo on the home-screen icon, the browser tab, the login page and the app header."],
+  ["2026-10-25", "Photos on tasks and checklist steps", "Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups."],
+  ["2026-10-25", "Photo sync, laptop camera and viewer fixes", "Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -1876,7 +1906,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-10-24-photos', label: 'Latest update: 24 October 2026' };
+const APP_UPDATE = { id: '2026-10-25-photo-sync', label: 'Latest update: 25 October 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();

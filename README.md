@@ -162,8 +162,9 @@ Every update since the project started, oldest first, with the date it was imple
 | 24 | **23 Oct 2026** | **Bigger notes box, update history and roadmap** | Larger description box with a centred drag handle, a dated update history and a Future updates list. |
 | 25 | **23 Oct 2026** | **Easy install and sharing** | A Get the app section in Account with an Install button, a QR code, Copy link and a WhatsApp invite. |
 | 26 | **24 Oct 2026** | **Install banner and Share button** | Phones now offer to install the app with a banner, a Share button opens your phone’s share sheet, and the QR code image is fixed. |
-| 27 | **24 Oct 2026** | **New app logo** | A new To Do logo on the home-screen icon, the browser tab, the login page and the app header. |
-| 28 | **24 Oct 2026** | **Photos on tasks and checklist steps** | Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups. |
+| 27 | **25 Oct 2026** | **New app logo** | A new To Do logo on the home-screen icon, the browser tab, the login page and the app header. |
+| 28 | **25 Oct 2026** | **Photos on tasks and checklist steps** | Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups. |
+| 29 | **25 Oct 2026** | **Photo sync, laptop camera and viewer fixes** | Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred. |
 
 ## 🔮 Future updates
 

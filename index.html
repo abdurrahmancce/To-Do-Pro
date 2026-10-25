@@ -423,6 +423,11 @@
   </div>
 </dialog>
 
+<!-- webcam capture (laptops) -->
+<dialog id="cam-dialog" class="cam-dialog" aria-label="Take a photo">
+  <video id="cam-video" autoplay playsinline muted></video>
+  <div class="cam-actions"><button type="button" class="btn btn-ghost" id="cam-cancel">Cancel</button><button type="button" class="btn btn-primary" id="cam-shot">Capture</button></div>
+</dialog>
 <!-- photo viewer -->
 <dialog id="viewer" class="viewer" aria-label="Photo viewer">
   <button type="button" class="viewer-close icon-btn" id="viewer-close" aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>

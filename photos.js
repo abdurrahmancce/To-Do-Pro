@@ -39,14 +39,35 @@ export async function delLocal(id) { mem.delete(id); try { await tx('readwrite',
 export async function clearLocal() { mem.clear(); try { await tx('readwrite', (s) => s.clear()); } catch { /* ignore */ } }
 async function getLocal(id) { try { return await tx('readonly', (s) => s.get(id)); } catch { return null; } }
 
-/* Save a new picture on this device and, when signed in, in the account. */
+/* Which pictures are confirmed in the account (so a failed upload is retried later). */
+const SYNCED_KEY = 'tp-ph-synced';
+const syncedSet = () => { try { return new Set(JSON.parse(localStorage.getItem(SYNCED_KEY) || '[]')); } catch { return new Set(); } };
+const markSynced = (id) => { try { const s = syncedSet(); s.add(id); localStorage.setItem(SYNCED_KEY, JSON.stringify([...s].slice(-2000))); } catch { /* ignore */ } };
+let onError = null;
+export const setErrorHandler = (fn) => { onError = fn; };
+function upload(id, rec) {
+  if (!remote) return Promise.resolve();
+  return remote.put(id, rec).then(() => markSynced(id)).catch((e) => { if (onError) onError(e); });
+}
+
+/* Save a new picture on this device at once; the account copy uploads in the background (it also queues while offline). */
 export async function savePhoto(id, rec) {
   await putLocal(id, rec);
-  if (remote) remote.put(id, rec).catch(() => {}); // not awaited: offline writes wait in the queue
+  upload(id, rec);
 }
 export async function removePhoto(id) {
   await delLocal(id);
-  if (remote) remote.del(id).catch(() => {});
+  if (remote) { try { remote.del(id).catch(() => {}); } catch { /* ignore */ } }
+}
+/* Upload every picture that is on this device but not yet confirmed in the account. */
+export async function syncAll(ids) {
+  if (!remote) return;
+  const done = syncedSet();
+  for (const id of ids) {
+    if (!validPhotoId(id) || done.has(id)) continue;
+    const rec = await getLocal(id);
+    if (rec?.d && validPhotoData(rec.d)) await upload(id, { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now() });
+  }
 }
 
 /* Data URL of a picture: memory, then this device, then the account (and cache it). */
@@ -61,7 +82,7 @@ export function photoURL(id) {
     if (remote) {
       try {
         const rec = await remote.get(id);
-        if (rec?.d && validPhotoData(rec.d)) { await putLocal(id, { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now() }); return rec.d; }
+        if (rec?.d && validPhotoData(rec.d)) { await putLocal(id, { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now() }); markSynced(id); return rec.d; }
       } catch { /* offline: try again next time */ }
     }
     return null;
