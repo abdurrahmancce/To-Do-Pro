@@ -737,7 +737,7 @@ html.ax-lock, html.ax-lock body { overflow: hidden; }
 @keyframes ax-d1 { to { transform: translate(12vmin, 9vmin) scale(1.15); } }
 @keyframes ax-d2 { to { transform: translate(-14vmin, -8vmin) scale(.9); } }
 .ax-brand { display: flex; align-items: center; gap: 10px; font-size: 18px; letter-spacing: -.01em; }
-.ax-logo { width: 30px; height: 30px; fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.ax-logo { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; }
 .ax-copy h1 { margin: 0 0 12px; font-size: clamp(28px, 3.6vw, 48px); line-height: 1.08; letter-spacing: -.03em; font-weight: 750; max-width: 14em; }
 .ax-copy p { margin: 0; max-width: 30em; color: #b8bdde; font-size: 15px; line-height: 1.6; }
 

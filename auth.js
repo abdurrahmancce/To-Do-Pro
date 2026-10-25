@@ -82,7 +82,7 @@ function stageHTML() {
     `<li class="ax-row" data-i="${i}"><span class="ax-box">${CHECK}</span><span class="ax-txt" data-t="${k}">${esc(t(k))}</span></li>`).join('');
   return `
   <div class="ax-aurora" aria-hidden="true"><i></i><i></i><i></i></div>
-  <div class="ax-brand"><svg class="ax-logo" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></svg><b>To-Do Pro</b></div>
+  <div class="ax-brand"><img class="ax-logo" src="icons/logo-96.png" alt="" width="34" height="34"><b>To-Do Pro</b></div>
   <div class="ax-copy"><h1 data-t="tagline">${esc(t('tagline'))}</h1><p data-t="sub">${esc(t('sub'))}</p></div>
   <div class="ax-scene" aria-hidden="true">
     <div class="ax-card">
