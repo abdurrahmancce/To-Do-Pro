@@ -104,7 +104,7 @@ function normalize(t, i = 0) {
     id,
     title: String(t.title ?? '').slice(0, 200),
     heading: String(t.heading ?? '').slice(0, 100),
-    notes: String(t.notes ?? '').slice(0, 2000),
+    notes: String(t.notes ?? '').slice(0, 20000),
     date: /^\d{4}-\d{2}-\d{2}$/.test(String(t.date || '')) ? t.date : '',
     priority: ['low', 'medium', 'high'].includes(t.priority) ? t.priority : 'medium',
     completed: !!t.completed,

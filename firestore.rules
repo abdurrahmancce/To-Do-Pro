@@ -11,7 +11,7 @@ service cloud.firestore {
         allow create, update: if request.auth != null && request.auth.uid == userId
           && taskId.matches('^[A-Za-z0-9_-]{1,128}$')
           && request.resource.data.title is string && request.resource.data.title.size() <= 200
-          && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 2000))
+          && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 20000))
           && (!('heading' in request.resource.data) || (request.resource.data.heading is string && request.resource.data.heading.size() <= 100))
           && (!('subtasks' in request.resource.data) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 50))
           && (!('photos' in request.resource.data) || (request.resource.data.photos is list && request.resource.data.photos.size() <= 10));

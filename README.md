@@ -210,7 +210,7 @@ A full review was done in stage 8. The fixes below are in the repository files a
 | W3 | 🟡 Low | Signature compared in non-constant time | Constant-time compare |
 | W4 | 🟡 Low | CORS open to all origins, error text leaked internals | CORS limited to the app's origin, generic error |
 | W5 | 🟡 Low | Task titles written to worker logs | Titles removed from logs |
-| C1 | 🟠 Medium | Hostile or corrupt task data (bad dates, huge text, odd ids, 20,000-item import) could crash the app or browser | Every task is normalised: ids sanitised, dates validated, lengths capped (title 200, notes 2000, section 100); import limited to 2,000 tasks and 5 MB |
+| C1 | 🟠 Medium | Hostile or corrupt task data (bad dates, huge text, odd ids, 20,000-item import) could crash the app or browser | Every task is normalised: ids sanitised, dates validated, lengths capped (title 200, notes 20,000, section 100); import limited to 2,000 tasks and 5 MB |
 | C2 | 🟠 Medium | Deleting right after typing could bring the task back | Pending autosave cancelled on delete |
 | C3 | 🟠 Medium | Task data stayed in the browser after sign-out | Sign-out waits for pending writes, then clears local and Firestore caches |
 | C4 | 🟡 Low | Password minimum was 6 | Raised to 8 |

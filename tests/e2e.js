@@ -130,7 +130,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
   await T('corrupt storage: app boots + renders', async () => { const n = await c.$$eval('.task', (e) => e.length); return (n >= 2 && c.errs.length === 0) || `tasks=${n} errs=${c.errs.join('|')}`; });
   await T('corrupt storage: ids/fields sanitized', async () => {
     await c.evaluate(() => document.querySelector('.task')?.click()); await c.keyboard.press('Escape'); await c.click('#btn-new-side'); await c.fill('#f-title', 'trigger save'); await c.waitForTimeout(600); await c.keyboard.press('Escape');
-    const t = await stored(c); const bad = t.filter((x) => /[\/\.]/.test(x.id) || (x.title || '').length > 200 || (x.notes || '').length > 2000 || (x.heading || '').length > 100 || (x.alarm && isNaN(new Date(x.alarm))));
+    const t = await stored(c); const bad = t.filter((x) => /[\/\.]/.test(x.id) || (x.title || '').length > 200 || (x.notes || '').length > 20000 || (x.heading || '').length > 100 || (x.alarm && isNaN(new Date(x.alarm))));
     return bad.length === 0 || 'unsanitized: ' + bad.map((x) => x.id + ':' + (x.alarm || '') + ':' + (x.notes || '').length).join(', ');
   });
   await c.context().close();
