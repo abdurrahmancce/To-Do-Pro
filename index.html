@@ -145,6 +145,7 @@
       </div>
     </header>
 
+    <div class="body">
     <div class="content">
       <div class="page-head">
         <div>
@@ -152,6 +153,9 @@
           <p id="view-sub" class="muted"></p>
         </div>
         <div class="head-actions">
+        <div class="seg" id="group-toggle" role="radiogroup" aria-label="Group tasks by" hidden>
+          <button type="button" role="radio" data-group="date">By date</button><button type="button" role="radio" data-group="section">By section</button>
+        </div>
         <button class="btn btn-ghost sm" id="btn-select" type="button"><svg class="i"><use href="#i-listcheck"/></svg><span>Select</span></button>
         <div class="progress-card" id="progress-card" role="button" tabindex="0" aria-label="Completion progress. Open weekly summary" title="Weekly summary">
           <div class="ring" id="ring" style="--p:0"><span id="pct">0%</span></div>
@@ -179,6 +183,8 @@
         <h3 id="empty-title">Nothing here yet</h3>
         <p id="empty-sub" class="muted">Add a task above to get started.</p>
       </div>
+    </div>
+    <aside class="rail" id="rail" aria-label="Focus panel"></aside>
     </div>
   </div>
 

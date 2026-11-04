@@ -17,6 +17,7 @@ const LS = {
   collapsed: 'tp-collapsed',
   alarmSecs: 'tp-alarm-secs',   // how long the reminder sound rings (0 = until dismissed)
   accent: 'tp-accent',
+  groupBy: 'tp-groupby',         // All view: 'date' (Overdue / Today / Later / No date) or 'section'
   calMode: 'tp-cal-mode',
   preMin: 'tp-pre-min',          // pre-reminder: minutes before the alarm (0 = off)
   seenUpdate: 'tp-seen-update',  // which What's new announcement this device has already seen
@@ -64,6 +65,7 @@ const state = {
   trash: [],             // soft-deleted tasks (kept 30 days)
   view: ['all', 'today', 'upcoming', 'calendar', 'done'].includes(lsGet(LS.view)) ? lsGet(LS.view) : 'all',
   search: '',
+  groupBy: lsGet(LS.groupBy, 'date') === 'section' ? 'section' : 'date',
   editingId: null,
   user: null,            // signed-in user (cloud) or null
   sync: 'local',         // local | syncing | synced | offline | error
@@ -265,7 +267,7 @@ function deleteWithUndo(id) {
 const ACCENTS = ['indigo', 'violet', 'blue', 'teal', 'green', 'orange', 'rose'];
 const prefTheme = () => { const p = lsGet(LS.theme, 'auto'); return p === 'light' || p === 'dark' ? p : 'auto'; };
 const resolveTheme = () => { const p = prefTheme(); return p === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : p; };
-const prefAccent = () => { const a = lsGet(LS.accent, 'indigo'); return ACCENTS.includes(a) ? a : 'indigo'; };
+const prefAccent = () => { const a = lsGet(LS.accent, 'teal'); return ACCENTS.includes(a) ? a : 'teal'; };
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
   $('#theme-icon use').setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
@@ -331,6 +333,9 @@ function compute() {
   } else if (state.view === 'today') {
     tasks = pending.filter(isToday);
     mode = 'headings'; title = VIEW_META.today.title;
+  } else if (state.groupBy === 'date') {
+    tasks = pending;
+    mode = 'status'; title = VIEW_META.all.title;
   } else {
     tasks = pending;
     mode = 'headings'; title = VIEW_META.all.title;
@@ -343,6 +348,14 @@ function compute() {
     return bucket.get(key);
   };
   if (mode === 'headings' || mode === 'search') tasks.forEach((t) => add(t.heading, t.heading || 'General', { heading: t.heading }).tasks.push(t));
+  else if (mode === 'status') {
+    const ST = [['overdue', 'Overdue'], ['today', 'Today'], ['later', 'Later'], ['none', 'No date']];
+    const kind = (t) => (t.date && t.date < td && !isHabit(t) ? 'overdue' : isToday(t) ? 'today' : t.date ? 'later' : 'none');
+    const by = { overdue: [], today: [], later: [], none: [] };
+    tasks.forEach((t) => by[kind(t)].push(t));
+    by.later.sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
+    ST.forEach(([k, l]) => { if (by[k].length) add('st:' + k, l, { tone: k }).tasks = by[k]; });
+  }
   else if (mode === 'dates') tasks.forEach((t) => add(t.date, dateLabel(t.date)).tasks.push(t));
   else if (mode === 'trash') add('', 'Trash').tasks = tasks;
   else add('', 'Completed').tasks = tasks;
@@ -392,6 +405,41 @@ function taskHTML(t, td) {
   </li>`;
 }
 
+/* ---------- focus rail (desktop right panel): ring, up next, last 10 days ---------- */
+function renderRail(td, pct, done, total) {
+  const rail = $('#rail'); if (!rail) return;
+  const pending = state.tasks.filter((t) => !t.completed);
+  const isDueToday = (t) => (t.date && t.date <= td) || (t.alarm && ymd(new Date(t.alarm)) === td);
+  const overdue = pending.filter((t) => t.date && t.date < td && !isHabit(t)).length;
+  const dueToday = pending.filter(isDueToday).length - overdue;
+  const key = (t) => (t.alarm ? new Date(t.alarm).getTime() : new Date(t.date + 'T23:59:00').getTime());
+  const up = pending.filter((t) => (t.alarm && new Date(t.alarm).getTime() >= Date.now() - 6e4) || (t.date && t.date >= td))
+    .sort((a, b) => key(a) - key(b)).slice(0, 4);
+  const counts = new Map();
+  const bump = (d) => counts.set(d, (counts.get(d) || 0) + 1);
+  state.tasks.forEach((t) => {
+    if (t.completed && t.completedAt) bump(ymd(new Date(t.completedAt)));
+    else if (isHabit(t) && Array.isArray(t.doneDates)) t.doneDates.forEach(bump);
+  });
+  const days = [];
+  for (let i = 9; i >= 0; i--) { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() - i); const k = ymd(d); days.push({ k, n: counts.get(k) || 0, d }); }
+  const max = Math.max(1, ...days.map((x) => x.n)), sum = days.reduce((a, x) => a + x.n, 0);
+  rail.innerHTML = `
+    <section class="rail-card rail-progress" id="rail-progress" role="button" tabindex="0" aria-label="Progress. Open weekly summary">
+      <div class="ring big" style="--p:${pct}"><span><b>${pct}%</b><small>done</small></span></div>
+      <div class="rail-prog-text"><strong>${done} of ${total} tasks completed</strong>
+        <small>${overdue ? `<i class="dot-red"></i>${overdue} overdue · ` : ''}${dueToday > 0 ? dueToday : 0} due today</small></div>
+    </section>
+    <section class="rail-card"><h3>Up next</h3>
+      ${up.length ? `<ul class="up-list">${up.map((t) => `<li><button type="button" class="up-item" data-open="${esc(t.id)}"><span class="up-title">${esc(t.title)}</span><span class="up-when">${esc(t.alarm ? whenLabel(t.alarm) : dateLabel(t.date))}</span></button></li>`).join('')}</ul>` : '<p class="rail-empty">Nothing scheduled. Add a due date or reminder to see it here.</p>'}
+    </section>
+    <section class="rail-card"><h3>Last 10 days <small>${sum} completed</small></h3>
+      <div class="bars" role="img" aria-label="Tasks completed per day over the last 10 days: ${sum} in total">
+        ${days.map((x, i) => `<div class="bar-col${i === 9 ? ' now' : ''}" title="${x.n} completed · ${esc(x.d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }))}"><span class="bar-n">${x.n || ''}</span><span class="bar" style="height:${Math.max(x.n ? 8 : 3, Math.round((x.n / max) * 84))}px"></span><span class="bar-l">${x.d.toLocaleDateString('en-US', { weekday: 'narrow' })}</span></div>`).join('')}
+      </div>
+    </section>`;
+}
+
 let renderPending = false;
 function render() {
   if (dragState || swipe?.locked) { renderPending = true; return; } // never rebuild the list mid-gesture
@@ -431,6 +479,11 @@ function render() {
   $('#pct').textContent = pct + '%';
   $('#ring').style.setProperty('--p', pct);
 
+  const gt = $('#group-toggle');
+  gt.hidden = !(state.view === 'all' && !state.search);
+  $$('button', gt).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.group === state.groupBy)));
+  renderRail(td, pct, done, total);
+
   $('.content').classList.toggle('selecting', state.selecting);
   $('#quick-form').hidden = isCal; $('#calendar').hidden = !isCal; listEl.hidden = isCal;
   if (isCal) qaPreview.hidden = true; else if (qaPreview.innerHTML) qaPreview.hidden = false;
@@ -458,14 +511,14 @@ function render() {
   }
 
   // list
-  const showHeads = (mode === 'headings' || mode === 'search') ? !(groups.length === 1 && groups[0].key === '') : mode === 'dates';
+  const showHeads = (mode === 'headings' || mode === 'search') ? !(groups.length === 1 && groups[0].key === '') : (mode === 'dates' || mode === 'status');
   const draggable = mode === 'headings';
   listEl.classList.toggle('no-drag', !draggable);
   listEl.innerHTML = groups.map((g) => {
     const collapsed = showHeads && state.collapsed.has(g.key || '__general');
     const body = `<ul class="group-list" data-heading="${esc(g.heading ?? '')}">${g.tasks.map((t) => taskHTML(t, td)).join('')}</ul>`;
     if (!showHeads) return `<section class="group">${body}</section>`;
-    return `<section class="group${collapsed ? ' collapsed' : ''}" data-key="${esc(g.key || '__general')}">
+    return `<section class="group${collapsed ? ' collapsed' : ''}${g.tone ? ' tone-' + g.tone : ''}" data-key="${esc(g.key || '__general')}">
       <button class="group-head" type="button" aria-expanded="${!collapsed}">${icon('chevron')}<span>${esc(g.label)}</span><span class="count">${g.tasks.length}</span></button>${body}</section>`;
   }).join('');
   state.justAdded = null;
@@ -1770,6 +1823,13 @@ function renderSummary() {
 }
 function openSummary() { renderSummary(); if (!sumDialog.open) sumDialog.showModal(); }
 ['#btn-summary-side', '#progress-card'].forEach((sel) => { const el = $(sel); if (el) el.addEventListener('click', openSummary); });
+$('#rail').addEventListener('click', (e) => {
+  const o = e.target.closest('[data-open]'); if (o) { openEditor(o.dataset.open); return; }
+  if (e.target.closest('#rail-progress')) openSummary();
+});
+$('#rail').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'rail-progress') { e.preventDefault(); openSummary(); } });
+$$('#group-toggle button').forEach((b) => b.addEventListener('click', () => { state.groupBy = b.dataset.group; lsSet(LS.groupBy, state.groupBy); render(); }));
+$$('.sidebar .nav-item').forEach((b) => { const sp = $('span', b); if (sp) b.title = sp.textContent; });
 $('#progress-card').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSummary(); } });
 
 /* =====================================================
@@ -1872,6 +1932,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-25", "New app logo", "A new To Do logo on the home-screen icon, the browser tab, the login page and the app header."],
   ["2026-10-25", "Photos on tasks and checklist steps", "Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups."],
   ["2026-10-25", "Photo sync, laptop camera and viewer fixes", "Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred."],
+  ["2026-11-04", "Focus Dashboard redesign", "A slim icon sidebar, tasks grouped into Overdue, Today, Later and No date, and a right panel with a big progress ring, Up next and a 10-day completion chart. Teal accent and a deeper navy dark theme. Switch to By section any time to use your own sections."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -1906,7 +1967,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-10-25-photo-sync', label: 'Latest update: 25 October 2026' };
+const APP_UPDATE = { id: '2026-11-04-focus-dashboard', label: 'Latest update: 4 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();

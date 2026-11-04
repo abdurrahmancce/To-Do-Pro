@@ -19,18 +19,19 @@
   --p-medium: #f59e0b;
   --p-high: #f43f5e;
   --danger: #f43f5e;
+  --on-accent: #fff;
 }
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #0b0d12;
-  --surface: #12151c;
-  --surface-2: #181c26;
-  --surface-3: #1f2430;
-  --border: #242a38;
-  --border-strong: #323a4d;
-  --text: #e9ebf2;
-  --muted: #9aa1b4;
-  --faint: #5d6579;
+  --bg: #0a1020;
+  --surface: #111a30;
+  --surface-2: #16213b;
+  --surface-3: #1e2a47;
+  --border: #1e2a47;
+  --border-strong: #2b3a5f;
+  --text: #e8eefb;
+  --muted: #9db0d3;
+  --faint: #6a7ca3;
   --accent-soft: rgba(99,102,241,.16);
   --accent-text: #a5a8ff;
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.35);
@@ -115,7 +116,7 @@ kbd { font: 600 11px/1 var(--font); padding: 3px 6px; border-radius: 6px; backgr
 }
 .nav-item:hover { background: var(--surface-2); color: var(--text); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent-text); }
-.nav-item.active em { background: var(--accent); color: #fff; }
+.nav-item.active em { background: var(--accent); color: var(--on-accent); }
 
 .sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .install-btn {
@@ -228,7 +229,7 @@ kbd { font: 600 11px/1 var(--font); padding: 3px 6px; border-radius: 6px; backgr
 .btn.sm { height: 34px; padding: 0 12px; font-size: 13px; border-radius: 9px; }
 .btn-block { width: 100%; }
 .btn-primary {
-  color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: var(--on-accent); background: linear-gradient(135deg, var(--accent), var(--accent-2));
   box-shadow: 0 4px 14px color-mix(in srgb, var(--accent) 35%, transparent);
 }
 .btn-primary:hover { box-shadow: 0 6px 20px color-mix(in srgb, var(--accent) 50%, transparent); }
@@ -454,7 +455,7 @@ fieldset.reminder legend .i { width: 14px; height: 14px; }
   .tabbar button .i { width: 22px; height: 22px; }
   .tabbar button.active { color: var(--accent-text); }
   .tabbar button em { position: absolute; top: 7px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; font: 700 10px/16px var(--font); font-style: normal; text-align: center; background: var(--surface-3); color: var(--muted); }
-  .tabbar button.active em { background: var(--accent); color: #fff; }
+  .tabbar button.active em { background: var(--accent); color: var(--on-accent); }
   .tabbar button em[data-zero="1"] { display: none; }
   .tab-spacer { pointer-events: none; }
   .fab {
@@ -511,8 +512,9 @@ fieldset.reminder legend .i { width: 14px; height: 14px; }
 :root[data-accent="indigo"] { --accent: #6366f1; --accent-2: #8b5cf6; }
 :root[data-accent="violet"] { --accent: #8b5cf6; --accent-2: #d946ef; }
 :root[data-accent="blue"]   { --accent: #3b82f6; --accent-2: #06b6d4; }
-:root[data-accent="teal"]   { --accent: #14b8a6; --accent-2: #22c55e; }
-:root[data-accent="green"]  { --accent: #22c55e; --accent-2: #84cc16; }
+:root[data-accent="teal"]   { --accent: #2dd4bf; --accent-2: #14b8a6; --on-accent: #042f2a; }
+:root[data-accent="teal"][data-theme="light"] { --accent: #0d9488; --accent-2: #14b8a6; --on-accent: #fff; }
+:root[data-accent="green"]  { --accent: #22c55e; --accent-2: #84cc16; --on-accent: #052e12; }
 :root[data-accent="orange"] { --accent: #f97316; --accent-2: #f59e0b; }
 :root[data-accent="rose"]   { --accent: #f43f5e; --accent-2: #ec4899; }
 :root[data-accent][data-theme="dark"]  { --accent-soft: color-mix(in srgb, var(--accent) 17%, transparent); --accent-text: color-mix(in srgb, var(--accent) 55%, #fff); }
@@ -526,7 +528,7 @@ fieldset.reminder legend .i { width: 14px; height: 14px; }
 .swatch[data-accent-pick="indigo"] { --sw1: #6366f1; --sw2: #8b5cf6; }
 .swatch[data-accent-pick="violet"] { --sw1: #8b5cf6; --sw2: #d946ef; }
 .swatch[data-accent-pick="blue"]   { --sw1: #3b82f6; --sw2: #06b6d4; }
-.swatch[data-accent-pick="teal"]   { --sw1: #14b8a6; --sw2: #22c55e; }
+.swatch[data-accent-pick="teal"]   { --sw1: #2dd4bf; --sw2: #14b8a6; }
 .swatch[data-accent-pick="green"]  { --sw1: #22c55e; --sw2: #84cc16; }
 .swatch[data-accent-pick="orange"] { --sw1: #f97316; --sw2: #f59e0b; }
 .swatch[data-accent-pick="rose"]   { --sw1: #f43f5e; --sw2: #ec4899; }
@@ -1010,3 +1012,96 @@ img.missing { visibility: hidden; }
 .cam-dialog::backdrop { background: rgb(0 0 0 / .6); }
 .cam-dialog video { display: block; width: 100%; max-height: 70vh; border-radius: 10px; background: #000; }
 .cam-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+
+
+/* =====================================================
+   FOCUS DASHBOARD  (icon rail · grouped compact list · right panel)
+   ===================================================== */
+:root { --sidebar-w: 76px; }
+.sidebar { align-items: center; padding: 16px 10px 14px; gap: 4px; }
+.sidebar .brand { padding: 2px 0 12px; }
+.sidebar .brand-name, .sidebar .nav-item span, .sidebar .account-text, .sidebar .sync-dot, .sidebar .btn-primary kbd, .sidebar .nav-sep { display: none; }
+.sidebar .btn-primary { width: 44px; height: 44px; padding: 0; border-radius: 14px; }
+.sidebar .btn-primary span { display: none; }
+.sidebar .nav { align-items: center; margin-top: 12px; gap: 4px; width: 100%; }
+.sidebar .nav-item { position: relative; width: 48px; height: 44px; padding: 0; justify-content: center; border-radius: 13px; }
+.sidebar .nav-item .i { width: 21px; height: 21px; }
+.sidebar .nav-item em { position: absolute; top: 2px; right: 0; min-width: 17px; padding: 0 4px; font-size: 10.5px; line-height: 16px; }
+.sidebar .nav-item em[data-zero="1"] { display: none; }
+.sidebar .nav-item.active { box-shadow: inset 3px 0 0 var(--accent); }
+#btn-reminders-side, #btn-summary-side { margin-top: 0; }
+.sidebar > .nav-item { width: 48px; }
+.sidebar .sidebar-foot { align-items: center; width: 100%; }
+.sidebar .account-card { width: 48px; height: 48px; padding: 0; justify-content: center; border-radius: 50%; }
+.sidebar .install-btn { width: 44px; height: 44px; padding: 0; font-size: 0; border-radius: 12px; }
+.sidebar .install-btn .i { width: 20px; height: 20px; }
+.sidebar .install-btn { gap: 0; }
+
+.body { display: flex; align-items: flex-start; gap: 24px; padding-right: 28px; width: 100%; max-width: 1360px; margin: 0 auto; }
+.body .content { flex: 1; min-width: 0; max-width: 860px; margin: 0; }
+.rail { width: 320px; flex-shrink: 0; position: sticky; top: 74px; display: flex; flex-direction: column; gap: 14px; padding-top: 14px; max-height: calc(100dvh - 80px); overflow-y: auto; }
+.rail-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 16px; }
+.rail-card h3 { display: flex; align-items: baseline; justify-content: space-between; font-size: 12.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.rail-card h3 small { font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--faint); }
+.rail-progress { display: flex; flex-direction: column; align-items: center; gap: 14px; text-align: center; cursor: pointer; padding: 22px 16px; transition: border-color .15s; }
+.rail-progress:hover { border-color: var(--border-strong); }
+.ring.big { width: 150px; height: 150px; }
+.ring.big::before { inset: 14px; }
+.ring.big span { display: flex; flex-direction: column; line-height: 1.1; }
+.ring.big b { font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
+.ring.big small { font-size: 12px; color: var(--muted); font-weight: 500; }
+.rail-prog-text { display: flex; flex-direction: column; gap: 3px; }
+.rail-prog-text strong { font-size: 15px; }
+.rail-prog-text small { font-size: 12.5px; color: var(--muted); }
+.dot-red { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--p-high); margin-right: 5px; }
+.up-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.up-item { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 10px; border-radius: 10px; text-align: left; }
+.up-item:hover { background: var(--surface-2); }
+.up-title { font-size: 13.5px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.up-when { font-size: 12px; color: var(--accent-text); font-weight: 600; white-space: nowrap; }
+.rail-empty { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.bars { display: flex; align-items: flex-end; gap: 6px; height: 128px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px; height: 100%; }
+.bar { width: 100%; max-width: 22px; border-radius: 5px 5px 2px 2px; background: var(--surface-3); }
+.bar-col.now .bar { background: var(--accent); }
+.bar-col .bar-n { font-size: 10.5px; color: var(--muted); font-weight: 600; min-height: 12px; }
+.bar-l { font-size: 11px; color: var(--faint); font-weight: 600; }
+.bar-col.now .bar-l { color: var(--accent-text); }
+
+/* segmented control */
+.seg { display: inline-flex; padding: 3px; gap: 2px; border-radius: 11px; background: var(--surface); border: 1px solid var(--border); }
+.seg button { height: 28px; padding: 0 12px; border-radius: 8px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.seg button[aria-checked="true"] { background: var(--accent-soft); color: var(--accent-text); }
+.seg[hidden] { display: none; }
+.head-actions { align-items: center; }
+
+/* grouped, compact list */
+.group[class*="tone-"] .group-head { padding-bottom: 6px; }
+.group.tone-overdue .group-head { color: var(--p-high); }
+.group.tone-today .group-head { color: var(--accent-text); }
+.group.tone-overdue .count { background: color-mix(in srgb, var(--p-high) 14%, transparent); }
+.group.tone-today .count { background: var(--accent-soft); }
+.group[class*="tone-"] .group-list { gap: 6px; }
+.group[class*="tone-"] .task { padding: 9px 10px 9px 6px; border-radius: 12px; }
+.group[class*="tone-"] .t-title { font-size: 14.5px; }
+.group.tone-overdue .task { border-left: 3px solid var(--p-high); }
+.group.tone-today .task { border-left: 3px solid var(--accent); }
+
+/* progress card only when the right panel is hidden */
+@media (min-width: 1181px) { #progress-card { display: none; } }
+@media (max-width: 1180px) {
+  .rail { display: none; }
+  .body { padding-right: 0; }
+  .body .content { margin: 0 auto; }
+}
+@media (max-width: 760px) {
+  .body { padding-right: 0; }
+  .seg { order: -1; }
+}
+.sidebar .btn-primary { font-size: 0; gap: 0; }
+.sidebar .btn-primary .i { width: 20px; height: 20px; }
+.list.no-drag .grip { display: none; }
+@media (max-width: 760px) {
+  .page-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .head-actions { flex-wrap: wrap; justify-content: space-between; }
+}

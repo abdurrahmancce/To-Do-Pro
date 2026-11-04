@@ -25,6 +25,7 @@ async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, se
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
   }
   await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); } catch (e) {} });
+  await p.addInitScript(() => { try { if (!localStorage.getItem('tp-groupby')) localStorage.setItem('tp-groupby', 'section'); } catch {} }); // legacy tests assume section grouping
   if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
   await p.goto(BASE + '/'); await p.waitForTimeout(500);
   return p;
