@@ -13,6 +13,7 @@ service cloud.firestore {
           && request.resource.data.title is string && request.resource.data.title.size() <= 200
           && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 20000))
           && (!('heading' in request.resource.data) || (request.resource.data.heading is string && request.resource.data.heading.size() <= 100))
+          && (!('tags' in request.resource.data) || (request.resource.data.tags is list && request.resource.data.tags.size() <= 10))
           && (!('subtasks' in request.resource.data) || (request.resource.data.subtasks is list && request.resource.data.subtasks.size() <= 50))
           && (!('photos' in request.resource.data) || (request.resource.data.photos is list && request.resource.data.photos.size() <= 10));
       }
