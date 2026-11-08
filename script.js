@@ -17,6 +17,7 @@ const LS = {
   collapsed: 'tp-collapsed',
   alarmSecs: 'tp-alarm-secs',   // how long the reminder sound rings (0 = until dismissed)
   accent: 'tp-accent',
+  goal: 'tp-goal',               // weekly goal: tasks to finish in 7 days (0 = off)
   groupBy: 'tp-groupby',         // All view: 'date' (Overdue / Today / Later / No date) or 'section'
   calMode: 'tp-cal-mode',
   preMin: 'tp-pre-min',          // pre-reminder: minutes before the alarm (0 = off)
@@ -65,11 +66,13 @@ const state = {
   trash: [],             // soft-deleted tasks (kept 30 days)
   view: ['all', 'today', 'upcoming', 'calendar', 'done'].includes(lsGet(LS.view)) ? lsGet(LS.view) : 'all',
   search: '',
+  tag: '',                // active tag filter
   groupBy: lsGet(LS.groupBy, 'date') === 'section' ? 'section' : 'date',
   editingId: null,
   user: null,            // signed-in user (cloud) or null
   sync: 'local',         // local | syncing | synced | offline | error
   syncDetail: '',
+  pending: new Set(),    // task ids saved on this device but not yet confirmed by the server
   collapsed: new Set(parseJSON(lsGet(LS.collapsed, '[]'), [])),
   justAdded: null,
   selecting: false,      // bulk-select mode
@@ -96,6 +99,17 @@ function cleanSubs(list) { // checklist steps: { id, text, done, photos }
     photos: cleanPhotos(x?.photos, MAX_STEP_PHOTOS),
   })).filter((x) => x.text);
 }
+const MAX_TAGS = 10;
+function cleanTags(v) {
+  const raw = Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[,\s]+/) : [];
+  const out = [];
+  for (const x of raw) {
+    const t = String(x ?? '').replace(/^#+|^@+/, '').trim().toLowerCase().replace(/[^\p{L}\p{N}_-]/gu, '').slice(0, 24);
+    if (t && !out.includes(t)) out.push(t);
+    if (out.length >= MAX_TAGS) break;
+  }
+  return out;
+}
 const validDate = (v) => { const d = new Date(v); return v && !isNaN(d) ? d : null; };
 function normalize(t, i = 0) {
   t = t && typeof t === 'object' ? t : {};
@@ -119,6 +133,7 @@ function normalize(t, i = 0) {
     alarmFired: !!t.alarmFired,
     deletedAt: Number(t.deletedAt) || 0,   // set while the task sits in Trash
     subtasks: cleanSubs(t.subtasks),
+    tags: cleanTags(t.tags),
     photos: cleanPhotos(t.photos, MAX_PHOTOS),
     doneDates: Array.isArray(t.doneDates) ? t.doneDates.filter((x) => typeof x === 'string').slice(-400) : [], // habit check-ins (repeating tasks)
   };
@@ -267,6 +282,7 @@ function deleteWithUndo(id) {
 const ACCENTS = ['indigo', 'violet', 'blue', 'teal', 'green', 'orange', 'rose'];
 const prefTheme = () => { const p = lsGet(LS.theme, 'auto'); return p === 'light' || p === 'dark' ? p : 'auto'; };
 const resolveTheme = () => { const p = prefTheme(); return p === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : p; };
+const goalN = () => { const n = Math.floor(Number(lsGet(LS.goal, '0'))); return Number.isFinite(n) && n > 0 ? Math.min(500, n) : 0; };
 const prefAccent = () => { const a = lsGet(LS.accent, 'teal'); return ACCENTS.includes(a) ? a : 'teal'; };
 function applyTheme(theme) {
   document.documentElement.setAttribute('data-theme', theme);
@@ -281,12 +297,13 @@ function applyAppearance() {
   $$('#f-theme button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.themePref === prefTheme())));
   $$('#f-accent button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.accentPick === prefAccent())));
 }
+const shareLook = () => { try { if (cloudOn()) cloud.savePrefs(state.user.uid, { accent: prefAccent(), theme: prefTheme() }).catch(() => {}); } catch { /* not signed in */ } };
 $('#btn-theme').addEventListener('click', () => {
   lsSet(LS.theme, resolveTheme() === 'dark' ? 'light' : 'dark');
-  applyAppearance();
+  applyAppearance(); shareLook();
 });
-$$('#f-theme button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.theme, b.dataset.themePref); applyAppearance(); }));
-$$('#f-accent button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.accent, b.dataset.accentPick); applyAppearance(); }));
+$$('#f-theme button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.theme, b.dataset.themePref); applyAppearance(); shareLook(); }));
+$$('#f-accent button').forEach((b) => b.addEventListener('click', () => { lsSet(LS.accent, b.dataset.accentPick); applyAppearance(); shareLook(); }));
 try { matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (prefTheme() === 'auto') applyAppearance(); }); } catch { /* old browsers */ }
 
 /* =====================================================
@@ -322,7 +339,7 @@ function compute() {
     tasks = [...state.trash].sort((a, b) => b.deletedAt - a.deletedAt);
     mode = 'trash'; title = VIEW_META.trash.title;
   } else if (q) {
-    tasks = sorted.filter((t) => [t.title, t.notes, t.heading].some((x) => x.toLowerCase().includes(q)));
+    tasks = sorted.filter((t) => [t.title, t.notes, t.heading, (t.tags || []).join(' ')].some((x) => x.toLowerCase().includes(q)));
     mode = 'search'; title = 'Search results';
   } else if (state.view === 'done') {
     tasks = sorted.filter((t) => t.completed).sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''));
@@ -341,6 +358,7 @@ function compute() {
     mode = 'headings'; title = VIEW_META.all.title;
   }
 
+  if (state.tag && mode !== 'trash') tasks = tasks.filter((t) => t.tags.includes(state.tag));
   const groups = [];
   const bucket = new Map();
   const add = (key, label, extra = {}) => {
@@ -373,12 +391,14 @@ function taskHTML(t, td) {
   if (t.alarm && !t.completed) {
     chips.push(`<span class="chip alarm">${icon('bell')}${esc(whenLabel(t.alarm))}${t.alarmRepeat !== 'none' ? ` ${icon('repeat')}${t.alarmRepeat}` : ''}</span>`);
   }
+  if (cloudOn() && state.pending.has(t.id)) chips.push(`<span class="chip unsynced" title="Saved on this device. Waiting to upload to your account.">${state.sync === 'offline' ? 'Offline · not uploaded' : 'Syncing…'}</span>`);
   if (t.subtasks?.length) {
     const d = t.subtasks.filter((x) => x.done).length, all = d === t.subtasks.length;
     chips.push(`<span class="chip subs${all ? ' all' : ''}" title="Checklist progress">${icon('listcheck')}${d}/${t.subtasks.length}</span>`);
   }
   const nPh = photoIdsOf(t).length;
   if (nPh) chips.push(`<span class="chip photos" title="Photos">${icon('image')}${nPh}</span>`);
+  (t.tags || []).forEach((g) => chips.push(`<button type="button" class="chip tag${state.tag === g ? ' on' : ''}" data-tag="${esc(g)}" title="Filter by #${esc(g)}">#${esc(g)}</button>`));
   if (t.completed) chips.push(`<span class="chip finished" title="Completed">\u2714 Completed</span>`);
   if (isHabit(t) && !t.completed) {
     const n = streakOf(t.doneDates, t.alarmRepeat).cur;
@@ -430,6 +450,9 @@ function renderRail(td, pct, done, total) {
       <div class="rail-prog-text"><strong>${done} of ${total} tasks completed</strong>
         <small>${overdue ? `<i class="dot-red"></i>${overdue} overdue · ` : ''}${dueToday > 0 ? dueToday : 0} due today</small></div>
     </section>
+    ${(() => { const g = goalN(), n = weekStats(state.tasks).total; return g
+      ? `<section class="rail-card rail-goal" id="rail-goal" role="button" tabindex="0" aria-label="Weekly goal. Open weekly summary"><h3>Weekly goal <small>${Math.min(n, g)} / ${g}</small></h3><div class="goal-bar"><i style="width:${Math.min(100, Math.round((n / g) * 100))}%"></i></div></section>`
+      : `<section class="rail-card rail-goal" id="rail-goal" role="button" tabindex="0"><h3>Weekly goal <small>not set</small></h3><p class="rail-empty">Set a target for the week. Open the summary to choose one.</p></section>`; })()}
     <section class="rail-card"><h3>Up next</h3>
       ${up.length ? `<ul class="up-list">${up.map((t) => `<li><button type="button" class="up-item" data-open="${esc(t.id)}"><span class="up-title">${esc(t.title)}</span><span class="up-when">${esc(t.alarm ? whenLabel(t.alarm) : dateLabel(t.date))}</span></button></li>`).join('')}</ul>` : '<p class="rail-empty">Nothing scheduled. Add a due date or reminder to see it here.</p>'}
     </section>
@@ -479,6 +502,14 @@ function render() {
   $('#pct').textContent = pct + '%';
   $('#ring').style.setProperty('--p', pct);
 
+  const tagCount = new Map();
+  state.tasks.filter((t) => !t.completed).forEach((t) => (t.tags || []).forEach((g) => tagCount.set(g, (tagCount.get(g) || 0) + 1)));
+  if (state.tag && !tagCount.has(state.tag)) state.tag = '';
+  renderSyncBar();
+  const tb = $('#tag-bar');
+  tb.hidden = !tagCount.size || isCal || mode === 'trash';
+  tb.innerHTML = tb.hidden ? '' : [...tagCount].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([g, n]) => `<button type="button" class="tag-pill${state.tag === g ? ' on' : ''}" data-tag="${esc(g)}" aria-pressed="${state.tag === g}">#${esc(g)}<em>${n}</em></button>`).join('')
+    + (state.tag ? '<button type="button" class="tag-clear" data-tag="">Clear filter</button>' : '');
   const gt = $('#group-toggle');
   gt.hidden = !(state.view === 'all' && !state.search);
   $$('button', gt).forEach((b) => b.setAttribute('aria-checked', String(b.dataset.group === state.groupBy)));
@@ -537,6 +568,7 @@ function render() {
 
 /* ---------- list interactions (event delegation) ---------- */
 function onListClick(e) {
+  const tg = e.target.closest('.chip.tag'); if (tg) { state.tag = state.tag === tg.dataset.tag ? '' : tg.dataset.tag; render(); return; }
   const trow = e.target.closest('.trash-row');
   if (trow) {
     const id = trow.dataset.id;
@@ -681,13 +713,14 @@ const qaPreview = $('#q-preview');
 const CHIP_ICON = { date: 'calendar', alarm: 'bell', repeat: 'repeat', priority: 'alert' };
 function renderQuickPreview() {
   const text = $('#q-title').value.trim();
-  const p = text && !qaRaw ? parseQuick(text) : null;
+  const xt = text && !qaRaw ? extractTags(text) : { rest: text, tags: [] };
+  const p = text && !qaRaw ? parseQuick(xt.rest) : null;
   if (qaRaw && text) {
     qaPreview.hidden = false;
     qaPreview.innerHTML = `<span class="qa-note">Keeping as typed</span><button type="button" class="qa-keep" data-qa="smart">Use smart parsing</button>`;
-  } else if (p && p.changed) {
+  } else if (p && (p.changed || xt.tags.length)) {
     qaPreview.hidden = false;
-    qaPreview.innerHTML = p.chips.map((c) => `<span class="qa-chip qa-${c.k}">${CHIP_ICON[c.k] ? icon(CHIP_ICON[c.k]) : ''}${esc(c.text)}</span>`).join('')
+    qaPreview.innerHTML = xt.tags.map((g) => `<span class="qa-chip qa-tag">#${esc(g)}</span>`).join('') + (p.chips || []).map((c) => `<span class="qa-chip qa-${c.k}">${CHIP_ICON[c.k] ? icon(CHIP_ICON[c.k]) : ''}${esc(c.text)}</span>`).join('')
       + `<button type="button" class="qa-keep" data-qa="raw" title="Add the text exactly as typed">Keep as typed</button>`;
   } else { qaPreview.hidden = true; qaPreview.innerHTML = ''; }
 }
@@ -698,10 +731,17 @@ qaPreview.addEventListener('click', (e) => {
 const QA_DRAFT = 'tp-qa-draft';
 $('#q-title').addEventListener('input', () => { if (!$('#q-title').value.trim()) qaRaw = false; renderQuickPreview(); lsSet(QA_DRAFT, $('#q-title').value); }); // saved on every keystroke
 { const d = lsGet(QA_DRAFT, ''); if (d) { $('#q-title').value = d; renderQuickPreview(); } }
-const quickFields = (text) => {
+const extractTags = (text) => {
+  const tags = [];
+  const rest = text.replace(/(^|\s)@([\p{L}\p{N}_-]{1,24})(?=\s|$)/gu, (m, sp, g) => { tags.push(g); return sp; }).replace(/\s{2,}/g, ' ').trim();
+  return { rest: rest || text, tags: cleanTags(tags) };
+};
+const quickFields = (text0) => {
+  const x = qaRaw ? { rest: text0, tags: [] } : extractTags(text0), text = x.rest;
   const p = qaRaw ? null : parseQuick(text);
-  if (!p || !p.changed) return { title: text, date: state.view === 'today' ? todayStr() : '' };
+  if (!p || !p.changed) return { title: text, date: state.view === 'today' ? todayStr() : '', ...(x.tags.length ? { tags: x.tags } : {}) };
   const f = { title: p.title, date: p.date || (state.view === 'today' ? todayStr() : '') };
+  if (x.tags.length) f.tags = x.tags;
   if (p.alarm) { f.alarm = p.alarm; f.alarmRepeat = p.repeat; f.alarmFired = false; }
   if (p.priority) f.priority = p.priority;
   if (p.heading) f.heading = p.heading;
@@ -724,7 +764,7 @@ $('#q-more').addEventListener('click', () => { const v = $('#q-title').value.tri
    ===================================================== */
 const editor = $('#editor');
 const F = {
-  title: $('#f-title'), notes: $('#f-notes'), date: $('#f-date'), heading: $('#f-heading'),
+  title: $('#f-title'), notes: $('#f-notes'), date: $('#f-date'), heading: $('#f-heading'), tags: $('#f-tags'),
   aDate: $('#f-alarm-date'), aTime: $('#f-alarm-time'), repeat: $('#f-repeat'),
 };
 let editPriority = 'medium';
@@ -764,7 +804,7 @@ function openEditor(id, preset = {}) {
   autoReset();
   $('#editor-title').textContent = t ? 'Edit task' : 'New task';
   $('#f-delete').hidden = !t;
-  F.title.value = v.title; F.notes.value = v.notes; F.date.value = v.date; F.heading.value = v.heading;
+  F.title.value = v.title; F.notes.value = v.notes; F.date.value = v.date; F.heading.value = v.heading; F.tags.value = (v.tags || []).join(', ');
   setPriority(v.priority);
   if (v.alarm) { const d = new Date(v.alarm); F.aDate.value = ymd(d); F.aTime.value = hm(d); } else { F.aDate.value = ''; F.aTime.value = ''; }
   F.repeat.value = v.alarmRepeat || 'none';
@@ -808,7 +848,7 @@ function readForm() {
   if (aTime && !aDate) aDate = todayStr();
   const alarm = aDate && aTime ? new Date(`${aDate}T${aTime}`).toISOString() : null;
   return {
-    title: F.title.value.trim(), notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
+    title: F.title.value.trim(), notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(), tags: cleanTags(F.tags.value),
     priority: editPriority, alarm, alarmRepeat: alarm ? F.repeat.value : 'none', subtasks: cleanSubs(editSubs), photos: cleanPhotos(editPhotos, MAX_PHOTOS),
   };
 }
@@ -891,7 +931,7 @@ $('#editor-form').addEventListener('submit', (e) => {
   const alarm = aDate && aTime ? new Date(`${aDate}T${aTime}`).toISOString() : null;
   const repeat = alarm ? F.repeat.value : 'none';
   const base = {
-    title, notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(),
+    title, notes: F.notes.value.trim(), date: F.date.value, heading: F.heading.value.trim(), tags: cleanTags(F.tags.value),
     priority: editPriority, alarm, alarmRepeat: repeat, subtasks: cleanSubs(editSubs), photos: cleanPhotos(editPhotos, MAX_PHOTOS),
   };
 
@@ -1489,6 +1529,18 @@ function setSync(s, detail = '') {
   $$('[data-sync-text]').forEach((el) => { el.textContent = SYNC_TEXT[s]; });
   $$('[data-sync-dot]').forEach((el) => { el.dataset.s = s; });
   if ($('#account').open) renderAccount();
+  renderSyncBar();
+}
+function renderSyncBar() {
+  const bar = $('#sync-bar'); if (!bar) return;
+  const n = cloudOn() ? state.tasks.filter((t) => state.pending.has(t.id)).length : 0;
+  const s = state.sync, plural = n === 1 ? 'change' : 'changes';
+  let msg = '', kind = '';
+  if (!cloudOn()) msg = '';
+  else if (s === 'offline') { kind = 'off'; msg = n ? `You’re offline. ${n} ${plural} saved on this device and will upload when you’re back online.` : 'You’re offline. Everything you add is saved here and will sync later.'; }
+  else if (s === 'error') { kind = 'err'; msg = 'Sync problem: ' + (state.syncDetail || 'could not reach your account') + '. Your tasks are safe on this device.'; }
+  else if (n && s !== 'synced') { kind = 'syn'; msg = `Syncing ${n} ${plural}…`; }
+  bar.hidden = !msg; bar.dataset.k = kind; bar.textContent = msg;
 }
 function onCloudError(err) {
   console.error('Sync error', err);
@@ -1626,6 +1678,46 @@ $('#btn-export').addEventListener('click', async () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `todo-pro-backup-${todayStr()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
+$('#btn-csv').addEventListener('click', () => {
+  track('export-csv');
+  const cell = (v) => { let x = String(v ?? ''); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return '"' + x.replace(/"/g, '""') + '"'; };
+  const head = ['Title', 'Status', 'Section', 'Tags', 'Priority', 'Due date', 'Reminder', 'Repeat', 'Completed at', 'Checklist', 'Notes'];
+  const rows = [...state.tasks].sort(byOrder).map((t) => [
+    t.title, t.completed ? 'Done' : 'Pending', t.heading, (t.tags || []).join(' '), t.priority, t.date,
+    t.alarm ? new Date(t.alarm).toLocaleString('en-GB') : '', t.alarmRepeat === 'none' ? '' : t.alarmRepeat,
+    t.completedAt ? new Date(t.completedAt).toLocaleString('en-GB') : '',
+    (t.subtasks || []).map((x) => (x.done ? '[x] ' : '[ ] ') + x.text).join('\n'), t.notes,
+  ]);
+  const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = `todo-pro-tasks-${todayStr()}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  toast(`Exported ${rows.length} task${rows.length === 1 ? '' : 's'}`);
+});
+/* printable list: Ctrl+P and the Account button both print a clean task list (choose "Save as PDF") */
+function buildPrintSheet() {
+  const td = todayStr();
+  const list = state.tasks.filter((t) => !t.completed && (!state.tag || t.tags.includes(state.tag))).sort(byOrder);
+  const isTd = (t) => (t.date && t.date <= td) || (t.alarm && ymd(new Date(t.alarm)) === td);
+  const kind = (t) => (t.date && t.date < td && !isHabit(t) ? 0 : isTd(t) ? 1 : t.date ? 2 : 3);
+  const names = ['Overdue', 'Today', 'Later', 'No date'];
+  const by = [[], [], [], []]; list.forEach((t) => by[kind(t)].push(t));
+  by[2].sort((a, b) => a.date.localeCompare(b.date));
+  const row = (t) => {
+    const meta = [t.date ? dateLabel(t.date) : '', t.alarm ? whenLabel(t.alarm) : '', t.priority === 'high' ? 'High priority' : t.priority === 'low' ? 'Low priority' : '', t.heading, (t.tags || []).map((g) => '#' + g).join(' ')].filter(Boolean).join('  ·  ');
+    const subs = (t.subtasks || []).map((x) => `<li class="${x.done ? 'd' : ''}"><span class="bx">${x.done ? '\u2713' : ''}</span>${esc(x.text)}</li>`).join('');
+    const notes = t.notes ? `<p class="pn">${esc(t.notes.length > 400 ? t.notes.slice(0, 400) + '…' : t.notes)}</p>` : '';
+    return `<li class="pt"><span class="bx"></span><div><b>${esc(t.title)}</b>${meta ? `<small>${esc(meta)}</small>` : ''}${subs ? `<ul class="ps">${subs}</ul>` : ''}${notes}</div></li>`;
+  };
+  $('#print-sheet').innerHTML = `<h1>To-Do Pro</h1><p class="pm">${list.length} open task${list.length === 1 ? '' : 's'}${state.tag ? ' tagged #' + esc(state.tag) : ''} · printed ${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>`
+    + (list.length ? by.map((g, i) => g.length ? `<h2>${names[i]} <span>${g.length}</span></h2><ul class="pl">${g.map(row).join('')}</ul>` : '').join('') : '<p>No open tasks. Nice work!</p>');
+}
+window.addEventListener('beforeprint', buildPrintSheet);
+window.addEventListener('afterprint', () => { $('#print-sheet').innerHTML = ''; });
+$('#btn-print').addEventListener('click', () => {
+  track('export-print'); $('#account').close();
+  toast('In the print window, choose “Save as PDF”');
+  setTimeout(() => window.print(), 700);
+});
 $('#btn-import').addEventListener('click', () => $('#import-file').click());
 $('#import-file').addEventListener('change', async (e) => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
@@ -1755,13 +1847,21 @@ async function handleAuth(user) {
       const changed = pre !== preMin() || echo !== echoOn();
       lsSet(LS.preMin, String(pre)); lsSet(LS.echo, echo ? '1' : '0');
       preSel.value = String(pre); echoChk.checked = echo;
+      // look & goal follow the account on every device
+      if (ACCENTS.includes(p.accent) && p.accent !== prefAccent()) lsSet(LS.accent, p.accent);
+      if (['dark', 'light', 'auto'].includes(p.theme) && p.theme !== prefTheme()) lsSet(LS.theme, p.theme);
+      if (Number.isFinite(p.goal) && p.goal >= 0 && p.goal !== goalN()) lsSet(LS.goal, String(Math.min(500, Math.floor(p.goal))));
+      if (p.accent === undefined && !mirrorBoot.prefs) shareLook(); // first device to open shares its look
+      if (p.goal === undefined && goalN() && !mirrorBoot.prefs) cloud.savePrefs(user.uid, { goal: goalN() }).catch(() => {});
+      applyAppearance(); render();
       if (changed && mirrorBoot.done) remirrorAll();
     } else if (!mirrorBoot.prefs) {
-      cloud.savePrefs(user.uid, { pre: preMin(), echo: echoOn() }).catch(() => {}); // nothing shared yet: share this device's choice
+      cloud.savePrefs(user.uid, { pre: preMin(), echo: echoOn(), accent: prefAccent(), theme: prefTheme(), goal: goalN() }).catch(() => {}); // nothing shared yet: share this device's choice
     }
     mirrorBoot.prefs = true; bootMirror();
   });
   unsubscribe = cloud.subscribe(user.uid, (docs, meta) => {
+    state.pending = new Set(docs.filter((d) => d.__pending).map((d) => String(d.id)));
     setAll(docs.map((d, i) => normalize(d, i)));
     persist(); purgeExpired();
     if (!meta.fromCache) { mirrorBoot.tasks = true; bootMirror(); }
@@ -1812,6 +1912,11 @@ function renderSummary() {
     </div>
     <div class="sum-bars" role="img" aria-label="Tasks completed per day">${s.bars.map((b) => `
       <div class="sum-bar${b.today ? ' today' : ''}"><span class="n">${b.count || ''}</span><i style="height:${b.count ? Math.max(8, Math.round((b.count / max) * 100)) : 3}%"></i><em>${b.label}</em></div>`).join('')}</div>
+    <div class="sum-goal">
+      <label for="goal-input">Weekly goal <small>tasks to finish in 7 days</small></label>
+      <div class="goal-row"><input id="goal-input" type="number" inputmode="numeric" min="0" max="500" step="1" placeholder="e.g. 20" value="${goalN() || ''}" /><button type="button" class="btn btn-ghost sm" id="goal-save">Set</button></div>
+      ${goalN() ? `<div class="goal-bar" role="progressbar" aria-valuemin="0" aria-valuemax="${goalN()}" aria-valuenow="${Math.min(s.total, goalN())}"><i style="width:${Math.min(100, Math.round((s.total / goalN()) * 100))}%"></i></div><p class="goal-note">${s.total >= goalN() ? `Goal reached! ${s.total} of ${goalN()} done \u{1F389}` : `${s.total} of ${goalN()} done · ${goalN() - s.total} to go`}</p>` : '<p class="goal-note">Set a number to see your progress here and on the dashboard.</p>'}
+    </div>
     <div class="sum-grid">
       ${stat('Created', s.created)}
       ${stat('Overdue now', s.overdue)}
@@ -1821,13 +1926,22 @@ function renderSummary() {
     ${s.total === 0 ? '<p class="muted sum-note">Complete a few tasks and your week will show up here.</p>' : ''}
     ${habits}`;
 }
+function saveGoal() {
+  const n = Math.max(0, Math.min(500, Math.floor(Number($('#goal-input').value) || 0)));
+  lsSet(LS.goal, String(n));
+  if (cloudOn()) cloud.savePrefs(state.user.uid, { goal: n }).catch(() => {});
+  renderSummary(); render(); toast(n ? `Weekly goal: ${n} tasks` : 'Weekly goal off');
+}
+$('#sum-body').addEventListener('click', (e) => { if (e.target.closest('#goal-save')) saveGoal(); });
+$('#sum-body').addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'goal-input') { e.preventDefault(); saveGoal(); } });
 function openSummary() { renderSummary(); if (!sumDialog.open) sumDialog.showModal(); }
 ['#btn-summary-side', '#progress-card'].forEach((sel) => { const el = $(sel); if (el) el.addEventListener('click', openSummary); });
 $('#rail').addEventListener('click', (e) => {
   const o = e.target.closest('[data-open]'); if (o) { openEditor(o.dataset.open); return; }
-  if (e.target.closest('#rail-progress')) openSummary();
+  if (e.target.closest('#rail-progress, #rail-goal')) openSummary();
 });
-$('#rail').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.id === 'rail-progress') { e.preventDefault(); openSummary(); } });
+$('#rail').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && (e.target.id === 'rail-progress' || e.target.id === 'rail-goal')) { e.preventDefault(); openSummary(); } });
+$('#tag-bar').addEventListener('click', (e) => { const b = e.target.closest('[data-tag]'); if (!b) return; state.tag = b.dataset.tag === state.tag ? '' : b.dataset.tag; render(); });
 $$('#group-toggle button').forEach((b) => b.addEventListener('click', () => { state.groupBy = b.dataset.group; lsSet(LS.groupBy, state.groupBy); render(); }));
 $$('.sidebar .nav-item').forEach((b) => { const sp = $('span', b); if (sp) b.title = sp.textContent; });
 $('#progress-card').addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openSummary(); } });
@@ -1933,14 +2047,14 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-10-25", "Photos on tasks and checklist steps", "Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups."],
   ["2026-10-25", "Photo sync, laptop camera and viewer fixes", "Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred."],
   ["2026-11-04", "Focus Dashboard redesign", "A slim icon sidebar, tasks grouped into Overdue, Today, Later and No date, and a right panel with a big progress ring, Up next and a 10-day completion chart. Teal accent and a deeper navy dark theme. Switch to By section any time to use your own sections."],
+  ["2026-11-08", "Tags, spreadsheet export, weekly goal and synced look", "Add tags to any task (type @work in quick add) and filter by them. Export your tasks as a CSV for Excel or Google Sheets. Set a weekly goal and track it in the weekly summary and on the dashboard. Your accent colour, theme and goal now follow your account on every device."],
+  ["2026-11-08", "Printable PDF list and sync status", "Print or save your open tasks as a clean PDF (Account, Backup, or Ctrl+P). A banner tells you when you are offline or syncing, and each task shows if it has not been uploaded yet."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
   ["Ready", "Visitor statistics", "Privacy-friendly counts of visitors and popular features. Built, turns on when the site code is added."],
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
-  ["Planned", "Tags and filters", "Filter tasks by priority, tag or section, for example only High priority or only Work."],
   ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
-  ["Planned", "Export to CSV and PDF", "Download tasks as a spreadsheet or a printable file."],
   ["Planned", "First-time tour", "A short walkthrough for new users."],
   ["Planned", "Home screen shortcuts", "Jump straight to Today or a new task from the app icon."],
   ["Idea", "Crash reports dashboard", "See errors from all devices in one place."],
@@ -1967,7 +2081,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-04-focus-dashboard', label: 'Latest update: 4 November 2026' };
+const APP_UPDATE = { id: '2026-11-08-print-sync', label: 'Latest update: 8 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();

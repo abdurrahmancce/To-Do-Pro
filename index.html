@@ -145,6 +145,7 @@
       </div>
     </header>
 
+    <div class="sync-bar" id="sync-bar" role="status" aria-live="polite" hidden></div>
     <div class="body">
     <div class="content">
       <div class="page-head">
@@ -175,6 +176,7 @@
       </form>
       <div class="qa-preview" id="q-preview" hidden aria-live="polite"></div>
 
+      <div class="tag-bar" id="tag-bar" aria-label="Filter by tag" hidden></div>
       <main id="list" class="list" aria-live="polite"></main>
       <section id="calendar" class="calendar" aria-label="Calendar" hidden></section>
 
@@ -228,6 +230,11 @@
           <input id="subs-new" type="text" maxlength="200" spellcheck="false" autocorrect="off" placeholder="Add a step and press Enter" />
           <button type="button" class="btn btn-ghost sm" id="subs-add">Add</button>
         </div>
+      </div>
+
+      <div class="field">
+        <label for="f-tags"><svg class="i"><use href="#i-text"/></svg> Tags <span class="muted ph-hint">Separate with commas, e.g. work, study</span></label>
+        <input id="f-tags" spellcheck="false" autocorrect="off" type="text" maxlength="300" placeholder="work, study, home" autocomplete="off" />
       </div>
 
       <div class="grid2">
@@ -369,9 +376,11 @@
 
     <div class="acc-section">
       <h3>Backup</h3>
-      <p class="muted">Download all your tasks as a file, or restore from one.</p>
+      <p class="muted">Download a full backup (JSON, includes photos) to restore later, or a CSV for Excel and Google Sheets.</p>
       <div class="row">
-        <button type="button" class="btn btn-ghost" id="btn-export"><svg class="i"><use href="#i-download"/></svg> Export</button>
+        <button type="button" class="btn btn-ghost" id="btn-export"><svg class="i"><use href="#i-download"/></svg> Backup (JSON)</button>
+        <button type="button" class="btn btn-ghost" id="btn-csv"><svg class="i"><use href="#i-download"/></svg> Spreadsheet (CSV)</button>
+        <button type="button" class="btn btn-ghost" id="btn-print"><svg class="i"><use href="#i-download"/></svg> Printable list (PDF)</button>
         <button type="button" class="btn btn-ghost" id="btn-import"><svg class="i"><use href="#i-upload"/></svg> Import</button>
         <input type="file" id="import-file" accept="application/json,.json" hidden />
       </div>
@@ -514,5 +523,6 @@
 <div class="toasts" id="toasts" aria-live="polite"></div>
 
 <script type="module" src="script.js"></script>
+<div id="print-sheet" aria-hidden="true"></div>
 </body>
 </html>

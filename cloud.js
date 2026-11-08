@@ -73,7 +73,7 @@ export function subscribe(uid, onData, onError) {
     { includeMetadataChanges: true },
     (snap) =>
       onData(
-        snap.docs.map((d) => d.data()),
+        snap.docs.map((d) => ({ ...d.data(), __pending: d.metadata.hasPendingWrites })), // __pending: saved here, not yet confirmed by the server
         { fromCache: snap.metadata.fromCache, hasPendingWrites: snap.metadata.hasPendingWrites }
       ),
     onError

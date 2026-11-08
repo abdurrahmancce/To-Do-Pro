@@ -165,7 +165,9 @@ Every update since the project started, oldest first, with the date it was imple
 | 27 | **25 Oct 2026** | **New app logo** | A new To Do logo on the home-screen icon, the browser tab, the login page and the app header. |
 | 28 | **25 Oct 2026** | **Photos on tasks and checklist steps** | Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups. |
 | 29 | 25 Oct 2026 | Photo sync, laptop camera and viewer fixes | Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred. |
-| 30 | **4 Nov 2026** | **Focus Dashboard redesign** | Slim icon sidebar, tasks grouped into Overdue / Today / Later / No date, right panel with progress ring, Up next and a 10-day chart, teal accent and navy dark theme. |
+| 30 | 4 Nov 2026 | Focus Dashboard redesign | Slim icon sidebar, tasks grouped into Overdue / Today / Later / No date, right panel with progress ring, Up next and a 10-day chart, teal accent and navy dark theme. |
+| 31 | 8 Nov 2026 | Tags, CSV export, weekly goal, synced look | Tags on tasks (type @work in quick add) with a filter bar, CSV export for spreadsheets, a weekly goal shown in the summary and on the dashboard, and accent, theme and goal that follow your account across devices. |
+| 32 | **8 Nov 2026** | **Printable PDF list and sync status** | Print or save open tasks as a clean PDF (Account, Backup, or Ctrl+P), an offline/syncing banner, and a per-task badge for changes not yet uploaded. |
 
 ## 🔮 Future updates
 
