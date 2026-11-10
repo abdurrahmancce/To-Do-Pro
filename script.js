@@ -485,12 +485,15 @@ function render() {
   });
 
   // header
-  $('#view-title').textContent = isCal ? 'Calendar' : title;
+  const hr = new Date().getHours(), first = String(state.user?.name || '').trim().split(/\s+/)[0];
+  const greet = (hr < 5 ? 'Working late' : hr < 12 ? 'Good morning' : hr < 17 ? 'Good afternoon' : 'Good evening') + (first ? ', ' + first : '');
+  $('#view-title').textContent = isCal ? 'Calendar' : (state.view === 'all' && !state.search) ? greet : title;
   const subDate = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   $('#view-sub').textContent = state.search
     ? `${tasks.length} result${tasks.length === 1 ? '' : 's'} for “${state.search.trim()}”`
     : isCal ? calSub()
     : state.view === 'trash' ? `${tasks.length} deleted task${tasks.length === 1 ? '' : 's'}`
+    : state.view === 'all' ? (() => { const td0 = todayStr(); const od = state.tasks.filter((t) => !t.completed && t.date && t.date < td0 && !isHabit(t)).length; const open = state.tasks.filter((t) => !t.completed).length; return `${subDate} · ${open} open${od ? ` · ${od} overdue` : ''}`; })()
     : `${subDate} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
 
   // stats
@@ -2049,6 +2052,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-04", "Focus Dashboard redesign", "A slim icon sidebar, tasks grouped into Overdue, Today, Later and No date, and a right panel with a big progress ring, Up next and a 10-day completion chart. Teal accent and a deeper navy dark theme. Switch to By section any time to use your own sections."],
   ["2026-11-08", "Tags, spreadsheet export, weekly goal and synced look", "Add tags to any task (type @work in quick add) and filter by them. Export your tasks as a CSV for Excel or Google Sheets. Set a weekly goal and track it in the weekly summary and on the dashboard. Your accent colour, theme and goal now follow your account on every device."],
   ["2026-11-08", "Printable PDF list and sync status", "Print or save your open tasks as a clean PDF (Account, Backup, or Ctrl+P). A banner tells you when you are offline or syncing, and each task shows if it has not been uploaded yet."],
+  ["2026-11-10", "Midnight Calm polish", "A greeting header with your name, a cleaner task card with clearer overdue accents, softer chips and photo thumbnails, and a refined right panel. The layout adapts smoothly from desktop to tablet and phone."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
@@ -2081,7 +2085,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-08-print-sync', label: 'Latest update: 8 November 2026' };
+const APP_UPDATE = { id: '2026-11-10-midnight-calm', label: 'Latest update: 10 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
