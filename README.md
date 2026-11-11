@@ -85,9 +85,10 @@
 | Spellcheck off in text fields (no red lines under Bangla typing) | 🟢 **Live** |
 | Contact developer (Account dialog and user guide) | 🟢 **Live** |
 | What's new announcement (popup once per update, reopen from Account) | 🟢 **Live** |
-| Security hardening: `worker/index.js`, `firestore.rules`, sign-out cache clearing in `cloud.js`, 8-character password minimum in `auth.js`, updated `SETUP.md` and `PUSH-SETUP.md` | 🟡 **Prepared and tested, not yet deployed** |
-| Checklist, Report a bug, error notice, faster updates (network-first service worker), tests folder | 🟡 **Ready, deploy with the next push** |
-| Usage analytics (GoatCounter) | 🟡 **Built, off until you add a site code** in `analytics.js` |
+| Security hardening: `worker/index.js`, `firestore.rules`, sign-out cache clearing in `cloud.js`, 8-character password minimum in `auth.js`, updated `SETUP.md` and `PUSH-SETUP.md` | 🟢 **Live** |
+| Checklist, Report a bug, error notice, faster updates (network-first service worker), tests folder | 🟢 **Live** |
+| Usage analytics (GoatCounter, privacy-friendly, Do Not Track respected) | 🟢 **Live** |
+| First-time tour (auto-runs once for new users, replay from Account → Show tour) | 🟢 **Live** |
 | Shared lists | ⚪ Design stage |
 
 > 💡 Until the pending hardening update is deployed, the live app still accepts 6-character passwords, and the previous Firestore rules and worker stay in use. Sections below describe the full repository state and mark items that depend on the pending update.
@@ -169,6 +170,7 @@ Every update since the project started, oldest first, with the date it was imple
 | 31 | 8 Nov 2026 | Tags, CSV export, weekly goal, synced look | Tags on tasks (type @work in quick add) with a filter bar, CSV export for spreadsheets, a weekly goal shown in the summary and on the dashboard, and accent, theme and goal that follow your account across devices. |
 | 32 | 8 Nov 2026 | Printable PDF list and sync status | Print or save open tasks as a clean PDF (Account, Backup, or Ctrl+P), an offline/syncing banner, and a per-task badge for changes not yet uploaded. |
 | 33 | **10 Nov 2026** | **Midnight Calm polish** | Greeting header, refined task cards and chips, overdue accents, tidier right panel, and a layout that adapts from desktop to tablet and phone. |
+| 34 | **11 Nov 2026** | **First-time tour and visitor statistics** | A short guided tour for new users (7 steps on a phone, 8 on a computer) with Back, Next and Skip, replayable from Account → Show tour. Privacy-friendly visitor statistics are switched on: no cookies, no personal data. |
 
 ## 🔮 Future updates
 
@@ -176,15 +178,10 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 
 | # | Status | Update | What it brings |
 |---|---|---|---|
-| 1 | 🟢 Ready | **Security hardening pack** | Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on. |
-| 2 | 🟢 Ready | **Visitor statistics** | Privacy-friendly counts of visitors and popular features. Built, turns on when the site code is added. |
-| 3 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 4 | 🔵 Planned | **Tags and filters** | Filter tasks by priority, tag or section, for example only High priority or only Work. |
-| 5 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 6 | 🔵 Planned | **Export to CSV and PDF** | Download tasks as a spreadsheet or a printable file. |
-| 7 | 🔵 Planned | **First-time tour** | A short walkthrough for new users. |
-| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
-| 9 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
+| 1 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
+| 2 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 3 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 4 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>

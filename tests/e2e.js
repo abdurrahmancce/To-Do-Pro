@@ -24,7 +24,7 @@ async function newPage(b, { vp = { width: 1280, height: 800 }, cloud = false, se
   } else {
     await p.route('**/firebase-config.js', (r) => r.fulfill({ contentType: 'text/javascript', body: 'window.FIREBASE_CONFIG={};' }));
   }
-  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); } catch (e) {} });
+  await p.addInitScript(() => { try { localStorage.setItem('tp-seen-update', '2026-10-24-photos'); if (!sessionStorage.getItem('__tour')) localStorage.setItem('tp-tour-done', '1'); } catch (e) {} }); // tour is tested separately
   await p.addInitScript(() => { try { if (!localStorage.getItem('tp-groupby')) localStorage.setItem('tp-groupby', 'section'); } catch {} }); // legacy tests assume section grouping
   if (seed) await p.addInitScript(([k, v]) => { if (!localStorage.getItem('__seeded')) { localStorage.setItem('__seeded', '1'); localStorage.setItem(k, v); } }, [seed.key, JSON.stringify(seed.value)]);
   await p.goto(BASE + '/'); await p.waitForTimeout(500);
@@ -422,6 +422,32 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
       return (r.w > 0 && /wa\.me/.test(r.wa) && r.wa.includes(encodeURIComponent('abdurrahmancce.github.io'))) || JSON.stringify(r);
     });
     await ib.context().close();
+  }
+
+
+  // ---------- first-time tour ----------
+  {
+    const tp = await newPage(b);
+    await tp.evaluate(() => { sessionStorage.setItem('__tour', '1'); localStorage.removeItem('tp-tour-done'); });
+    await T('tour: Account -> Show tour opens the walkthrough', async () => {
+      await tp.click('.account-card'); await tp.click('#btn-tour'); await tp.waitForSelector('#tour');
+      return (await tp.textContent('.tour-title')) === 'Welcome to To-Do Pro' || 'wrong first step';
+    });
+    await T('tour: app shortcuts are blocked while it is open', async () => {
+      await tp.keyboard.press('n'); await tp.waitForTimeout(150);
+      return !(await tp.evaluate(() => !!document.querySelector('#editor[open]'))) || 'editor opened';
+    });
+    await T('tour: Next walks every step, then saves the done flag', async () => {
+      let n = 0; while (await tp.$('#tour') && n < 12) { await tp.click('[data-tour=next]'); await tp.waitForTimeout(120); n++; }
+      return (n === 8 && (await tp.evaluate(() => localStorage.getItem('tp-tour-done'))) === '1') || `steps=${n}`;
+    });
+    await T('tour: Esc skips and still saves the flag', async () => {
+      await tp.evaluate(() => localStorage.removeItem('tp-tour-done'));
+      await tp.click('.account-card'); await tp.click('#btn-tour'); await tp.waitForSelector('#tour');
+      await tp.keyboard.press('Escape'); await tp.waitForTimeout(150);
+      return (!(await tp.$('#tour')) && (await tp.evaluate(() => localStorage.getItem('tp-tour-done'))) === '1') || 'not skipped';
+    });
+    await tp.context().close();
   }
 
   // ---------- static checks ----------

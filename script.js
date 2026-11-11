@@ -21,6 +21,7 @@ const LS = {
   groupBy: 'tp-groupby',         // All view: 'date' (Overdue / Today / Later / No date) or 'section'
   calMode: 'tp-cal-mode',
   preMin: 'tp-pre-min',          // pre-reminder: minutes before the alarm (0 = off)
+  tourDone: 'tp-tour-done',      // set once the first-time tour was finished or skipped
   seenUpdate: 'tp-seen-update',  // which What's new announcement this device has already seen
   echo: 'tp-echo',               // backup push 90 s later if you have not reacted ('0' = off)
 };
@@ -2053,13 +2054,11 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-08", "Tags, spreadsheet export, weekly goal and synced look", "Add tags to any task (type @work in quick add) and filter by them. Export your tasks as a CSV for Excel or Google Sheets. Set a weekly goal and track it in the weekly summary and on the dashboard. Your accent colour, theme and goal now follow your account on every device."],
   ["2026-11-08", "Printable PDF list and sync status", "Print or save your open tasks as a clean PDF (Account, Backup, or Ctrl+P). A banner tells you when you are offline or syncing, and each task shows if it has not been uploaded yet."],
   ["2026-11-10", "Midnight Calm polish", "A greeting header with your name, a cleaner task card with clearer overdue accents, softer chips and photo thumbnails, and a refined right panel. The layout adapts smoothly from desktop to tablet and phone."],
+  ["2026-11-11", "First-time tour and visitor statistics", "New users get a short guided tour of the essentials, and anyone can replay it from Account, Show tour. Privacy-friendly visitor statistics are now switched on: no cookies, no personal data, and Do Not Track is respected."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
-  ["Ready", "Security hardening pack", "Stronger reminder-server checks, tighter database rules, clean sign out on every layer and 8-character passwords. Built and tested, waiting to be switched on."],
-  ["Ready", "Visitor statistics", "Privacy-friendly counts of visitors and popular features. Built, turns on when the site code is added."],
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
   ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
-  ["Planned", "First-time tour", "A short walkthrough for new users."],
   ["Planned", "Home screen shortcuts", "Jump straight to Today or a new task from the app icon."],
   ["Idea", "Crash reports dashboard", "See errors from all devices in one place."],
 ];
@@ -2085,7 +2084,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-10-midnight-calm', label: 'Latest update: 10 November 2026' };
+const APP_UPDATE = { id: '2026-11-11-first-tour', label: 'Latest update: 11 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2112,5 +2111,128 @@ function maybeShowWhatsNew() {
   }, 2500);
 }
 
+/* ---------- First-time tour (auto-runs once for new users; Account → Show tour) ---------- */
+const TOUR_STEPS = [
+  { title: 'Welcome to To-Do Pro', body: 'Take a 30-second tour of the essentials. You can skip it at any time.' },
+  { sel: ['#quick-form'], title: 'Add a task in one line', body: 'Type a sentence such as “tomorrow 9am call mom @family” and press Enter. The date, time and tag are picked up for you.' },
+  { sel: ['#btn-new-side', '#fab'], title: 'Open the full editor', body: 'Add notes, a checklist, photos, tags, a due date and a reminder. On a keyboard, press N.' },
+  { sel: ['.sidebar .nav', '.tabbar'], title: 'Switch between views', body: 'See everything, only Today, what is Upcoming, or what you have Completed. Deleted tasks wait in Trash for 30 days.' },
+  { sel: ['.search'], title: 'Find anything fast', body: 'Search titles, notes and tags. On a keyboard, press / to jump here.' },
+  { sel: ['#rail'], title: 'Your focus panel', body: 'Track today’s progress, see what is up next and follow your weekly goal.' },
+  { sel: ['.account-card', '.account-mini'], title: 'Reminders, sync and backup', body: 'Turn on reminders, sign in to keep every device in sync, or export a backup. You can reopen this tour from here at any time.' },
+  { title: 'You are all set', body: 'Add your first task and the rest will follow. To see this tour again, open Account and choose Show tour.' },
+];
+const tourState = { i: 0, steps: [], root: null, auto: false, onKey: null, onResize: null, prevFocus: null };
+const tourTarget = (sels) => {
+  for (const q of sels || []) {
+    const el = document.querySelector(q);
+    if (el) { const r = el.getBoundingClientRect(); if (r.width > 4 && r.height > 4 && getComputedStyle(el).visibility !== 'hidden') return el; }
+  }
+  return null;
+};
+function tourPlace() {
+  const root = tourState.root; if (!root) return;
+  const step = tourState.steps[tourState.i], spot = root.querySelector('.tour-spot'), card = root.querySelector('.tour-card');
+  const el = step.el, vw = window.innerWidth, vh = window.innerHeight, gap = 14;
+  if (!el) { // centred step with no target
+    spot.style.cssText = 'left:50%;top:50%;width:0;height:0';
+    card.style.left = Math.max(12, (vw - card.offsetWidth) / 2) + 'px';
+    card.style.top = Math.max(12, (vh - card.offsetHeight) / 2) + 'px';
+    return;
+  }
+  const r = el.getBoundingClientRect(), pad = 6;
+  spot.style.cssText = `left:${r.left - pad}px;top:${r.top - pad}px;width:${r.width + pad * 2}px;height:${r.height + pad * 2}px`;
+  const cw = card.offsetWidth, ch = card.offsetHeight;
+  const below = vh - r.bottom, above = r.top;
+  let top = below >= ch + gap + pad || below >= above ? r.bottom + pad + gap : r.top - pad - gap - ch;
+  if (top + ch > vh - 12 || top < 12) { // target is very large: float the card over its lower part
+    top = Math.min(Math.max(12, r.bottom - ch - 16), vh - ch - 12);
+  }
+  let left = r.left + r.width / 2 - cw / 2;
+  left = Math.min(Math.max(12, left), vw - cw - 12);
+  card.style.left = left + 'px'; card.style.top = top + 'px';
+}
+function tourRender() {
+  const { root, steps, i } = tourState, step = steps[i], last = i === steps.length - 1;
+  step.el = tourTarget(step.sel);
+  if (step.el) step.el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  root.querySelector('.tour-count').textContent = `Step ${i + 1} of ${steps.length}`;
+  root.querySelector('.tour-title').textContent = step.title;
+  root.querySelector('.tour-body').textContent = step.body;
+  root.querySelector('.tour-dots').innerHTML = steps.map((_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('');
+  const back = root.querySelector('[data-tour=back]'), next = root.querySelector('[data-tour=next]'), skip = root.querySelector('[data-tour=skip]');
+  back.hidden = i === 0; skip.hidden = last;
+  next.textContent = last ? 'Start using the app' : (i === 0 ? 'Start tour' : 'Next');
+  tourPlace(); next.focus({ preventScroll: true });
+}
+function tourStep(d) {
+  const n = tourState.i + d; if (n < 0) return;
+  if (n >= tourState.steps.length) return endTour(true);
+  tourState.i = n; tourRender();
+}
+function endTour(finished) {
+  const { root } = tourState; if (!root) return;
+  lsSet(LS.tourDone, '1');
+  track(finished ? 'tour-completed' : 'tour-skipped');
+  document.removeEventListener('keydown', tourState.onKey, true);
+  window.removeEventListener('resize', tourState.onResize);
+  root.remove(); tourState.root = null;
+  try { tourState.prevFocus && tourState.prevFocus.focus({ preventScroll: true }); } catch { /* ignore */ }
+}
+function startTour({ auto = false } = {}) {
+  if (tourState.root) return;
+  tourState.steps = TOUR_STEPS.map((s) => ({ ...s })).filter((s, k, a) => !s.sel || k === 0 || tourTarget(s.sel)); // skip steps whose target is not on screen
+  tourState.i = 0; tourState.auto = auto; tourState.prevFocus = document.activeElement;
+  const root = document.createElement('div');
+  root.id = 'tour'; root.className = 'tour'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'tour-title');
+  root.innerHTML = `<div class="tour-spot" aria-hidden="true"></div>
+    <div class="tour-card">
+      <div class="tour-count" aria-live="polite"></div>
+      <h2 class="tour-title" id="tour-title"></h2>
+      <p class="tour-body"></p>
+      <div class="tour-dots" aria-hidden="true"></div>
+      <div class="tour-actions">
+        <button type="button" class="btn btn-ghost sm" data-tour="skip">Skip tour</button>
+        <span class="tour-gap"></span>
+        <button type="button" class="btn btn-ghost sm" data-tour="back">Back</button>
+        <button type="button" class="btn btn-primary sm" data-tour="next">Next</button>
+      </div>
+    </div>`;
+  root.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tour]'); if (!b) return;
+    if (b.dataset.tour === 'next') tourStep(1); else if (b.dataset.tour === 'back') tourStep(-1); else endTour(false);
+  });
+  tourState.onKey = (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); endTour(false); }
+    else if (e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); tourStep(1); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); e.stopPropagation(); tourStep(-1); }
+    else if (e.key === 'Tab') { // keep focus inside the tour card
+      const f = [...root.querySelectorAll('button:not([hidden])')]; if (!f.length) return;
+      const first = f[0], lastB = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); lastB.focus(); }
+      else if (!e.shiftKey && document.activeElement === lastB) { e.preventDefault(); first.focus(); }
+      else if (!root.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    } else { e.stopPropagation(); } // app shortcuts (N, /, Ctrl+P ...) stay off while the tour is open; buttons still activate
+  };
+  tourState.onResize = () => tourPlace();
+  document.addEventListener('keydown', tourState.onKey, true);
+  window.addEventListener('resize', tourState.onResize);
+  document.body.appendChild(root); tourState.root = root;
+  track('tour-started'); tourRender();
+}
+$('#btn-tour').addEventListener('click', () => { $('#account').close(); setTimeout(() => startTour(), 120); });
+function maybeShowTour() {
+  if (lsGet(LS.tourDone, '')) return;
+  let tries = 0;
+  const t = setInterval(() => {
+    if (++tries > 30 || lsGet(LS.tourDone, '')) { clearInterval(t); return; }
+    if (tries < 2 || document.querySelector('dialog[open], #auth-screen, #tour')) return; // wait for sign-in, sync and other dialogs
+    clearInterval(t);
+    if (state.tasks.length || state.trash.length) { lsSet(LS.tourDone, '1'); return; } // people who already use the app do not need it
+    startTour({ auto: true });
+  }, 1500);
+}
+
 boot();
 maybeShowWhatsNew();
+maybeShowTour();
