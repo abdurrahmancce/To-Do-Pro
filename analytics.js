@@ -1,7 +1,7 @@
 /* To-Do Pro: optional visitor statistics with GoatCounter (https://www.goatcounter.com).
    Privacy friendly: no cookies, no personal data, and task text is never sent.
    Set your GoatCounter site code below (the part before ".goatcounter.com"). Leave it empty to keep analytics off. */
-window.GOATCOUNTER_CODE = '';
+window.GOATCOUNTER_CODE = 'todopro'; // replace with your GoatCounter site code, or leave empty to disable analytics
 
 (function () {
   var code = window.GOATCOUNTER_CODE;
