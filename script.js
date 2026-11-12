@@ -2307,14 +2307,14 @@ function shareImage(list, detail) {
     for (const t of list) {
       const titleL = wrap(t.title, F(600, 24), TW, 3), meta = shareMeta(t);
       const subs = detail ? (t.subtasks || []).slice(0, 12) : [];
-      const noteL = detail && t.notes ? wrap(t.notes.trim(), F(400, 17), TW, 6) : [];
+      const noteL = detail && t.notes ? wrap(t.notes.trim().replace(/\n\s*\n+/g, '\n'), F(400, 17), TW, 6) : [];
       const h = 18 + titleL.length * 32 + (meta ? 28 : 0) + subs.length * 30 + (noteL.length ? 8 + noteL.length * 26 : 0) + 18;
       if (y + h > MAXH) break;
       if (draw) { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(P, y, W - P * 2, 1); }
-      y += 18; box(P, y + 5, t.completed);
+      y += 18; box(P, y + 3, t.completed);
       titleL.forEach((l) => put(l, F(600, 24), t.completed ? '#64748b' : '#0f172a', TX, 32));
       if (meta) put(meta, F(500, 15), '#0d9488', TX, 28);
-      subs.forEach((x) => { if (draw) box(TX, y + 3, x.done); const l = wrap(x.text, F(400, 17), TW - 34, 1)[0] || ''; put(l, F(400, 17), x.done ? '#94a3b8' : '#334155', TX + 34, 30); });
+      subs.forEach((x) => { if (draw) box(TX, y - 1, x.done); const l = wrap(x.text, F(400, 17), TW - 34, 1)[0] || ''; put(l, F(400, 17), x.done ? '#94a3b8' : '#334155', TX + 34, 30); });
       if (noteL.length) { y += 8; noteL.forEach((l) => put(l, F(400, 17), '#64748b', TX, 26)); }
       y += 18; shown++;
     }
