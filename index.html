@@ -63,6 +63,7 @@
     <symbol id="i-repeat" viewBox="0 0 24 24"><path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14M7 22l-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/></symbol>
     <symbol id="i-grip" viewBox="0 0 24 24"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></symbol>
     <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v14"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
     <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
     <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
@@ -478,6 +479,38 @@
   </div>
 </dialog>
 
+<!-- ============ SHARE / DOWNLOAD SELECTED TASKS ============ -->
+<dialog id="share" class="sheet sheet-sm" aria-labelledby="share-title">
+  <header class="sheet-head">
+    <h2 id="share-title">Share tasks</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </header>
+  <div class="sheet-body">
+    <p class="muted" id="share-sum"></p>
+    <div class="seg seg2" role="radiogroup" aria-label="Share options">
+      <button type="button" role="radio" data-stab="send" aria-checked="true">Send</button>
+      <button type="button" role="radio" data-stab="download" aria-checked="false">Download</button>
+    </div>
+    <label class="share-opt"><input type="checkbox" id="share-detail" checked> Include checklist and notes</label>
+    <div id="share-send">
+      <textarea id="share-text" rows="10" readonly spellcheck="false" aria-label="Message preview"></textarea>
+      <p class="muted share-note" id="share-note"></p>
+      <div class="share-grid">
+        <button type="button" class="btn btn-primary" id="share-native" hidden><svg class="i"><use href="#i-share"/></svg> Share&hellip;</button>
+        <button type="button" class="btn btn-ghost" id="share-wa">WhatsApp</button>
+        <button type="button" class="btn btn-ghost" id="share-mail">Email</button>
+        <button type="button" class="btn btn-ghost" id="share-copy">Copy text</button>
+      </div>
+    </div>
+    <div id="share-dl" class="share-dl" hidden>
+      <button type="button" class="share-card" data-dl="pdf"><strong>PDF</strong><span>A clean printable list. Choose &ldquo;Save as PDF&rdquo; in the print window.</span></button>
+      <button type="button" class="share-card" data-dl="csv"><strong>Spreadsheet (CSV)</strong><span>Opens in Excel or Google Sheets.</span></button>
+      <button type="button" class="share-card" data-dl="image"><strong>Image (PNG)</strong><span>One picture you can post in a chat or group.</span></button>
+      <button type="button" class="share-card" data-dl="json"><strong>Task file (JSON)</strong><span>Another To-Do Pro user can import it from Account, Backup.</span></button>
+    </div>
+  </div>
+</dialog>
+
 <!-- ============ WHAT'S NEW ============ -->
 <dialog id="whatsnew" class="sheet sheet-sm" aria-labelledby="wn-title">
   <header class="sheet-head">
@@ -516,6 +549,8 @@
   <strong id="bulk-count">0 selected</strong>
   <span class="spacer"></span>
   <button class="btn btn-ghost sm" id="bulk-all" type="button">All</button>
+  <button class="btn btn-primary sm" id="bulk-share" type="button" aria-label="Share selected tasks"><svg class="i"><use href="#i-share"/></svg><span>Share</span></button>
+  <button class="btn btn-ghost sm" id="bulk-dl" type="button" aria-label="Download selected tasks"><svg class="i"><use href="#i-download"/></svg><span>Download</span></button>
   <button class="btn btn-ghost sm" id="bulk-done" type="button"><svg class="i"><use href="#i-check"/></svg><span>Done</span></button>
   <button class="btn btn-ghost sm" id="bulk-tomorrow" type="button"><svg class="i"><use href="#i-snooze"/></svg><span>Tomorrow</span></button>
   <button class="btn btn-ghost sm danger" id="bulk-del" type="button"><svg class="i"><use href="#i-trash"/></svg><span>Delete</span></button>

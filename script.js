@@ -1222,7 +1222,7 @@ function updateBulk() {
   $('#btn-select span').textContent = state.selecting ? 'Cancel' : 'Select';
   const n = state.sel.size;
   $('#bulk-count').textContent = `${n} selected`;
-  $$('#bulk-done, #bulk-tomorrow, #bulk-del').forEach((b) => { b.disabled = !n; });
+  $$('#bulk-done, #bulk-tomorrow, #bulk-del, #bulk-share, #bulk-dl').forEach((b) => { b.disabled = !n; });
   $('#bulk-done span').textContent = state.view === 'done' ? 'Reopen' : 'Done';
 }
 const selTasks = () => state.tasks.filter((t) => state.sel.has(t.id));
@@ -1682,22 +1682,25 @@ $('#btn-export').addEventListener('click', async () => {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = `todo-pro-backup-${todayStr()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 });
-$('#btn-csv').addEventListener('click', () => {
-  track('export-csv');
+function downloadCsv(list, name) {
   const cell = (v) => { let x = String(v ?? ''); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return '"' + x.replace(/"/g, '""') + '"'; };
   const head = ['Title', 'Status', 'Section', 'Tags', 'Priority', 'Due date', 'Reminder', 'Repeat', 'Completed at', 'Checklist', 'Notes'];
-  const rows = [...state.tasks].sort(byOrder).map((t) => [
+  const rows = [...list].sort(byOrder).map((t) => [
     t.title, t.completed ? 'Done' : 'Pending', t.heading, (t.tags || []).join(' '), t.priority, t.date,
     t.alarm ? new Date(t.alarm).toLocaleString('en-GB') : '', t.alarmRepeat === 'none' ? '' : t.alarmRepeat,
     t.completedAt ? new Date(t.completedAt).toLocaleString('en-GB') : '',
     (t.subtasks || []).map((x) => (x.done ? '[x] ' : '[ ] ') + x.text).join('\n'), t.notes,
   ]);
   const csv = '\uFEFF' + [head, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
-  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  a.download = `todo-pro-tasks-${todayStr()}.csv`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `${name}-${todayStr()}.csv`);
   toast(`Exported ${rows.length} task${rows.length === 1 ? '' : 's'}`);
-});
+}
+function saveBlob(blob, filename) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+$('#btn-csv').addEventListener('click', () => { track('export-csv'); downloadCsv(state.tasks, 'todo-pro-tasks'); });
 /* printable list: Ctrl+P and the Account button both print a clean task list (choose "Save as PDF") */
+let printSel = null; // when set, the print sheet lists exactly these tasks (Share, Download, PDF)
 function buildPrintSheet() {
   const td = todayStr();
   const list = state.tasks.filter((t) => !t.completed && (!state.tag || t.tags.includes(state.tag))).sort(byOrder);
@@ -1712,11 +1715,16 @@ function buildPrintSheet() {
     const notes = t.notes ? `<p class="pn">${esc(t.notes.length > 400 ? t.notes.slice(0, 400) + '…' : t.notes)}</p>` : '';
     return `<li class="pt"><span class="bx"></span><div><b>${esc(t.title)}</b>${meta ? `<small>${esc(meta)}</small>` : ''}${subs ? `<ul class="ps">${subs}</ul>` : ''}${notes}</div></li>`;
   };
+  if (printSel) {
+    const rowSel = (t) => row(t).replace('<span class="bx"></span>', `<span class="bx">${t.completed ? '\u2713' : ''}</span>`);
+    $('#print-sheet').innerHTML = `<h1>To-Do Pro</h1><p class="pm">${printSel.length} shared task${printSel.length === 1 ? '' : 's'} · ${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p><ul class="pl">${printSel.map(rowSel).join('')}</ul>`;
+    return;
+  }
   $('#print-sheet').innerHTML = `<h1>To-Do Pro</h1><p class="pm">${list.length} open task${list.length === 1 ? '' : 's'}${state.tag ? ' tagged #' + esc(state.tag) : ''} · printed ${esc(new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))}</p>`
     + (list.length ? by.map((g, i) => g.length ? `<h2>${names[i]} <span>${g.length}</span></h2><ul class="pl">${g.map(row).join('')}</ul>` : '').join('') : '<p>No open tasks. Nice work!</p>');
 }
 window.addEventListener('beforeprint', buildPrintSheet);
-window.addEventListener('afterprint', () => { $('#print-sheet').innerHTML = ''; });
+window.addEventListener('afterprint', () => { $('#print-sheet').innerHTML = ''; printSel = null; });
 $('#btn-print').addEventListener('click', () => {
   track('export-print'); $('#account').close();
   toast('In the print window, choose “Save as PDF”');
@@ -2055,10 +2063,12 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-08", "Printable PDF list and sync status", "Print or save your open tasks as a clean PDF (Account, Backup, or Ctrl+P). A banner tells you when you are offline or syncing, and each task shows if it has not been uploaded yet."],
   ["2026-11-10", "Midnight Calm polish", "A greeting header with your name, a cleaner task card with clearer overdue accents, softer chips and photo thumbnails, and a refined right panel. The layout adapts smoothly from desktop to tablet and phone."],
   ["2026-11-11", "First-time tour and visitor statistics", "New users get a short guided tour of the essentials, and anyone can replay it from Account, Show tour. Privacy-friendly visitor statistics are now switched on: no cookies, no personal data, and Do Not Track is respected."],
+  ["2026-11-12", "Share and download selected tasks", "Select tasks, then Share or Download. Send them as text through your phone\u2019s share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import."],
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
+  ["Planned", "Share with people and groups", "Send selected tasks straight to a friend or group inside the app, with view or comment access."],
   ["Planned", "Teams and groups", "Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks."],
   ["Planned", "Notices and announcements", "Group admins post notices that reach members by notification and email, with read receipts."],
   ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
@@ -2094,7 +2104,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-12-labelled-sidebar', label: 'Latest update: 12 November 2026' };
+const APP_UPDATE = { id: '2026-11-12-share-tasks', label: 'Latest update: 12 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2242,6 +2252,134 @@ function maybeShowTour() {
     startTour({ auto: true });
   }, 1500);
 }
+
+/* ---------- Share or download the selected tasks (Select, then Share or Download) ---------- */
+const shareAbs = (d) => new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+const shareMeta = (t) => [
+  t.completed ? 'Done' : '',
+  t.date ? 'Due ' + shareAbs(t.date) : '',
+  t.alarm ? 'Reminder ' + new Date(t.alarm).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }) : '',
+  t.priority === 'high' ? 'High priority' : '',
+  (t.tags || []).map((g) => '#' + g).join(' '),
+].filter(Boolean).join(' · ');
+function shareText(list, detail) {
+  const lines = [`To-Do Pro: ${list.length} task${list.length === 1 ? '' : 's'}`, ''];
+  list.forEach((t, i) => {
+    lines.push(`${i + 1}. ${t.title}`);
+    const m = shareMeta(t); if (m) lines.push(`   ${m}`);
+    if (detail) {
+      (t.subtasks || []).forEach((x) => lines.push(`   ${x.done ? '[x]' : '[ ]'} ${x.text}`));
+      if (t.notes) lines.push('   ' + t.notes.trim().replace(/\n+/g, '\n   ').slice(0, 600));
+    }
+    lines.push('');
+  });
+  lines.push('Made with To-Do Pro: ' + location.origin + location.pathname);
+  return lines.join('\n');
+}
+function shareImage(list, detail) {
+  const W = 900, P = 44, S = 2, TX = P + 38, TW = W - TX - P, MAXH = 7000;
+  const F = (w, px) => `${w} ${px}px Inter, "Noto Sans Bengali", system-ui, -apple-system, "Segoe UI", sans-serif`;
+  const cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+  const wrap = (txt, font, maxW, maxLines) => {
+    ctx.font = font; const out = [];
+    for (const para of String(txt).split('\n')) {
+      let line = '';
+      for (const word of para.split(/\s+/).filter(Boolean)) {
+        const test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxW && line) { out.push(line); line = word; } else line = test;
+      }
+      out.push(line);
+    }
+    if (out.length > maxLines) { out.length = maxLines; out[maxLines - 1] = out[maxLines - 1].replace(/\s*\S*$/, '') + '…'; }
+    return out;
+  };
+  const run = (draw) => {
+    let y = P, shown = 0;
+    const put = (s, font, color, x, lh) => { if (draw) { ctx.font = font; ctx.fillStyle = color; ctx.textBaseline = 'top'; ctx.fillText(s, x, y); } y += lh; };
+    const box = (x, yy, done) => {
+      if (!draw) return;
+      ctx.lineWidth = 2; ctx.strokeStyle = done ? '#0d9488' : '#94a3b8'; ctx.fillStyle = done ? '#0d9488' : '#fff';
+      ctx.beginPath(); ctx.roundRect(x, yy, 22, 22, 6); ctx.fill(); ctx.stroke();
+      if (done) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.6; ctx.beginPath(); ctx.moveTo(x + 5, yy + 11.5); ctx.lineTo(x + 9.5, yy + 16); ctx.lineTo(x + 17, yy + 6.5); ctx.stroke(); }
+    };
+    put('To-Do Pro', F(700, 30), '#0f172a', P, 40);
+    put(`${list.length} task${list.length === 1 ? '' : 's'} · ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}`, F(400, 16), '#64748b', P, 34);
+    for (const t of list) {
+      const titleL = wrap(t.title, F(600, 24), TW, 3), meta = shareMeta(t);
+      const subs = detail ? (t.subtasks || []).slice(0, 12) : [];
+      const noteL = detail && t.notes ? wrap(t.notes.trim(), F(400, 17), TW, 6) : [];
+      const h = 18 + titleL.length * 32 + (meta ? 28 : 0) + subs.length * 30 + (noteL.length ? 8 + noteL.length * 26 : 0) + 18;
+      if (y + h > MAXH) break;
+      if (draw) { ctx.fillStyle = '#e2e8f0'; ctx.fillRect(P, y, W - P * 2, 1); }
+      y += 18; box(P, y + 5, t.completed);
+      titleL.forEach((l) => put(l, F(600, 24), t.completed ? '#64748b' : '#0f172a', TX, 32));
+      if (meta) put(meta, F(500, 15), '#0d9488', TX, 28);
+      subs.forEach((x) => { if (draw) box(TX, y + 3, x.done); const l = wrap(x.text, F(400, 17), TW - 34, 1)[0] || ''; put(l, F(400, 17), x.done ? '#94a3b8' : '#334155', TX + 34, 30); });
+      if (noteL.length) { y += 8; noteL.forEach((l) => put(l, F(400, 17), '#64748b', TX, 26)); }
+      y += 18; shown++;
+    }
+    if (shown < list.length) put(`+ ${list.length - shown} more task${list.length - shown === 1 ? '' : 's'} not shown`, F(500, 15), '#64748b', P, 30);
+    y += 6; put('Made with To-Do Pro', F(500, 14), '#94a3b8', P, 28);
+    return y + P / 2;
+  };
+  const H = Math.ceil(run(false));
+  cv.width = W * S; cv.height = H * S; ctx.scale(S, S);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+  run(true);
+  return new Promise((res) => cv.toBlob(res, 'image/png'));
+}
+const shareState = { tab: 'send' };
+function shareList() { return selTasks().sort(byOrder); }
+function shareRefresh() {
+  const list = shareList(), detail = $('#share-detail').checked, txt = shareText(list, detail);
+  $('#share-sum').textContent = `${list.length} task${list.length === 1 ? '' : 's'} selected`;
+  $('#share-title').textContent = `Share ${list.length} task${list.length === 1 ? '' : 's'}`;
+  $('#share-text').value = txt;
+  $('#share-note').textContent = 'Photos are not included in text. Use Download or Image to share a picture of the list.';
+  $$('#share [data-stab]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.stab === shareState.tab)));
+  $('#share-send').hidden = shareState.tab !== 'send'; $('#share-dl').hidden = shareState.tab !== 'download';
+}
+function openShare(tab) {
+  if (!state.sel.size) return;
+  shareState.tab = tab; $('#share-native').hidden = !navigator.share;
+  track(tab === 'send' ? 'tasks-share-open' : 'tasks-download-open'); shareRefresh();
+  const d = $('#share'); if (!d.open) d.showModal();
+}
+$('#bulk-share').addEventListener('click', () => openShare('send'));
+$('#bulk-dl').addEventListener('click', () => openShare('download'));
+$$('#share [data-stab]').forEach((b) => b.addEventListener('click', () => { shareState.tab = b.dataset.stab; shareRefresh(); }));
+$('#share-detail').addEventListener('change', shareRefresh);
+$('#share-native').addEventListener('click', async () => {
+  track('tasks-share-native');
+  try { await navigator.share({ title: 'To-Do Pro tasks', text: $('#share-text').value }); } catch { /* cancelled */ }
+});
+$('#share-wa').addEventListener('click', () => {
+  track('tasks-share-whatsapp');
+  window.open('https://wa.me/?text=' + encodeURIComponent($('#share-text').value.slice(0, 3500)), '_blank', 'noopener');
+});
+$('#share-mail').addEventListener('click', () => {
+  track('tasks-share-email');
+  const n = shareList().length;
+  let body = $('#share-text').value; if (body.length > 1800) body = body.slice(0, 1800).replace(/\s+\S*$/, '') + '\n…';
+  location.href = `mailto:?subject=${encodeURIComponent(`To-Do Pro: ${n} task${n === 1 ? '' : 's'}`)}&body=${encodeURIComponent(body)}`;
+});
+$('#share-copy').addEventListener('click', async () => {
+  track('tasks-share-copy');
+  const t = $('#share-text');
+  try { await navigator.clipboard.writeText(t.value); } catch { t.select(); document.execCommand('copy'); }
+  toast('Copied. Paste it into any chat or email.');
+});
+$$('#share [data-dl]').forEach((b) => b.addEventListener('click', async () => {
+  const list = shareList(), detail = $('#share-detail').checked, kind = b.dataset.dl; track('tasks-download-' + kind);
+  if (kind === 'csv') { downloadCsv(list, 'todo-pro-selected'); }
+  else if (kind === 'json') { saveBlob(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' }), `todo-pro-selected-${todayStr()}.json`); toast(`Saved ${list.length} task${list.length === 1 ? '' : 's'}`); }
+  else if (kind === 'image') {
+    try { saveBlob(await shareImage(list, detail), `todo-pro-tasks-${todayStr()}.png`); toast('Image saved'); } catch { toast('Could not create the image on this device.'); }
+  } else if (kind === 'pdf') {
+    printSel = detail ? list : list.map((t) => ({ ...t, notes: '', subtasks: [] }));
+    $('#share').close(); toast('In the print window, choose “Save as PDF”'); setTimeout(() => window.print(), 700);
+  }
+}));
 
 boot();
 maybeShowWhatsNew();

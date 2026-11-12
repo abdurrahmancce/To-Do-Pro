@@ -463,6 +463,38 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await sp.context().close();
   }
 
+  // ---------- share / download selected tasks ----------
+  {
+    const seed = [
+      { id: 'sh1', title: 'Finish quarterly report', notes: 'Send the draft.', date: '2026-11-13', tags: ['work'], subtasks: [{ id: 'x1', text: 'Collect figures', done: true }], createdAt: new Date().toISOString(), order: 1 },
+      { id: 'sh2', title: 'Buy groceries', createdAt: new Date().toISOString(), order: 2 },
+      { id: 'sh3', title: 'Plan trip', createdAt: new Date().toISOString(), order: 3 },
+    ];
+    const hp = await newPage(b, { seed: { key: 'tasks-pro', value: seed } });
+    await hp.click('#btn-select'); await hp.click('.task[data-id=sh1] .t-title'); await hp.click('.task[data-id=sh2] .t-title');
+    await T('share: sheet lists only the selected tasks with checklist', async () => {
+      await hp.click('#bulk-share'); await hp.waitForSelector('#share[open]');
+      const t = await hp.inputValue('#share-text');
+      return (t.includes('1. Finish quarterly report') && t.includes('[x] Collect figures') && t.includes('2. Buy groceries') && !t.includes('Plan trip')) || t;
+    });
+    await T('share: WhatsApp link carries the message', async () => {
+      await hp.evaluate(() => { window.__open = ''; window.open = (u) => { window.__open = u; return null; }; });
+      await hp.click('#share-wa'); const u = await hp.evaluate(() => window.__open);
+      return (u.startsWith('https://wa.me/?text=') && u.includes('Buy')) || u;
+    });
+    await hp.click('[data-stab=download]');
+    await T('share: CSV download holds exactly the selected tasks', async () => {
+      const [d] = await Promise.all([hp.waitForEvent('download'), hp.click('[data-dl=csv]')]);
+      const t = fs.readFileSync(await d.path(), 'utf8');
+      return (t.includes('Buy groceries') && t.includes('Finish quarterly report') && !t.includes('Plan trip')) || t.slice(0, 120);
+    });
+    await T('share: PNG image download is a real picture', async () => {
+      const [d] = await Promise.all([hp.waitForEvent('download'), hp.click('[data-dl=image]')]);
+      const buf = fs.readFileSync(await d.path()); return (buf.slice(1, 4).toString() === 'PNG' && buf.length > 5000) || buf.length;
+    });
+    await hp.context().close();
+  }
+
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
     const root = ROOT; const miss = [];

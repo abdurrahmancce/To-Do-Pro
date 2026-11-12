@@ -1293,3 +1293,21 @@ img.missing { visibility: hidden; }
   .sidebar .sync-dot { display: block; }
   .sidebar .install-btn { width: 100%; height: 40px; padding: 0 12px; font-size: 13.5px; gap: 8px; justify-content: center; border-radius: 12px; }
 }
+
+/* ---------- Share / download selected tasks ---------- */
+#share textarea { min-height: 230px; font-size: 13.5px; line-height: 1.5; resize: none; }
+.share-opt { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 44px; cursor: pointer; }
+.share-opt input { width: 18px; height: 18px; accent-color: var(--accent); }
+.share-note { font-size: 12.5px; margin: 8px 0 0; }
+.share-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 6px; }
+#share .seg { display: grid; grid-template-columns: 1fr 1fr; }
+.share-grid .btn { min-height: 44px; justify-content: center; }
+.share-grid .btn[hidden] { display: none; }
+.share-grid #share-native { grid-column: 1 / -1; }
+.share-dl { display: grid; gap: 8px; }
+.share-dl[hidden], #share-send[hidden] { display: none; }
+.share-card { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; padding: 14px 16px; min-height: 44px; border-radius: 14px; background: var(--surface-2); border: 1px solid var(--border); transition: border-color .15s, background .15s; }
+.share-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+.share-card strong { font-size: 14.5px; font-weight: 600; }
+.share-card span { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
+.bulkbar #bulk-share { gap: 6px; }

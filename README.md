@@ -46,6 +46,11 @@
 |:---:|:---:|:---:|
 | <img src="docs/screenshots/mobile-dark.png" alt="Phone view, dark theme" width="220"> | <img src="docs/screenshots/mobile-today.png" alt="Phone view, Today" width="220"> | <img src="docs/screenshots/mobile-light.png" alt="Phone view, light theme" width="220"> |
 
+| Share sheet | Download options (phone) | Image export |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/share-sheet.png" alt="Share sheet with message preview, WhatsApp, Email and Copy" width="360"> | <img src="docs/screenshots/share-download-phone.png" alt="Download as PDF, CSV, image or task file on a phone" width="200"> | <img src="docs/screenshots/share-image.png" alt="PNG image of the selected tasks" width="300"> |
+| Select tasks, then **Share**: send as text by WhatsApp, email, your phone's share sheet, or copy. | **Download** gives a PDF, CSV spreadsheet, PNG image or an importable task file. | The PNG is a clean picture of the list you can post in any chat. |
+
 | First-time tour |
 |:---:|
 | <img src="docs/screenshots/guided-tour.png" alt="Guided first-time tour" width="440"> |
@@ -68,6 +73,8 @@
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
+- 📤 **Share and download selected tasks:** tap **Select**, pick tasks, then **Share** (WhatsApp, email, your phone's share sheet or copy) or **Download** (PDF, CSV spreadsheet, PNG image, importable task file). Checklist and notes are included if you want them.
+- 🎬 **First-time tour:** a short guided walkthrough for new users, replayable from Account → Show tour.
 - 📲 **Easy install and sharing:** Account → Get the app has an Install button, a QR code, Copy link and a WhatsApp invite.
 - ⌨️ Shortcuts: `n` new task · `/` or `Ctrl+K` search · `Ctrl+Enter` save in the editor
 
@@ -201,6 +208,7 @@ Every update since the project started, oldest first, with the date it was imple
 | 33 | **10 Nov 2026** | **Midnight Calm polish** | Greeting header, refined task cards and chips, overdue accents, tidier right panel, and a layout that adapts from desktop to tablet and phone. |
 | 34 | **11 Nov 2026** | **First-time tour and visitor statistics** | A short guided tour for new users (7 steps on a phone, 8 on a computer) with Back, Next and Skip, replayable from Account → Show tour. Privacy-friendly visitor statistics are switched on: no cookies, no personal data. |
 | 35 | **12 Nov 2026** | **Labelled sidebar and screenshots** | Every sidebar icon on laptops and desktops now shows its name, like the phone tab bar. The README gained a Screenshots section with demo images. |
+| 36 | **12 Nov 2026** | **Share and download selected tasks** | Select tasks, then Share or Download. Send them as text through your phone's share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import. |
 
 ## 🔮 Future updates
 
@@ -208,19 +216,20 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 
 | # | Status | Update | What it brings |
 |---|---|---|---|
-| 1 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 2 | 🔵 Planned | **Teams and groups** | Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks. |
-| 3 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
-| 4 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 5 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
-| 6 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
-| 7 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
-| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
-| 9 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
-| 10 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
-| 11 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
-| 12 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
-| 13 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
+| 1 | 🔵 Planned | **Share with people and groups** | Send selected tasks straight to a friend or group inside the app, with view or comment access. |
+| 2 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
+| 3 | 🔵 Planned | **Teams and groups** | Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks. |
+| 4 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
+| 5 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 6 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
+| 7 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
+| 8 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
+| 9 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 10 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
+| 11 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
+| 12 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
+| 13 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
+| 14 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>
