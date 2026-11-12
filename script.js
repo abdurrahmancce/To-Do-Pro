@@ -1461,7 +1461,7 @@ function startAlarmSound(secs = alarmSecs()) {
 function stopAlarmSound() {
   clearTimeout(alarmTimer); alarmTimer = null; alarmEnd = 0;
   if (master) { try { master.gain.cancelScheduledValues(0); master.gain.value = 0; master.disconnect(); } catch { /* ignore */ } master = null; }
-  if (navigator.vibrate) navigator.vibrate(0);
+  if (navigator.vibrate && navigator.userActivation?.hasBeenActive) navigator.vibrate(0);
 }
 const playAlarmSound = startAlarmSound;
 function ensureNotifyPermission() {
@@ -2055,11 +2055,21 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-08", "Printable PDF list and sync status", "Print or save your open tasks as a clean PDF (Account, Backup, or Ctrl+P). A banner tells you when you are offline or syncing, and each task shows if it has not been uploaded yet."],
   ["2026-11-10", "Midnight Calm polish", "A greeting header with your name, a cleaner task card with clearer overdue accents, softer chips and photo thumbnails, and a refined right panel. The layout adapts smoothly from desktop to tablet and phone."],
   ["2026-11-11", "First-time tour and visitor statistics", "New users get a short guided tour of the essentials, and anyone can replay it from Account, Show tour. Privacy-friendly visitor statistics are now switched on: no cookies, no personal data, and Do Not Track is respected."],
+  ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
+  ["Planned", "Teams and groups", "Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks."],
+  ["Planned", "Notices and announcements", "Group admins post notices that reach members by notification and email, with read receipts."],
   ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
+  ["Planned", "Flexible repeat schedules", "Repeat on chosen weekdays, monthly or every few days, with an end date."],
+  ["Planned", "Focus timer", "A built-in Pomodoro timer linked to a task, with a daily focus-time total."],
+  ["Planned", "Command palette", "Press Ctrl+K to search, jump to a view or run any action from the keyboard."],
   ["Planned", "Home screen shortcuts", "Jump straight to Today or a new task from the app icon."],
+  ["Idea", "Calendar sync", "Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics)."],
+  ["Idea", "Voice quick add", "Dictate a task and let the quick-add parser pick up the date, time and tags."],
+  ["Idea", "Photo gallery", "A shared photo gallery for a group, with reactions and comments."],
+  ["Idea", "Birthday and event reminders", "A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before."],
   ["Idea", "Crash reports dashboard", "See errors from all devices in one place."],
 ];
 const fmtDate = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -2084,7 +2094,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-11-first-tour', label: 'Latest update: 11 November 2026' };
+const APP_UPDATE = { id: '2026-11-12-labelled-sidebar', label: 'Latest update: 12 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();

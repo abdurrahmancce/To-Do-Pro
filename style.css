@@ -1271,3 +1271,25 @@ img.missing { visibility: hidden; }
 .tour-actions [hidden] { display: none; }
 @keyframes tour-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .tour-spot { transition: none; } .tour-card { animation: none; } }
+
+/* ---------- Labelled sidebar (desktop and tablet): every menu icon shows its name, like the phone tab bar ---------- */
+@media (min-width: 761px) {
+  :root { --sidebar-w: 232px; }
+  .sidebar { align-items: stretch; padding: 18px 12px 14px; gap: 4px; }
+  .sidebar .brand { padding: 2px 8px 14px; }
+  .sidebar .brand-name, .sidebar .nav-item span, .sidebar .account-text, .sidebar .sync-dot { display: revert; }
+  .sidebar .nav-sep { display: block; }
+  .sidebar .btn-primary { width: 100%; height: 44px; padding: 0 14px; border-radius: 12px; font-size: 14px; gap: 8px; justify-content: center; }
+  .sidebar .btn-primary span { display: revert; }
+  .sidebar .btn-primary kbd { display: inline-block; margin-left: 2px; }
+  .sidebar .nav { align-items: stretch; margin-top: 12px; gap: 2px; }
+  .sidebar .nav-item, .sidebar > .nav-item { position: relative; width: 100%; height: auto; min-height: 42px; padding: 9px 12px; justify-content: flex-start; border-radius: 12px; font-size: 14px; }
+  .sidebar .nav-item span { flex: 1; text-align: left; }
+  .sidebar .nav-item em { position: static; min-width: 22px; padding: 0 6px; line-height: 20px; font-size: 11.5px; }
+  .sidebar .nav-item em[data-zero="1"] { display: revert; visibility: hidden; }
+  .sidebar .sidebar-foot { align-items: stretch; }
+  .sidebar .account-card { width: 100%; height: auto; padding: 8px 10px; justify-content: flex-start; border-radius: 14px; }
+  .sidebar .account-text { display: flex; }
+  .sidebar .sync-dot { display: block; }
+  .sidebar .install-btn { width: 100%; height: 40px; padding: 0 12px; font-size: 13.5px; gap: 8px; justify-content: center; border-radius: 12px; }
+}

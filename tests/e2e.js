@@ -450,6 +450,19 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await tp.context().close();
   }
 
+
+  // ---------- labelled sidebar (desktop) ----------
+  {
+    const sp = await newPage(b);
+    await T('sidebar: every menu icon shows its name on desktop', async () => {
+      const r = await sp.evaluate(() => [...document.querySelectorAll('.sidebar .nav-item')].map((n) => { const s = n.querySelector('span'); const b = s ? s.getBoundingClientRect() : { width: 0 }; return [s ? s.textContent.trim() : '', b.width > 20]; }));
+      const bad = r.filter(([t, vis]) => !t || !vis);
+      const names = r.map(([t]) => t).join(',');
+      return (bad.length === 0 && /Today/.test(names) && /Upcoming/.test(names) && /Calendar/.test(names) && /Completed/.test(names)) || `hidden labels: ${JSON.stringify(bad)} (${names})`;
+    });
+    await sp.context().close();
+  }
+
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
     const root = ROOT; const miss = [];

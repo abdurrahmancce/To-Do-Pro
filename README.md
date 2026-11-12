@@ -21,10 +21,39 @@
 
 | | | |
 |---|---|---|
-| [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
+| [🖼️ Screenshots](#️-screenshots) · [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
 | [🧭 Update history](#-update-history) · [🔮 Future updates](#-future-updates) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
 | [🚀 Quick start](#-quick-start-for-users) | [🛠️ Owner setup](#️-setup-for-the-owner-one-time) | [📦 Deploying updates](#-deploying-updates) |
 | [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | [👨‍💻 Contact developer](#-contact-developer) |
+
+---
+
+## 🖼️ Screenshots
+
+<div align="center">
+
+| Dashboard (dark) | Dashboard (light) |
+|:---:|:---:|
+| <img src="docs/screenshots/dashboard-dark.png" alt="To-Do Pro dashboard in the dark theme" width="440"> | <img src="docs/screenshots/dashboard-light.png" alt="To-Do Pro dashboard in the light theme" width="440"> |
+| Labelled sidebar, grouped tasks and a focus panel with progress, weekly goal and up next. | The same layout in the light theme. Theme and accent colour follow your account. |
+
+| Task editor | Calendar |
+|:---:|:---:|
+| <img src="docs/screenshots/task-editor.png" alt="Task editor with checklist, photos and tags" width="440"> | <img src="docs/screenshots/calendar.png" alt="Calendar view" width="440"> |
+| Notes, photos, checklist, tags, due date and reminder, saved automatically. | See tasks by month and pick a day. |
+
+| Phone (dark) | Phone (Today) | Phone (light) |
+|:---:|:---:|:---:|
+| <img src="docs/screenshots/mobile-dark.png" alt="Phone view, dark theme" width="220"> | <img src="docs/screenshots/mobile-today.png" alt="Phone view, Today" width="220"> | <img src="docs/screenshots/mobile-light.png" alt="Phone view, light theme" width="220"> |
+
+| First-time tour |
+|:---:|
+| <img src="docs/screenshots/guided-tour.png" alt="Guided first-time tour" width="440"> |
+| A short guided tour for new users, replayable from **Account → Show tour**. |
+
+</div>
+
+> Screenshots use sample tasks. Regenerate them after a visual change.
 
 ---
 
@@ -171,6 +200,7 @@ Every update since the project started, oldest first, with the date it was imple
 | 32 | 8 Nov 2026 | Printable PDF list and sync status | Print or save open tasks as a clean PDF (Account, Backup, or Ctrl+P), an offline/syncing banner, and a per-task badge for changes not yet uploaded. |
 | 33 | **10 Nov 2026** | **Midnight Calm polish** | Greeting header, refined task cards and chips, overdue accents, tidier right panel, and a layout that adapts from desktop to tablet and phone. |
 | 34 | **11 Nov 2026** | **First-time tour and visitor statistics** | A short guided tour for new users (7 steps on a phone, 8 on a computer) with Back, Next and Skip, replayable from Account → Show tour. Privacy-friendly visitor statistics are switched on: no cookies, no personal data. |
+| 35 | **12 Nov 2026** | **Labelled sidebar and screenshots** | Every sidebar icon on laptops and desktops now shows its name, like the phone tab bar. The README gained a Screenshots section with demo images. |
 
 ## 🔮 Future updates
 
@@ -179,9 +209,18 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 | # | Status | Update | What it brings |
 |---|---|---|---|
 | 1 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 2 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 3 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
-| 4 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
+| 2 | 🔵 Planned | **Teams and groups** | Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks. |
+| 3 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
+| 4 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 5 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
+| 6 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
+| 7 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
+| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 9 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
+| 10 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
+| 11 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
+| 12 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
+| 13 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>
@@ -287,6 +326,8 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 ---
 
 ## 🗂️ Repository layout
+
+> `docs/screenshots/` holds the demo images used in this README.
 
 | File | Purpose |
 |---|---|
