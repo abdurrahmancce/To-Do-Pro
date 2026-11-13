@@ -1,10 +1,10 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v42';
+const VERSION = 'v43';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
 const CORE = [
-  './', 'index.html', 'style.css', 'script.js', 'quickparse.js', 'habits.js', 'cloud.js', 'auth.js', 'errlog.js', 'analytics.js', 'photos.js', 'help.html', 'firebase-config.js', 'manifest.webmanifest',
+  './', 'index.html', 'style.css', 'script.js', 'quickparse.js', 'habits.js', 'cloud.js', 'auth.js', 'errlog.js', 'analytics.js', 'photos.js', 'social.js', 'help.html', 'firebase-config.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/qr.svg', 'icons/logo-96.png', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
   'icons/apple-touch-icon.png', 'icons/favicon-32.png',
 ];

@@ -70,6 +70,7 @@
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
 - 📷 **Photos:** attach pictures to a task or to a checklist step. Take a photo, pick several from the gallery or paste a screenshot, and give every picture a description. Pictures are shrunk on your device and sync to your account.
+- 👥 **Friends and groups:** add friends with a private code or link, create groups and invite people (Account → Friends and groups). Sharing tasks with them is coming next.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
@@ -209,6 +210,7 @@ Every update since the project started, oldest first, with the date it was imple
 | 34 | **11 Nov 2026** | **First-time tour and visitor statistics** | A short guided tour for new users (7 steps on a phone, 8 on a computer) with Back, Next and Skip, replayable from Account → Show tour. Privacy-friendly visitor statistics are switched on: no cookies, no personal data. |
 | 35 | **12 Nov 2026** | **Labelled sidebar and screenshots** | Every sidebar icon on laptops and desktops now shows its name, like the phone tab bar. The README gained a Screenshots section with demo images. |
 | 36 | **12 Nov 2026** | **Share and download selected tasks** | Select tasks, then Share or Download. Send them as text through your phone's share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import. |
+| 37 | **13 Nov 2026** | **Friends and groups** | Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off. Find it under Account, Friends and groups. This is phase 1 of sharing tasks. |
 
 ## 🔮 Future updates
 
@@ -218,18 +220,19 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 |---|---|---|---|
 | 1 | 🔵 Planned | **Share with people and groups** | Send selected tasks straight to a friend or group inside the app, with view or comment access. |
 | 2 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 3 | 🔵 Planned | **Teams and groups** | Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks. |
-| 4 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
-| 5 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 6 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
-| 7 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
-| 8 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
-| 9 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
-| 10 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
-| 11 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
-| 12 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
-| 13 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
-| 14 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
+| 3 | 🔵 Planned | **Shared tasks you can edit** | Share a task with a friend or group so they can tick, add and update steps, with an activity log and an owner-only alarm. |
+| 4 | 🔵 Planned | **Comments and notifications** | Discuss a shared task in comments, get push notifications for changes and remove someone's access at any time. |
+| 5 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
+| 6 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 7 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
+| 8 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
+| 9 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
+| 10 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 11 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
+| 12 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
+| 13 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
+| 14 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
+| 15 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 <details>
 <summary><b>🐞 Problems found and fixed along the way</b></summary>
@@ -342,7 +345,8 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 |---|---|
 | 🧱 `index.html`, `style.css`, `script.js` | App UI and logic |
 | 🔑 `auth.js` | Animated bilingual email and password login screen |
-| ☁️ `cloud.js` | Firebase Auth, Firestore sync, push registration |
+| ☁️ `cloud.js` | Firebase Auth, Firestore sync, push registration, friends and groups |
+| 👥 `social.js` | Friends and groups panel (friend code, requests, groups, invite links), loaded on demand |
 | 💬 `quickparse.js` | Natural-language quick-add parser |
 | 🔥 `habits.js` | Repeat and streak helpers |
 | 🩺 `errlog.js` | Records recent errors on the device for Report a bug (no network, no task data) |

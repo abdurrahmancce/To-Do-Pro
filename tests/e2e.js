@@ -495,6 +495,49 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await hp.context().close();
   }
 
+  // ---------- friends and groups ----------
+  {
+    const fp = await newPage(b, { cloud: true, user: true });
+    await fp.waitForTimeout(400);
+    await T('social: opens from Account and shows my friend code', async () => {
+      await fp.evaluate(() => document.querySelector('#account').showModal());
+      await fp.click('#btn-social'); await fp.waitForSelector('#social[open] .soc-code');
+      return /^TEST-[A-Z0-9]{4}$/.test(await fp.textContent('.soc-code'));
+    });
+    await T('social: add a friend by code, then they accept', async () => {
+      await fp.fill('#soc-add', 'rafi-2345'); await fp.click('[data-act=add-friend]');
+      await fp.waitForSelector('.soc-msg.ok');
+      const waiting = /waiting for them/.test(await fp.textContent('#social-body'));
+      return waiting;
+    });
+    await T('social: unknown code gives a clear message', async () => {
+      await fp.fill('#soc-add', 'ZZZZ9999'); await fp.click('[data-act=add-friend]');
+      await fp.waitForSelector('.soc-msg.bad');
+      return /No one has this code/.test(await fp.textContent('.soc-msg'));
+    });
+    await T('social: create a group, make an invite link, a friend joins', async () => {
+      await fp.fill('#soc-gname', 'Study Group'); await fp.click('[data-act=create-group]');
+      await fp.waitForSelector('.soc-group .soc-detail');
+      await fp.click('[data-act=new-invite]'); await fp.waitForSelector('.soc-link');
+      const link = await fp.textContent('.soc-link'); const code = link.split('join=')[1];
+      await fp.evaluate((c) => window.__social.joinAsRafi(c), code);
+      await fp.click('[data-act=toggle-group]'); await fp.click('[data-act=toggle-group]');
+      await fp.waitForFunction(() => /Rafi/.test(document.querySelector('.soc-detail')?.textContent || ''));
+      return /join=/.test(link);
+    });
+    await T('social: turning the invite off removes the link', async () => {
+      await fp.click('[data-act=off-invite]'); await fp.waitForSelector('[data-act=new-invite]');
+      return (await fp.evaluate(() => window.__social.invs.size)) === 0;
+    });
+    await T('social: owner can remove a member and delete the group', async () => {
+      await fp.click('[data-act=kick]'); await fp.waitForFunction(() => !/Rafi/.test(document.querySelector('.soc-detail')?.textContent || ''));
+      await fp.click('[data-act=delete-group]'); await fp.waitForFunction(() => !document.querySelector('.soc-group'));
+      return true;
+    });
+    await T('social: no page errors', async () => fp.errs.length === 0 || fp.errs.join(' | '));
+    await fp.context().close();
+  }
+
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
     const root = ROOT; const miss = [];

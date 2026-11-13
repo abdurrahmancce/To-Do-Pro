@@ -2,6 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function isMember(gid) {
+      return signedIn() && exists(/databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid));
+    }
+    function isOwner(gid) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/groups/$(gid)/members/$(request.auth.uid)).data.role == 'owner';
+    }
+    function goodName(n) { return n is string && n.size() >= 1 && n.size() <= 60; }
+
     // Each person can only reach their own data.
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
@@ -34,6 +46,16 @@ service cloud.firestore {
       match /settings/{docId} {
         allow read, write: if request.auth != null && request.auth.uid == userId;
       }
+
+      // My own list of groups (a convenience index; the group itself decides who may read it)
+      match /groups/{gid} {
+        allow read, delete: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId
+          && request.resource.data.keys().hasOnly(['name', 'role', 'invite'])
+          && goodName(request.resource.data.name)
+          && request.resource.data.role in ['owner', 'member']
+          && (!('invite' in request.resource.data) || (request.resource.data.invite is string && request.resource.data.invite.size() <= 10));
+      }
     }
 
     // Reminder queue read by the push worker (the worker uses admin access, so it is not limited by these rules).
@@ -44,6 +66,111 @@ service cloud.firestore {
         && reminderId.matches('^[A-Za-z0-9_-]{1,140}$')
         && request.resource.data.title is string && request.resource.data.title.size() <= 200
         && (!('body' in request.resource.data) || (request.resource.data.body is string && request.resource.data.body.size() <= 300));
+    }
+
+    // ---------- Friends and groups (sharing, phase 1) ----------
+
+    // Public card: name and friend code. One person can be read by id, nobody can list everyone.
+    match /profiles/{uid} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'code', 'createdAt'])
+        && goodName(request.resource.data.name)
+        && request.resource.data.code is string
+        && request.resource.data.code.matches('^[A-HJ-NP-Z2-9]{8}$')
+        && (resource == null || request.resource.data.code == resource.data.code)
+        && getAfter(/databases/$(database)/documents/codes/$(request.resource.data.code)).data.uid == request.auth.uid;
+      allow delete: if false;
+    }
+
+    // Friend code -> person. Create-only, so an existing code can never be taken over.
+    match /codes/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && code.matches('^[A-HJ-NP-Z2-9]{8}$')
+        && request.resource.data.keys().hasOnly(['uid'])
+        && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // Friend requests: both people must agree.
+    match /friendships/{pair} {
+      allow get: if signedIn() && (resource == null || request.auth.uid in resource.data.members);
+      allow list: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['members', 'requester', 'status', 'createdAt'])
+        && request.resource.data.members is list && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] < request.resource.data.members[1]
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.requester == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && pair == request.resource.data.members[0] + '_' + request.resource.data.members[1];
+      // only the person who was asked can accept
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.members
+        && resource.data.requester != request.auth.uid
+        && resource.data.status == 'pending'
+        && request.resource.data.status == 'accepted'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']);
+      // either person can decline, cancel or remove
+      allow delete: if signedIn() && request.auth.uid in resource.data.members;
+    }
+
+    // Groups: only members can read. Only the owner can rename or delete.
+    match /groups/{gid} {
+      allow get: if isMember(gid);
+      allow list: if false;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['name', 'ownerUid', 'createdAt'])
+        && goodName(request.resource.data.name)
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update: if isOwner(gid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+        && goodName(request.resource.data.name);
+      allow delete: if isOwner(gid);
+
+      match /members/{uid} {
+        allow get, list: if isMember(gid);
+        allow create: if signedIn() && request.auth.uid == uid
+          && request.resource.data.keys().hasOnly(['name', 'role', 'joinedAt', 'code'])
+          && goodName(request.resource.data.name)
+          && (
+            // the person who just created the group becomes its owner
+            (request.resource.data.role == 'owner'
+              && getAfter(/databases/$(database)/documents/groups/$(gid)).data.ownerUid == uid)
+            // anyone holding a live invite can join as a member
+            || (request.resource.data.role == 'member'
+              && request.resource.data.code is string
+              && exists(/databases/$(database)/documents/invites/$(request.resource.data.code))
+              && get(/databases/$(database)/documents/invites/$(request.resource.data.code)).data.gid == gid)
+          );
+        // a member may change only their own display name
+        allow update: if signedIn() && request.auth.uid == uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name'])
+          && goodName(request.resource.data.name);
+        // a member can leave; the owner can remove others; the owner's own row goes only together with the whole group
+        allow delete: if signedIn() && (
+          (request.auth.uid == uid && resource.data.role != 'owner')
+          || (isOwner(gid) && (request.auth.uid != uid
+              || !existsAfter(/databases/$(database)/documents/groups/$(gid))))
+        );
+      }
+    }
+
+    // Invite links: anyone signed in who knows the code can read it, nobody can list them.
+    match /invites/{code} {
+      allow get: if signedIn();
+      allow list: if false;
+      allow create: if signedIn()
+        && code.matches('^[A-HJ-NP-Z2-9]{10}$')
+        && request.resource.data.keys().hasOnly(['gid', 'gname', 'createdBy', 'createdAt'])
+        && request.resource.data.createdBy == request.auth.uid
+        && goodName(request.resource.data.gname)
+        && isOwner(request.resource.data.gid);
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
     }
   }
 }

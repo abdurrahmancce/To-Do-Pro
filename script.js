@@ -1838,7 +1838,7 @@ async function handleAuth(user) {
   ph.setRemote({ get: (id) => cloud.getPhoto(user.uid, id), put: (id, rec) => cloud.savePhoto(user.uid, id, rec), del: (id) => cloud.deletePhoto(user.uid, id) });
   import('./auth.js').then((a) => { a.clearGuest(); a.hideLogin(); }).catch(() => {});
   setAll(loadList(cacheKey()));
-  renderAvatar(); setSync('syncing'); render();
+  renderAvatar(); setSync('syncing'); render(); maybeOpenDeepLink();
 
   // First sign-in on this device: upload any local-only tasks, keep a backup copy
   const local = loadList(LS.local);
@@ -2065,11 +2065,13 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-11", "First-time tour and visitor statistics", "New users get a short guided tour of the essentials, and anyone can replay it from Account, Show tour. Privacy-friendly visitor statistics are now switched on: no cookies, no personal data, and Do Not Track is respected."],
   ["2026-11-12", "Share and download selected tasks", "Select tasks, then Share or Download. Send them as text through your phone\u2019s share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import."],
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
+  ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
   ["Planned", "Share with people and groups", "Send selected tasks straight to a friend or group inside the app, with view or comment access."],
-  ["Planned", "Teams and groups", "Create a group with an admin and members, a member directory and role-based permissions, while every person keeps their own private tasks."],
+  ["Planned", "Shared tasks you can edit", "Share a task with a friend or group so they can tick, add and update steps, with an activity log and an owner-only alarm."],
+  ["Planned", "Comments and notifications", "Discuss a shared task in comments, get push notifications for changes and remove someone's access at any time."],
   ["Planned", "Notices and announcements", "Group admins post notices that reach members by notification and email, with read receipts."],
   ["Planned", "More snooze choices", "Snooze from the notification until tomorrow or next week."],
   ["Planned", "Flexible repeat schedules", "Repeat on chosen weekdays, monthly or every few days, with an end date."],
@@ -2104,7 +2106,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-12-share-tasks', label: 'Latest update: 12 November 2026' };
+const APP_UPDATE = { id: '2026-11-13-friends-groups', label: 'Latest update: 13 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2240,6 +2242,26 @@ function startTour({ auto = false } = {}) {
   document.body.appendChild(root); tourState.root = root;
   track('tour-started'); tourRender();
 }
+/* Friends and groups (loaded on demand) */
+async function openSocial() {
+  if (!cloudOn()) { toast('Sign in to use friends and groups.'); return; }
+  $('#account').close();
+  try {
+    const m = await import('./social.js');
+    await m.openSocial({ cloud, user: state.user, toast, track });
+  } catch (e) { console.error(e); toast('Could not open friends and groups.'); }
+}
+$('#btn-social').addEventListener('click', openSocial);
+/* ?friend=CODE and ?join=CODE links: remember them, open the panel once signed in */
+(function captureDeepLink() {
+  try {
+    const q = new URLSearchParams(location.search), f = q.get('friend'), j = q.get('join');
+    if (!f && !j) return;
+    sessionStorage.setItem('tp-deeplink', JSON.stringify({ f, j }));
+    history.replaceState(null, '', location.pathname + location.hash);
+  } catch { /* ignore */ }
+})();
+function maybeOpenDeepLink() { try { if (sessionStorage.getItem('tp-deeplink') && cloudOn()) setTimeout(openSocial, 600); } catch { /* ignore */ } }
 $('#btn-tour').addEventListener('click', () => { $('#account').close(); setTimeout(() => startTour(), 120); });
 function maybeShowTour() {
   if (lsGet(LS.tourDone, '')) return;

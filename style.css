@@ -1311,3 +1311,33 @@ img.missing { visibility: hidden; }
 .share-card strong { font-size: 14.5px; font-weight: 600; }
 .share-card span { font-size: 12.5px; color: var(--muted); line-height: 1.4; }
 .bulkbar #bulk-share { gap: 6px; }
+
+/* ---------- Friends and groups ---------- */
+#social-body { display: flex; flex-direction: column; gap: 18px; }
+.soc-code { font: 700 28px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-align: center; padding: 14px; border-radius: 14px; background: var(--surface-2); border: 1px dashed var(--border); user-select: all; }
+.soc-form { display: flex; gap: 8px; }
+.soc-form input { flex: 1; min-width: 0; }
+.soc-form .btn { flex: none; }
+#social .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.soc-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+.soc-name { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.soc-name strong, .soc-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.soc-name small { color: var(--muted); font-size: 12px; }
+.soc-av { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--accent); color: #04201c; text-transform: uppercase; }
+.soc-av.sq { border-radius: 10px; }
+.soc-row.sm .soc-av { width: 28px; height: 28px; font-size: 12px; }
+.soc-group { border: 1px solid var(--border); border-radius: 14px; margin-bottom: 8px; background: var(--surface-2); }
+.soc-grow { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 12px; background: none; border: 0; color: inherit; font: inherit; text-align: left; min-height: 48px; cursor: pointer; }
+.soc-chev { color: var(--muted); }
+.soc-detail { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 6px; }
+.soc-detail h4 { margin: 8px 0 0; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.soc-link { word-break: break-all; font-size: 12.5px; padding: 8px 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--border); }
+.soc-msg { padding: 10px 12px; border-radius: 12px; font-size: 13.5px; }
+.soc-msg.ok { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.soc-msg.bad { background: color-mix(in srgb, #f87171 20%, transparent); }
+.soc-join { background: var(--surface-2); border: 1px solid var(--accent); }
+.soc-danger { margin-top: 6px; }
+.btn.sm { min-height: 36px; padding: 6px 12px; font-size: 13px; }
+.btn.danger { color: #f87171; }
+.soc-form input { min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; }
+.soc-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

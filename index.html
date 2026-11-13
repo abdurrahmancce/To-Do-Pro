@@ -393,6 +393,12 @@
       <a class="btn btn-ghost" href="help.html" target="_blank" rel="noopener">Open user guide / ব্যবহার নির্দেশিকা</a>
     </div>
 
+    <div class="acc-section" id="social-section">
+      <h3>Friends and groups</h3>
+      <p class="muted">Add friends with a code and create groups. This is the first step towards sharing tasks.</p>
+      <button type="button" class="btn btn-ghost" id="btn-social">Friends and groups</button>
+    </div>
+
     <div class="acc-section">
       <h3>What&rsquo;s new</h3>
       <p class="muted">See the latest updates, improvements and fixes.</p>
@@ -480,6 +486,14 @@
 </dialog>
 
 <!-- ============ SHARE / DOWNLOAD SELECTED TASKS ============ -->
+<dialog id="social" class="sheet sheet-sm" aria-labelledby="social-title">
+  <header class="sheet-head">
+    <h2 id="social-title">Friends and groups</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </header>
+  <div class="sheet-body" id="social-body"></div>
+</dialog>
+
 <dialog id="share" class="sheet sheet-sm" aria-labelledby="share-title">
   <header class="sheet-head">
     <h2 id="share-title">Share tasks</h2>
