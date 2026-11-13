@@ -34,10 +34,6 @@ A 4-minute guided tour of every feature, with captions that show where to click.
 
 https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 
-[![Watch the demo](docs/screenshots/dashboard-dark.png)](docs/demo.mp4)
-
-[▶ Watch the demo video](docs/demo.mp4)
-
 ---
 
 ## 🖼️ Screenshots
