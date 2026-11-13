@@ -8,7 +8,7 @@
 ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8?style=flat-square)
 ![Firebase](https://img.shields.io/badge/Firebase-Auth_%2B_Firestore-ffca28?style=flat-square&logo=firebase&logoColor=black)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=flat-square&logo=cloudflare&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-34%2F34_passing-2ea44f?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-Playwright_e2e-2ea44f?style=flat-square)
 ![Cost](https://img.shields.io/badge/cost-free_tier-blue?style=flat-square)
 
 📱 Phone · 💻 Laptop · 🖥️ PC &nbsp;|&nbsp; 📖 User guide (English and Bangla): `help.html` or **Account → Help** inside the app
@@ -21,10 +21,20 @@
 
 | | | |
 |---|---|---|
-| [🖼️ Screenshots](#️-screenshots) · [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
+| [🎬 Demo video](#-demo-video) · [🖼️ Screenshots](#️-screenshots) · [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
 | [🧭 Update history](#-update-history) · [🔮 Future updates](#-future-updates) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
 | [🚀 Quick start](#-quick-start-for-users) | [🛠️ Owner setup](#️-setup-for-the-owner-one-time) | [📦 Deploying updates](#-deploying-updates) |
 | [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | [👨‍💻 Contact developer](#-contact-developer) |
+
+---
+
+## 🎬 Demo video
+
+A 4-minute guided tour of every feature, with captions that show where to click.
+
+[![Watch the demo](docs/screenshots/dashboard-dark.png)](docs/demo.mp4)
+
+[▶ Watch the demo video](docs/demo.mp4)
 
 ---
 
@@ -69,7 +79,6 @@
 - 🎯 Priorities (low, medium, high), due dates, sections, notes
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
-- 📷 **Photos:** attach pictures to a task or to a checklist step. Take a photo, pick several from the gallery or paste a screenshot, and give every picture a description. Pictures are shrunk on your device and sync to your account.
 - 👥 **Friends and groups:** add friends with a private code or link, create groups and invite people (Account → Friends and groups). Sharing tasks with them is coming next.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
@@ -126,7 +135,9 @@
 | Checklist, Report a bug, error notice, faster updates (network-first service worker), tests folder | 🟢 **Live** |
 | Usage analytics (GoatCounter, privacy-friendly, Do Not Track respected) | 🟢 **Live** |
 | First-time tour (auto-runs once for new users, replay from Account → Show tour) | 🟢 **Live** |
-| Shared lists | ⚪ Design stage |
+| Share and download selected tasks (text, WhatsApp, email, PDF, CSV, PNG, task file) | 🟢 **Live** |
+| Friends and groups (friend code, requests, groups, invite links). Republish `firestore.rules` after deploying | 🟢 **Live** |
+| Shared tasks that friends and groups can edit (phase 2), comments and notifications (phase 3) | ⚪ Planned |
 
 > 💡 Until the pending hardening update is deployed, the live app still accepts 6-character passwords, and the previous Firestore rules and worker stay in use. Sections below describe the full repository state and mark items that depend on the pending update.
 
@@ -211,6 +222,7 @@ Every update since the project started, oldest first, with the date it was imple
 | 35 | **12 Nov 2026** | **Labelled sidebar and screenshots** | Every sidebar icon on laptops and desktops now shows its name, like the phone tab bar. The README gained a Screenshots section with demo images. |
 | 36 | **12 Nov 2026** | **Share and download selected tasks** | Select tasks, then Share or Download. Send them as text through your phone's share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import. |
 | 37 | **13 Nov 2026** | **Friends and groups** | Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off. Find it under Account, Friends and groups. This is phase 1 of sharing tasks. |
+| 38 | **13 Nov 2026** | **Demo video** | A 4-minute guided demo video with captions, click highlights and sound is now in the README (`docs/demo.mp4`). |
 
 ## 🔮 Future updates
 
@@ -276,7 +288,7 @@ A full review was done in stage 8. The fixes below are in the repository files a
 
 An automated **Playwright** suite (headless Chromium) runs the real app against an in-memory stand-in for Firebase. It lives in the [`tests/`](tests) folder: `cd tests && npm install && npx playwright install chromium && npm test`.
 
-**🎯 Result: 49 of 49 checks pass.**
+**🎯 Last full run: 49 of 49 checks passed.** Tests for the tour, labelled sidebar, share and download and friends and groups were added afterwards. Run `npm test` to confirm the current total.
 
 | Area | What is checked |
 |---|---|
@@ -285,6 +297,9 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | 🗓️ Views | Calendar, weekly summary, account and reminders dialogs, keyboard shortcuts |
 | 💾 Autosave | No duplicates, no task coming back after delete, past alarms not stored until confirmed |
 | 🕷️ Security | XSS payloads across every view, corrupt stored data, valid / malformed / oversized import files |
+| 🎬 Tour and layout | First-time tour steps and keyboard handling, labelled sidebar on desktop |
+| 📤 Share and download | Share sheet text, WhatsApp link, CSV, PDF, PNG and JSON downloads |
+| 👥 Friends and groups | Friend code, requests, groups, invite links, members, remove and delete (against an in-memory stand-in) |
 | 🔔 Alarms | Popup rings when due |
 | ☁️ Cloud flow | Add, soft delete, sign-out clears local cache |
 | 📐 Layout | No horizontal overflow at 320, 375 and 768 px; login screen at 360 px |
@@ -351,6 +366,7 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | 🔥 `habits.js` | Repeat and streak helpers |
 | 🩺 `errlog.js` | Records recent errors on the device for Report a bug (no network, no task data) |
 | 📊 `analytics.js` | Optional GoatCounter loader and feature counters (off until a site code is set) |
+| 🎬 `docs/` | `demo.mp4` (demo video) and `screenshots/` used in this README |
 | 🧪 `tests/` | Automated end-to-end tests (`npm test`) |
 | 📖 `help.html` | User guide (English and Bangla) |
 | 📴 `sw.js`, `manifest.webmanifest`, `icons/` | Offline cache, push handling, install metadata |
