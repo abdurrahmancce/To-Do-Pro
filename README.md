@@ -2,14 +2,15 @@
 
 # ✅ To-Do Pro
 
-**An installable to-do app that syncs across your devices and reminds you even when the app is closed.**
+**A free to-do app that syncs across your devices and reminds you even when the app is closed.**
 
-[![Live app](https://img.shields.io/badge/🌐_Live_app-open-2ea44f?style=for-the-badge)](https://abdurrahmancce.github.io/To-Do-Pro/)
+[![Live app](https://img.shields.io/badge/🌐_Open_the_app-abdurrahmancce.github.io-2ea44f?style=for-the-badge)](https://abdurrahmancce.github.io/To-Do-Pro/)
+
 ![PWA](https://img.shields.io/badge/PWA-installable-5a0fc8?style=flat-square)
 ![Firebase](https://img.shields.io/badge/Firebase-Auth_%2B_Firestore-ffca28?style=flat-square&logo=firebase&logoColor=black)
 ![Cloudflare](https://img.shields.io/badge/Cloudflare-Workers-f38020?style=flat-square&logo=cloudflare&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-Playwright_e2e-2ea44f?style=flat-square)
-![Cost](https://img.shields.io/badge/cost-free_tier-blue?style=flat-square)
+![Cost](https://img.shields.io/badge/cost-free-blue?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-lightgrey?style=flat-square)
 
 📱 Phone · 💻 Laptop · 🖥️ PC &nbsp;|&nbsp; 📖 User guide (English and Bangla): `help.html` or **Account → Help** inside the app
 
@@ -21,10 +22,9 @@
 
 | | | |
 |---|---|---|
-| [🎬 Demo video](#-demo-video) · [🖼️ Screenshots](#️-screenshots) · [✨ Features](#-features) | [🚦 Release status](#-release-status) | [🏗️ Architecture](#️-architecture) |
-| [🧭 Update history](#-update-history) · [🔮 Future updates](#-future-updates) | [🔐 Security](#-security) | [🧪 Testing](#-testing) |
-| [🚀 Quick start](#-quick-start-for-users) | [🛠️ Owner setup](#️-setup-for-the-owner-one-time) | [📦 Deploying updates](#-deploying-updates) |
-| [🗂️ Repository layout](#️-repository-layout) | [⚠️ Limitations](#️-known-limitations-and-recommendations) | [👨‍💻 Contact developer](#-contact-developer) |
+| [🎬 Demo video](#-demo-video) | [🖼️ Screenshots](#️-screenshots) | [✨ Features](#-features) |
+| [🚀 Get started](#-get-started) | [🏗️ How it works](#️-how-it-works) | [🔮 Future updates](#-future-updates) |
+| [📦 Deploying updates](#-deploying-updates) | [🗂️ Repository layout](#️-repository-layout) | [👨‍💻 Contact developer](#-contact-developer) |
 
 ---
 
@@ -66,14 +66,14 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 
 </div>
 
-> Screenshots use sample tasks. Regenerate them after a visual change.
+> Screenshots use sample tasks.
 
 ---
 
 ## ✨ Features
 
 ### 📝 Tasks
-- ⚡ **Smart quick add**: type `Call mom tomorrow 6pm !high #family` and the date, time, priority and section are filled in for you. Common Bangla and Banglish time words are understood too.
+- ⚡ **Smart quick add**: type `Call mom tomorrow 6pm !high @family` and the date, time, priority and tag are filled in for you. Common Bangla and Banglish time words are understood too.
 - 🎯 Priorities (low, medium, high), due dates, sections, notes
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
@@ -121,27 +121,7 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 
 ---
 
-## 🚦 Release status
-
-| Area | Status |
-|---|---|
-| Core app, sync, Trash, autosave, bilingual login and guide, background push | 🟢 **Live** |
-| Spellcheck off in text fields (no red lines under Bangla typing) | 🟢 **Live** |
-| Contact developer (Account dialog and user guide) | 🟢 **Live** |
-| What's new announcement (popup once per update, reopen from Account) | 🟢 **Live** |
-| Security hardening: `worker/index.js`, `firestore.rules`, sign-out cache clearing in `cloud.js`, 8-character password minimum in `auth.js`, updated `SETUP.md` and `PUSH-SETUP.md` | 🟢 **Live** |
-| Checklist, Report a bug, error notice, faster updates (network-first service worker), tests folder | 🟢 **Live** |
-| Usage analytics (GoatCounter, privacy-friendly, Do Not Track respected) | 🟢 **Live** |
-| First-time tour (auto-runs once for new users, replay from Account → Show tour) | 🟢 **Live** |
-| Share and download selected tasks (text, WhatsApp, email, PDF, CSV, PNG, task file) | 🟢 **Live** |
-| Friends and groups (friend code, requests, groups, invite links). Republish `firestore.rules` after deploying | 🟢 **Live** |
-| Shared tasks that friends and groups can edit (phase 2), comments and notifications (phase 3) | ⚪ Planned |
-
-> 💡 Until the pending hardening update is deployed, the live app still accepts 6-character passwords, and the previous Firestore rules and worker stay in use. Sections below describe the full repository state and mark items that depend on the pending update.
-
----
-
-## 🏗️ Architecture
+## 🏗️ How it works
 
 ```
  📱 Browser / installed PWA                       ☁️ Google Firebase                 ⚙️ Cloudflare
@@ -161,6 +141,8 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 | 📴 Offline | Service worker + local cache | App opens and tasks stay editable without internet |
 | 🗄️ Data | Firestore, one document per task | Real-time multi-device sync. Deleted tasks carry a `deletedAt` time, which is how Trash syncs. |
 | 🔔 Reminders | Firestore queue + Cloudflare Worker + FCM | Push works with the app closed, on the free plan |
+| 👥 People | Firestore collections for profiles, friend codes, friendships, groups and invite links, protected by security rules |
+| 🔐 Privacy | Each person can only read their own tasks, photos and settings. Nobody can list all users or groups |
 | 💸 Cost | Free tiers only | Firebase, Cloudflare Workers, GitHub Pages |
 
 <details>
@@ -176,51 +158,6 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 </details>
 
 ---
-
-## 🧭 Update history
-
-Every update since the project started, oldest first, with the date it was implemented. The same list is in the app under **Account → Update history**.
-
-| # | Date | Update | What changed |
-|---|---|---|---|
-| 1 | **01 May 2026** | **Project started** | First version of the to-do app and its README published on GitHub. |
-| 2 | **13 May 2026** | **App files updated** | Updated app files uploaded. |
-| 3 | **15 May 2026** | **App and README updated** | Another round of app and README improvements. |
-| 4 | **06 Oct 2026** | **MIT License added** | The project now ships with an open-source MIT License. |
-| 5 | **15 Oct 2026** | **To-Do Pro: new interface, installable app and cloud sync** | Redesigned interface, installable PWA, Firebase sign-in and Firestore sync across devices, with offline support. |
-| 6 | **15 Oct 2026** | **Reminder sound length** | Choose how long the alarm rings: 3 seconds, 5 seconds, 10 seconds or until dismissed. |
-| 7 | **15 Oct 2026** | **Background push reminders** | Reminders arrive even when the app is closed (Firebase Cloud Messaging with a Cloudflare Worker). |
-| 8 | **15 Oct 2026** | **Push fix for multiple devices** | Reminders now reach every device correctly when the app is open on another one. |
-| 9 | **15 Oct 2026** | **Touch gestures and productivity tools** | Swipe actions, undo, bulk select, calendar view, keyboard shortcuts and accent colours. |
-| 10 | **16 Oct 2026** | **Smarter reminders and quick add** | Done and Snooze on notifications, quick add from one sentence, repeating tasks with streaks and a weekly summary. |
-| 11 | **17 Oct 2026** | **Settings and push reliability** | Reminder settings shared across devices, automatic repair of expired push tokens and worker setup. |
-| 12 | **17 Oct 2026** | **Dismiss on other devices** | Handling a reminder on one device removes the notification on your other devices. |
-| 13 | **18 Oct 2026** | **Email and password sign-in** | New animated login page with sign in, create account and password reset, plus English and Bangla documentation. |
-| 14 | **18 Oct 2026** | **Dropdown and dialog polish** | Restyled reminder dropdowns, and dialogs close when the login screen opens. |
-| 15 | **18 Oct 2026** | **Trash and Undo** | Deleted tasks stay in Trash for 30 days and can be restored; every delete has a 5-second Undo. |
-| 16 | **18 Oct 2026** | **Autosave and English interface** | Everything you type is saved automatically, online or offline. All app text is now English. |
-| 17 | **18 Oct 2026** | **Bangla and English on login and guide** | The login page and user guide show both languages clearly. |
-| 18 | **18 Oct 2026** | **Guide links fixed** | Navigation links in the Bangla user guide now work. |
-| 19 | **19 Oct 2026** | **Typing and data safety** | No red spellcheck lines under Bangla text, steadier keyboard while editing, safer import files, cleaner stored data, fix for deleted tasks coming back, and sign out clears saved tasks from the browser. |
-| 20 | **19 Oct 2026** | **Project README** | Complete English README with features, architecture, security, testing and setup guides. |
-| 21 | **19 Oct 2026** | **Contact developer** | Developer card with portfolio, GitHub and bug-report links in the app and the user guide. |
-| 22 | **19 Oct 2026** | **What's new announcement** | A short summary of each update appears once after you update, and can be reopened from Account. |
-| 23 | **22 Oct 2026** | **Checklist, bug reports and tests** | Checklist steps with a tick on every task, Report a bug with technical details, a notice when something goes wrong, optional visitor statistics, faster updates and an automated test suite. |
-| 24 | **23 Oct 2026** | **Bigger notes box, update history and roadmap** | Larger description box with a centred drag handle, a dated update history and a Future updates list. |
-| 25 | **23 Oct 2026** | **Easy install and sharing** | A Get the app section in Account with an Install button, a QR code, Copy link and a WhatsApp invite. |
-| 26 | **24 Oct 2026** | **Install banner and Share button** | Phones now offer to install the app with a banner, a Share button opens your phone’s share sheet, and the QR code image is fixed. |
-| 27 | **25 Oct 2026** | **New app logo** | A new To Do logo on the home-screen icon, the browser tab, the login page and the app header. |
-| 28 | **25 Oct 2026** | **Photos on tasks and checklist steps** | Take a photo, pick several from your gallery or paste a screenshot. Every picture can have a description, opens full screen, syncs across your devices and is included in backups. |
-| 29 | 25 Oct 2026 | Photo sync, laptop camera and viewer fixes | Photos now upload in the background and retry until they reach your account, so they open on every device. Take photo opens the webcam on a laptop, and the full-screen viewer is centred. |
-| 30 | 4 Nov 2026 | Focus Dashboard redesign | Slim icon sidebar, tasks grouped into Overdue / Today / Later / No date, right panel with progress ring, Up next and a 10-day chart, teal accent and navy dark theme. |
-| 31 | 8 Nov 2026 | Tags, CSV export, weekly goal, synced look | Tags on tasks (type @work in quick add) with a filter bar, CSV export for spreadsheets, a weekly goal shown in the summary and on the dashboard, and accent, theme and goal that follow your account across devices. |
-| 32 | 8 Nov 2026 | Printable PDF list and sync status | Print or save open tasks as a clean PDF (Account, Backup, or Ctrl+P), an offline/syncing banner, and a per-task badge for changes not yet uploaded. |
-| 33 | **10 Nov 2026** | **Midnight Calm polish** | Greeting header, refined task cards and chips, overdue accents, tidier right panel, and a layout that adapts from desktop to tablet and phone. |
-| 34 | **11 Nov 2026** | **First-time tour and visitor statistics** | A short guided tour for new users (7 steps on a phone, 8 on a computer) with Back, Next and Skip, replayable from Account → Show tour. Privacy-friendly visitor statistics are switched on: no cookies, no personal data. |
-| 35 | **12 Nov 2026** | **Labelled sidebar and screenshots** | Every sidebar icon on laptops and desktops now shows its name, like the phone tab bar. The README gained a Screenshots section with demo images. |
-| 36 | **12 Nov 2026** | **Share and download selected tasks** | Select tasks, then Share or Download. Send them as text through your phone's share sheet, WhatsApp, email or copy, or save them as a PDF, a spreadsheet (CSV), a PNG image or a task file another To-Do Pro user can import. |
-| 37 | **13 Nov 2026** | **Friends and groups** | Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off. Find it under Account, Friends and groups. This is phase 1 of sharing tasks. |
-| 38 | **13 Nov 2026** | **Demo video** | A 4-minute guided demo video with captions, click highlights and sound is now in the README (`docs/demo.mp4`). |
 
 ## 🔮 Future updates
 
@@ -244,96 +181,24 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 | 14 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
 | 15 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
-<details>
-<summary><b>🐞 Problems found and fixed along the way</b></summary>
-
-- Stale downloaded files overwriting repository files (resolved with rename steps)
-- Duplicate element ids that broke the Bangla guide links
-- An alarm bell animation clashing with an existing style
-- Push tokens going stale across sessions
-- Autosave racing with the editor's close event
-- Account dialog staying open above the login screen after sign-out
-- A task coming back after delete while autosave was pending (found in review, fix pending deployment)
-- Red spellcheck lines under Bangla text making editing hard on mobile (fixed and live)
-- Updates appearing one reload late: the service worker served a cached `script.js` next to a fresh `index.html`, so a new button could appear before its code. Reloading twice resolves it; a network-first strategy for app code is being evaluated
-
-</details>
-
 ---
 
-## 🔐 Security
+## 🚀 Get started
 
-A full review was done in stage 8. The fixes below are in the repository files and are pending deployment (see [Release status](#-release-status)).
+1. 🌐 Open the [live app](https://abdurrahmancce.github.io/To-Do-Pro/) and tap **Create account**. Enter your name, email and a password (8 or more characters). Or continue as a guest and your tasks stay on that device.
+2. ➕ Add a task in the **Quick add** bar, for example `Call mom tomorrow 6pm !high @family`.
+3. 🔔 Turn on **Account → Background notifications** so reminders reach you even when the app is closed.
+4. 🔄 Sign in with the same email on your other devices to see the same tasks.
+5. 📲 Install the app: **Account → Get the app**, or use **Add to Home screen** / **Install app** in your browser menu. On iPhone, install it to the Home screen first to get push reminders.
+6. 👥 Open **Account → Friends and groups** to get your friend code and add people.
 
-| ID | Severity | Finding | Fix |
-|---|---|---|---|
-| W1 | 🔴 High | Worker used user and task ids in database paths without validation, so a crafted reminder could point at another user's data | Ids must match `^[A-Za-z0-9_-]{1,128}$`; invalid reminders are discarded |
-| W2 | 🟠 Medium | `/act` asked Google for a token before checking the signature, so spam could burn the free quota | Signature checked first, body limited to 2 KB, token cached |
-| W3 | 🟡 Low | Signature compared in non-constant time | Constant-time compare |
-| W4 | 🟡 Low | CORS open to all origins, error text leaked internals | CORS limited to the app's origin, generic error |
-| W5 | 🟡 Low | Task titles written to worker logs | Titles removed from logs |
-| C1 | 🟠 Medium | Hostile or corrupt task data (bad dates, huge text, odd ids, 20,000-item import) could crash the app or browser | Every task is normalised: ids sanitised, dates validated, lengths capped (title 200, notes 20,000, section 100); import limited to 2,000 tasks and 5 MB |
-| C2 | 🟠 Medium | Deleting right after typing could bring the task back | Pending autosave cancelled on delete |
-| C3 | 🟠 Medium | Task data stayed in the browser after sign-out | Sign-out waits for pending writes, then clears local and Firestore caches |
-| C4 | 🟡 Low | Password minimum was 6 | Raised to 8 |
-| R1 | 🟠 Medium | Firestore rules had no validation | New `firestore.rules`: owner-only access, type and size limits on tasks and reminders |
-
-✅ Also verified: all user text is HTML-escaped before display, and XSS payloads in title, notes and section never run in any view.
-
----
-
-## 🧪 Testing
-
-An automated **Playwright** suite (headless Chromium) runs the real app against an in-memory stand-in for Firebase. It lives in the [`tests/`](tests) folder: `cd tests && npm install && npx playwright install chromium && npm test`.
-
-**🎯 Last full run: 49 of 49 checks passed.** Tests for the tour, labelled sidebar, share and download and friends and groups were added afterwards. Run `npm test` to confirm the current total.
-
-| Area | What is checked |
-|---|---|
-| 🚀 Boot | App starts with no console errors |
-| 📝 Tasks | Quick add (including Banglish), complete, edit, delete, Trash, restore, delete forever, empty trash, search, bulk select with undo |
-| 🗓️ Views | Calendar, weekly summary, account and reminders dialogs, keyboard shortcuts |
-| 💾 Autosave | No duplicates, no task coming back after delete, past alarms not stored until confirmed |
-| 🕷️ Security | XSS payloads across every view, corrupt stored data, valid / malformed / oversized import files |
-| 🎬 Tour and layout | First-time tour steps and keyboard handling, labelled sidebar on desktop |
-| 📤 Share and download | Share sheet text, WhatsApp link, CSV, PDF, PNG and JSON downloads |
-| 👥 Friends and groups | Friend code, requests, groups, invite links, members, remove and delete (against an in-memory stand-in) |
-| 🔔 Alarms | Popup rings when due |
-| ☁️ Cloud flow | Add, soft delete, sign-out clears local cache |
-| 📐 Layout | No horizontal overflow at 320, 375 and 768 px; login screen at 360 px |
-| ✅ Checklist | Add, tick, remove and paste steps, steps shown and ticked from the list, hostile step text cleaned |
-| 🐞 Reporting | Errors recorded, notice shown once, Report a bug link has diagnostics and no task content |
-| 📊 Analytics | Off by default with no outside requests; with a code, events are counted and task text is never sent |
-| 📴 Service worker | New release runs after one reload; app opens offline |
-| 📦 Assets | Every file referenced by HTML, manifest and service worker exists; all app modules are cached |
-| ⚙️ Worker | Traversal ids, bad signatures, bad actions, oversized and malformed bodies are rejected before any Google call |
-
-> ℹ️ Real Firebase, Google sign-in, FCM delivery and the new Firestore rules cannot run in the test sandbox, so they are checked by hand after each deploy (see [Deploying updates](#-deploying-updates)).
-
----
-
-## 🚀 Quick start for users
-
-1. 🌐 Open the app and tap **Create account**. Enter name, email and a password (6+ characters today, 8+ after the pending update).
-2. ➕ Add tasks with **+**. Set a date, time and **Alarm** for reminders.
-3. 🔄 Sign in with the same email on your other devices to see the same tasks.
-4. 🔔 Turn on **Account → Background notifications** on each device for reminders when the app is closed.
-5. 📲 Install the app from the browser menu (**Add to Home screen** or **Install app**).
-
----
-
-## 🛠️ Setup for the owner (one time)
-
-- [ ] 🔥 **Firebase:** follow `SETUP.md`, then paste the config into `firebase-config.js`
-- [ ] 📧 **Email login:** Firebase Console → *Authentication* → *Sign-in method* → **Email/Password** → Enable → Save. Add **Google** there too for the Google button.
-- [ ] 🌍 **Authorized domain:** *Authentication* → *Settings* → *Authorized domains* must include `abdurrahmancce.github.io`
-- [ ] 📜 **Firestore rules:** paste `firestore.rules` into Firestore → *Rules* → Publish
-- [ ] 📲 **Background push:** follow `PUSH-SETUP.md` (Cloudflare Worker, service account secret, `WORKER_URL`)
-- [ ] 🚢 **Publish** with GitHub Pages
+New here? The app offers a short guided tour the first time you open it. Replay it any time from **Account → Show tour**.
 
 ---
 
 ## 📦 Deploying updates
+
+> For maintainers. First-time setup is in [`SETUP.md`](SETUP.md) (Firebase) and [`PUSH-SETUP.md`](PUSH-SETUP.md) (background push).
 
 1. 📂 Replace the changed files in the project folder, then:
    ```bash
@@ -352,8 +217,6 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 
 ## 🗂️ Repository layout
 
-> `docs/screenshots/` holds the demo images used in this README.
-
 | File | Purpose |
 |---|---|
 | 🧱 `index.html`, `style.css`, `script.js` | App UI and logic |
@@ -364,7 +227,7 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | 🔥 `habits.js` | Repeat and streak helpers |
 | 🩺 `errlog.js` | Records recent errors on the device for Report a bug (no network, no task data) |
 | 📊 `analytics.js` | Optional GoatCounter loader and feature counters (off until a site code is set) |
-| 🎬 `docs/` | `demo.mp4` (demo video) and `screenshots/` used in this README |
+| 🖼️ `docs/screenshots/` | Screenshots used in this README |
 | 🧪 `tests/` | Automated end-to-end tests (`npm test`) |
 | 📖 `help.html` | User guide (English and Bangla) |
 | 📴 `sw.js`, `manifest.webmanifest`, `icons/` | Offline cache, push handling, install metadata |
@@ -372,19 +235,6 @@ An automated **Playwright** suite (headless Chromium) runs the real app against 
 | 📜 `firestore.rules` | Database security rules |
 | 🤖 `worker/` | Cloudflare Worker that sends scheduled push reminders |
 | 📘 `SETUP.md`, `PUSH-SETUP.md` | Owner setup guides |
-
----
-
-## ⚠️ Known limitations and recommendations
-
-- 🚪 **Open sign-up:** anyone can create an account, and an account can queue reminders for the shared worker. After your own accounts exist, disable new sign-ups: Firebase → Authentication → Settings → User actions.
-- 🗝️ **Restrict the Firebase API key** to `abdurrahmancce.github.io` in Google Cloud Console (APIs & Services → Credentials). Enable the Firebase password policy and email-enumeration protection.
-- 🔄 Rotate the service-account key if it was ever shared or committed.
-- 🍎 Push reminders on iPhone need the app installed to the Home screen.
-- ⏱️ The worker runs every minute and sends at most 5 reminders per run to stay inside the free plan.
-- 🛡️ A Content Security Policy is not set yet. Add one only after testing Google and email sign-in on the live site.
-- 📊 **Analytics:** built but off. To turn it on, create a free site at goatcounter.com, put its code in `analytics.js` (`window.GOATCOUNTER_CODE = 'yourcode'`) and push. It uses no cookies, sends no task text, and respects Do Not Track.
-- 🤝 **Shared lists** (family or team) are not built yet; they need a new data structure and security rules.
 
 ---
 
@@ -415,6 +265,6 @@ Questions, bug reports, feature ideas or collaboration? Reach out through any of
 
 <div align="center">
 
-Built step by step, tested at every stage. 🧡
+Released under the [MIT License](LICENSE). Built step by step, tested at every stage. 🧡
 
 </div>
