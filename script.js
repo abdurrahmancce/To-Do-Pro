@@ -233,6 +233,9 @@ function describeChange(a = {}, b = {}) {
   if ((a.date || '') !== (b.date || '')) out.push(b.date ? 'set the due date to ' + b.date : 'removed the due date');
   if ((a.alarm || '') !== (b.alarm || '')) out.push(b.alarm ? 'changed the reminder' : 'removed the reminder');
   if ((a.priority || '') !== (b.priority || '')) out.push('set the priority to ' + b.priority);
+  const np = (v) => (v.photos || []).length + (v.subtasks || []).reduce((n, x) => n + (x.photos || []).length, 0);
+  if (np(b) > np(a)) out.push(np(b) - np(a) === 1 ? 'added a photo' : `added ${np(b) - np(a)} photos`);
+  else if (np(b) < np(a)) out.push('removed a photo');
   const old = new Map((a.subtasks || []).map((x) => [x.id, x])), now = new Map((b.subtasks || []).map((x) => [x.id, x]));
   for (const [id, x] of now) {
     const o = old.get(id);
@@ -244,33 +247,54 @@ function describeChange(a = {}, b = {}) {
   return out;
 }
 /* Owner side: send this task's current content into its share */
-function pushShare(task) {
+async function pushShare(task) {
   const sh = shareOf(task);
   if (!sh || sh.ownerUid !== state.user.uid) return;
-  const fields = cloud.shareFields(task);
-  if (canon(fields) === canon(cloud.shareFields(sh.task))) return;
-  cloud.pushShareTask(task.shareId, state.user.uid, myName(), task, describeChange).then((r) => { task.shareRev = r.rev; }).catch(onCloudError);
+  const me = state.user.uid, fields = cloud.shareFields(task);
+  const need = photoIdsOf(task).filter((id) => !(sh.pics || []).includes(id) && !picBusy.has('up' + sh.id + id));
+  if (canon(fields) === canon(cloud.shareFields(sh.task)) && !need.length) return;
+  const up = [];
+  for (const pid of need) { // copy the pictures into the share first, so people never see an empty frame
+    picBusy.add('up' + sh.id + pid);
+    try { const d = await ph.photoURL(pid); if (d && ph.validPhotoData(d)) { await cloud.saveSharePhoto(sh.id, me, pid, { d }); up.push(pid); } } catch (e) { onCloudError(e); } finally { picBusy.delete('up' + sh.id + pid); }
+  }
+  cloud.pushShareTask(task.shareId, me, myName(), task, describeChange, up).then((r) => { task.shareRev = r.rev; }).catch(onCloudError);
 }
-/* Owner side: somebody else changed the share, so bring the change into the owner's own task */
 function mergeShareTask(t, x) {
   const keep = new Map((t.subtasks || []).map((s) => [s.id, s]));
   return normalize({
     ...t, title: x.title, notes: x.notes, date: x.date, priority: x.priority, completed: x.completed,
     completedAt: x.completed ? (x.completedAt || new Date().toISOString()) : null,
     alarm: x.alarm, alarmRepeat: x.alarmRepeat, alarmFired: x.alarm !== t.alarm ? false : t.alarmFired, tags: x.tags,
-    subtasks: (x.subtasks || []).map((s) => ({ id: s.id, text: s.text, done: !!s.done, photos: keep.get(s.id)?.photos || [] })),
+    photos: Array.isArray(x.photos) ? x.photos : t.photos,
+    subtasks: (x.subtasks || []).map((s) => ({ id: s.id, text: s.text, done: !!s.done, photos: Array.isArray(s.photos) ? s.photos : keep.get(s.id)?.photos || [] })),
   });
 }
-function applyShareToTask(t, sh) { const n = mergeShareTask(t, sh.task); n.shareRev = sh.rev || 0; upsert(n, { silent: true, noShare: true }); }
+function applyShareToTask(t, sh) { const n = mergeShareTask(t, sh.task); n.shareRev = sh.rev || 0; upsert(n, { silent: true, noShare: true }); pullSharePhotos(sh, true); }
+/* Pictures of a shared task: make every one available on this device (the owner also keeps them in the account) */
+const picBusy = new Set();
+async function sharePhoto(sh, pid, keep) {
+  let d = await ph.photoURL(pid);
+  if (d) return d;
+  const rec = await cloud.getSharePhoto(sh.id, pid);
+  if (!rec || !ph.validPhotoData(rec.d)) return null;
+  const r = { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now() };
+  if (keep) await ph.savePhoto(pid, r); else await ph.putLocal(pid, r);
+  return rec.d;
+}
+function pullSharePhotos(sh, keep) {
+  const ids = photoIdsOf(sh.task);
+  ids.forEach((pid) => { const k = sh.id + pid; if (picBusy.has(k)) return; picBusy.add(k); sharePhoto(sh, pid, keep).catch(() => {}).finally(() => picBusy.delete(k)); });
+}
 /* Change a shared task: the owner edits the master copy (and it flows into the share); anybody else edits the share itself */
-function shareEdit(sh, mutate) {
+function shareEdit(sh, mutate, picIds = []) {
   if (sh.ownerUid === state.user.uid) {
     const t = state.tasks.find((x) => x.shareId === sh.id);
     if (!t) return Promise.resolve();
     upsert(mergeShareTask(t, mutate(cloud.shareFields(t))));
     return Promise.resolve();
   }
-  return cloud.editShare(sh.id, state.user.uid, myName(), mutate, describeChange);
+  return cloud.editShare(sh.id, state.user.uid, myName(), mutate, describeChange, picIds);
 }
 async function createGroupTask(o) {
   if (!cloudOn()) throw new Error('Sign in first.');
@@ -444,7 +468,7 @@ const VIEW_META = {
   today:    { title: 'Today',      empty: ['You’re all clear', 'Nothing is due today. Enjoy your day!'] },
   upcoming: { title: 'Upcoming',   empty: ['Nothing upcoming', 'Tasks with a future due date show up here.'] },
   calendar: { title: 'Calendar',   empty: ['', ''] },
-  shared:   { title: 'Shared with me', empty: ['Nothing shared with you yet', 'When a friend shares a task with you, it appears here and you can tick and edit it together.'] },
+  shared:   { title: 'Shared', empty: ['Nothing shared yet', 'Tasks friends share with you, and tasks you share with them, appear here. Share one from Select, Share, People.'] },
   trash:    { title: 'Trash',      empty: ['Trash is empty', 'Deleted tasks stay here for 30 days before they are removed for good.'] },
   done:     { title: 'Completed',  empty: ['No completed tasks', 'Finished tasks will be listed here.'] },
 };
@@ -629,7 +653,7 @@ function render() {
     ? `${tasks.length} result${tasks.length === 1 ? '' : 's'} for “${state.search.trim()}”`
     : isCal ? calSub()
     : state.view === 'trash' ? `${tasks.length} deleted task${tasks.length === 1 ? '' : 's'}`
-    : state.view === 'shared' ? `${counts.shared} task${counts.shared === 1 ? '' : 's'} shared with you`
+    : state.view === 'shared' ? `${counts.shared} shared with you \u00b7 ${state.shares.length - counts.shared} shared by you`
     : state.view === 'all' ? (() => { const td0 = todayStr(); const od = state.tasks.filter((t) => !t.completed && t.date && t.date < td0 && !isHabit(t)).length; const open = state.tasks.filter((t) => !t.completed).length; return `${subDate} · ${open} open${od ? ` · ${od} overdue` : ''}`; })()
     : `${subDate} · ${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
 
@@ -666,18 +690,22 @@ function render() {
     $('.content').classList.remove('selecting');
     $('#quick-form').hidden = true; $('#calendar').hidden = true; listEl.hidden = false;
     qaPreview.hidden = true; listEl.classList.add('no-drag');
-    const rows = sharedWithMe().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    listEl.innerHTML = rows.length ? `<ul class="group-list trash-list shared-list">${rows.map((sh) => {
-      const t = sh.task, n = (t.subtasks || []).length, d = (t.subtasks || []).filter((x) => x.done).length, view = (sh.viewers || []).includes(state.user.uid);
-      const bits = [`From ${esc(sh.ownerName || 'a friend')}`, view ? 'View only' : 'You can edit'];
+    const me = state.user.uid, byTime = (a, b) => (b.updatedAt || 0) - (a.updatedAt || 0);
+    const inbox = sharedWithMe().sort(byTime), outbox = state.shares.filter((x) => x.ownerUid === me).sort(byTime);
+    const row = (sh, mine) => {
+      const t = sh.task, n = (t.subtasks || []).length, d = (t.subtasks || []).filter((x) => x.done).length, view = (sh.viewers || []).includes(me);
+      const others = sh.members.filter((m) => m !== me).map((m) => (sh.names && sh.names[m]) || 'Someone');
+      const bits = mine ? [`With ${esc(others.slice(0, 3).join(', '))}${others.length > 3 ? ` +${others.length - 3}` : ''}`, sh.groupName ? `Group ${esc(sh.groupName)}` : ''] : [`From ${esc(sh.ownerName || 'a friend')}`, view ? 'View only' : 'You can edit'];
       if (n) bits.push(`${d}/${n} steps`);
       if (t.date) bits.push('Due ' + esc(dateLabel(t.date)));
       if (t.alarm && !t.completed) bits.push('Reminder ' + esc(whenLabel(t.alarm)));
       return `<li class="trash-row sh-row${t.completed ? ' sh-done' : ''}" data-share="${esc(sh.id)}" tabindex="0"><div class="tr-main"><div class="tr-title">${t.completed ? '\u2714 ' : ''}${esc(t.title || 'Untitled')}</div>
-        <div class="tr-meta">${bits.join(' \u00b7 ')}</div></div><div class="tr-actions"><button class="btn btn-ghost sm" type="button" data-open-share>Open</button></div></li>`;
-    }).join('')}</ul>` : '';
-    $('#empty').hidden = !!rows.length;
-    if (!rows.length) { $('#empty-title').textContent = VIEW_META.shared.empty[0]; $('#empty-sub').textContent = VIEW_META.shared.empty[1]; }
+        <div class="tr-meta">${bits.filter(Boolean).join(' \u00b7 ')}</div></div><div class="tr-actions"><button class="btn btn-ghost sm" type="button" data-open-share>Open</button></div></li>`;
+    };
+    const sect = (title, list, mine) => (list.length ? `<h3 class="sh-sect">${title} <span class="muted">${list.length}</span></h3><ul class="group-list trash-list shared-list">${list.map((x) => row(x, mine)).join('')}</ul>` : '');
+    listEl.innerHTML = sect('Shared with me', inbox, false) + sect('Shared by me', outbox, true);
+    $('#empty').hidden = !!(inbox.length || outbox.length);
+    if (!inbox.length && !outbox.length) { $('#empty-title').textContent = VIEW_META.shared.empty[0]; $('#empty-sub').textContent = VIEW_META.shared.empty[1]; }
     renderReminders(counts); updateBulk();
     return;
   }
@@ -2231,6 +2259,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
   ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
   ["2026-11-14", "Shared tasks and group tasks", "Share a task with friends or a whole group from Share, People. They can tick steps, add steps and edit it (or only view it), and an activity log shows who did what. Each group has a task board with progress, Mine and Due today filters and an Assign to choice. A reminder on a shared task rings on everyone\u2019s phone. Shared tasks you receive are under Shared with me."],
+  ["2026-11-14", "Shared tasks: photos and Shared by me", "Photos on a shared task and on its steps are now shared too, and people who can edit can add photos. The Shared page now has two lists, Shared with me and Shared by me, so you can see what you shared and with whom. Fixed the shared task window where long notes and steps overlapped, and the notes box can now be scrolled and made taller."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
   ["Planned", "Shared lists", "Share a list with family or a team using an invite link or code, with view-only or edit access."],
@@ -2269,7 +2298,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-14-shared-tasks', label: 'Latest update: 14 November 2026' };
+const APP_UPDATE = { id: '2026-11-14-shared-photos', label: 'Latest update: 14 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2547,6 +2576,12 @@ const shareCtx = () => ({
 });
 /* A task somebody shared with me: its own small editor */
 const sharedCtx = () => ({ cloud, user: state.user, toast, track, esc, describe: describeChange, myName: myName(), getShare: (x) => state.shares.find((s) => s.id === x), shares: () => state.shares, edit: shareEdit, createGroupTask,
+  photo: (sh, pid) => sharePhoto(sh, pid, sh.ownerUid === state.user.uid), openViewer: (list, i) => openViewer(list, i),
+  async addPhoto(sh, file) {
+    const rec = await ph.compress(file), pid = newId().replace(/[^A-Za-z0-9_-]/g, '').slice(0, 20), owner = sh.ownerUid === state.user.uid;
+    if (owner) await ph.savePhoto(pid, rec); else { await ph.putLocal(pid, rec); await cloud.saveSharePhoto(sh.id, state.user.uid, pid, rec); }
+    track('photo-added'); return pid;
+  },
   managePeople: (sh) => { const t = state.tasks.find((x) => x.shareId === sh.id); if (t) openShare('people', [t.id]); }, onError: onCloudError,
   left: (x) => { cloud.deleteReminder('sh_' + x).catch(() => {}); cloud.deleteReminder('sh_' + x + '_echo').catch(() => {}); sharedMirror.delete('sh_' + x); } });
 async function openSharedTask(id) {

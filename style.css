@@ -1388,3 +1388,21 @@ img.missing { visibility: hidden; }
 .sh-form { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
 .chip.sharedc { cursor: pointer; border: 0; font: inherit; }
 .sh-row.sh-done .tr-title { color: var(--muted); }
+
+/* shared task editor: layout and notes (fixes) */
+#st-body { gap: 14px; }
+#st-body > * { flex-shrink: 0; }
+.sh-ro, .sh-ttl, .sh-st { overflow-wrap: anywhere; }
+.sh-notes { max-height: 45vh; overflow: auto; align-items: flex-start; padding: 6px 0; }
+#st-notes { resize: vertical; min-height: 140px; max-height: 60vh; overflow: auto; }
+.sh-stepw + .sh-stepw { border-top: 1px solid var(--border); }
+.sh-thumbs { display: flex; flex-wrap: wrap; gap: 10px; margin: 2px 0 8px 34px; }
+.sh-stepw > .sh-thumbs { margin-left: 34px; }
+div > .sh-thumbs:first-child, h4 + .sh-thumbs { margin-left: 0; }
+.sh-thw { position: relative; }
+.sh-th { width: 72px; height: 72px; border: 0; padding: 0; border-radius: 10px; overflow: hidden; background: var(--surface-2); cursor: zoom-in; }
+.sh-th img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.sh-th img.missing { opacity: .15; }
+.sh-thx { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
+.sh-sect { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.shared-list { margin-bottom: 4px; }

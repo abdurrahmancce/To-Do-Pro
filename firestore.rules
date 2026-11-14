@@ -203,7 +203,7 @@ service cloud.firestore {
           && listsOk(request.resource.data) && taskOk(request.resource.data.task))
         // a member who can edit changes only the task itself
         || (!(request.auth.uid in resource.data.viewers)
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['task', 'rev', 'updatedAt', 'updatedBy'])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['task', 'rev', 'updatedAt', 'updatedBy', 'pics'])
           && request.resource.data.updatedBy == request.auth.uid
           && taskOk(request.resource.data.task))
         // a member may remove only themselves
@@ -211,6 +211,19 @@ service cloud.firestore {
           && request.resource.data.members == resource.data.members.removeAll([request.auth.uid]))
       );
       allow delete: if isOwner();
+
+      // Pictures of a shared task. Members can look; members who can edit can add; only the owner removes.
+      match /photos/{pid} {
+        function parent() { return get(/databases/$(database)/documents/shares/$(sid)).data; }
+        allow read: if signedIn() && request.auth.uid in parent().members;
+        allow create: if signedIn() && request.auth.uid in parent().members
+          && !(request.auth.uid in parent().viewers)
+          && pid.matches('^[A-Za-z0-9_-]{1,40}$')
+          && request.resource.data.keys().hasOnly(['d', 'w', 'h', 't', 'by'])
+          && request.resource.data.by == request.auth.uid
+          && request.resource.data.d is string && request.resource.data.d.size() <= 400000;
+        allow delete: if signedIn() && parent().ownerUid == request.auth.uid;
+      }
 
       match /activity/{aid} {
         function parent() { return get(/databases/$(database)/documents/shares/$(sid)).data; }
