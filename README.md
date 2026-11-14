@@ -77,7 +77,8 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 - 🎯 Priorities (low, medium, high), due dates, sections, notes
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
-- 👥 **Friends and groups:** add friends with a private code or link, create groups and invite people (Account → Friends and groups). Sharing tasks with them is coming next.
+- 👥 **Friends and groups:** add friends with a private code or link, create groups and invite people (Account → Friends and groups).
+- 🤝 **Shared tasks and group tasks:** share a task with friends or a group (Share → People). They can tick steps, add steps and edit it, or only view it, and an activity log shows who did what. Every group has a task board with progress, an Assign to choice and Mine / Due today filters. A reminder on a shared task rings on everyone's phone. Tasks shared with you are under **Shared with me**.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
@@ -141,7 +142,7 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 | 📴 Offline | Service worker + local cache | App opens and tasks stay editable without internet |
 | 🗄️ Data | Firestore, one document per task | Real-time multi-device sync. Deleted tasks carry a `deletedAt` time, which is how Trash syncs. |
 | 🔔 Reminders | Firestore queue + Cloudflare Worker + FCM | Push works with the app closed, on the free plan |
-| 👥 People | Firestore collections for profiles, friend codes, friendships, groups and invite links, protected by security rules |
+| 👥 People | Firestore collections for profiles, friend codes, friendships, groups, invite links and shared tasks, protected by security rules |
 | 🔐 Privacy | Each person can only read their own tasks, photos and settings. Nobody can list all users or groups |
 | 💸 Cost | Free tiers only | Firebase, Cloudflare Workers, GitHub Pages |
 
@@ -165,16 +166,14 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 
 | # | Status | Update | What it brings |
 |---|---|---|---|
-| 1 | 🔵 Planned | **Share with people and groups** | Send selected tasks straight to a friend or group inside the app, with view or comment access. |
-| 2 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 3 | 🔵 Planned | **Shared tasks you can edit** | Share a task with a friend or group so they can tick, add and update steps, with an activity log and an owner-only alarm. |
-| 4 | 🔵 Planned | **Comments and notifications** | Discuss a shared task in comments, get push notifications for changes and remove someone's access at any time. |
-| 5 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
-| 6 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 7 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
-| 8 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
-| 9 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
-| 10 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 1 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
+| 2 | 🔵 Planned | **Comments and notifications** | Discuss a shared task in comments, get push notifications when someone changes it, and add people who join a group later. |
+| 3 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
+| 4 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 5 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
+| 6 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
+| 7 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
+| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
 | 11 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
 | 12 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
 | 13 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
@@ -221,8 +220,9 @@ New here? The app offers a short guided tour the first time you open it. Replay 
 |---|---|
 | 🧱 `index.html`, `style.css`, `script.js` | App UI and logic |
 | 🔑 `auth.js` | Animated bilingual email and password login screen |
-| ☁️ `cloud.js` | Firebase Auth, Firestore sync, push registration, friends and groups |
+| ☁️ `cloud.js` | Firebase Auth, Firestore sync, push registration, friends, groups and shared tasks |
 | 👥 `social.js` | Friends and groups panel (friend code, requests, groups, invite links), loaded on demand |
+| 🤝 `shares.js` | Shared tasks: People tab, shared task editor with activity log, group task board, loaded on demand |
 | 💬 `quickparse.js` | Natural-language quick-add parser |
 | 🔥 `habits.js` | Repeat and streak helpers |
 | 🩺 `errlog.js` | Records recent errors on the device for Report a bug (no network, no task data) |

@@ -19,7 +19,9 @@ const friendly = (e) => {
   return (e && e.message) || 'Something went wrong. Please try again.';
 };
 
+let openGroupTasks = null;
 export async function openSocial(ctx) {
+  openGroupTasks = ctx.openGroup || null;
   C = ctx.cloud; U = ctx.user; say = ctx.toast || say; track = ctx.track || track;
   const dlg = $('#social'); if (!dlg) return;
   S.loading = true; S.msg = null; S.openGid = null; S.pendingJoin = null; S.prefill = '';
@@ -142,6 +144,7 @@ function groupHtml(g) {
   let inner = '';
   if (open) {
     inner = `<div class="soc-detail">
+      ${openGroupTasks ? `<button type="button" class="btn btn-primary sm" data-act="open-tasks" data-gid="${esc(g.id)}">Open group tasks</button>` : ''}
       <h4>Members${S.members.length ? ` (${S.members.length})` : ''}</h4>
       ${S.members.length ? S.members.map((m) => `<div class="soc-row sm"><div class="soc-av" aria-hidden="true">${esc((m.name || '?')[0])}</div><div class="soc-name"><strong>${esc(m.name)}${m.uid === U.uid ? ' (you)' : ''}</strong><small>${m.role === 'owner' ? 'Owner' : 'Member'}</small></div>
         ${owner && m.uid !== U.uid ? `<button type="button" class="btn btn-ghost sm" data-act="kick" data-gid="${esc(g.id)}" data-uid="${esc(m.uid)}" aria-label="Remove ${esc(m.name)} from the group">Remove</button>` : ''}</div>`).join('') : '<p class="muted">Loading members…</p>'}
@@ -208,6 +211,7 @@ async function onClick(e) {
     return run(async () => { const r = await C.joinGroup(U.uid, S.me.name, code); S.pendingJoin = null; track('group-joined'); const el = $('#soc-join'); if (el) el.value = ''; return r; }, (r) => (r.already ? `You are already in ${r.name}.` : `You joined ${r.name}.`));
   }
   if (a === 'skip-join') { S.pendingJoin = null; return render(); }
+  if (a === 'open-tasks') { if (openGroupTasks && g) openGroupTasks(g.id, g.name); return; }
   if (a === 'toggle-group') {
     S.openGid = S.openGid === gid ? null : gid; S.members = []; render();
     if (S.openGid) refreshMembers(gid);

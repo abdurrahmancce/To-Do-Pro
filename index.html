@@ -97,6 +97,7 @@
       <button class="nav-item" data-view="today" type="button"><svg class="i"><use href="#i-sun"/></svg><span>Today</span><em data-count="today">0</em></button>
       <button class="nav-item" data-view="upcoming" type="button"><svg class="i"><use href="#i-calendar"/></svg><span>Upcoming</span><em data-count="upcoming">0</em></button>
       <button class="nav-item" data-view="calendar" type="button"><svg class="i"><use href="#i-calgrid"/></svg><span>Calendar</span></button>
+      <button class="nav-item" data-view="shared" id="nav-shared" type="button"><svg class="i"><use href="#i-share"/></svg><span>Shared with me</span><em data-count="shared">0</em></button>
       <button class="nav-item" data-view="done" type="button"><svg class="i"><use href="#i-done"/></svg><span>Completed</span><em data-count="done">0</em></button>
       <button class="nav-item" data-view="trash" type="button"><svg class="i"><use href="#i-trash"/></svg><span>Trash</span><em data-count="trash">0</em></button>
     </nav>
@@ -134,6 +135,7 @@
 
       <div class="topbar-actions">
         <button class="icon-btn mobile-only" data-view="trash" type="button" aria-label="Trash"><svg class="i"><use href="#i-trash"/></svg></button>
+        <button class="icon-btn mobile-only" data-view="shared" type="button" aria-label="Shared with me"><svg class="i"><use href="#i-share"/></svg><span class="badge" data-count="shared-badge" hidden>0</span></button>
         <button class="icon-btn mobile-only" data-view="calendar" type="button" aria-label="Calendar view"><svg class="i"><use href="#i-calgrid"/></svg></button>
         <button class="icon-btn mobile-only" id="btn-reminders-top" type="button" aria-label="Reminders">
           <svg class="i"><use href="#i-bell"/></svg><span class="badge" data-count="reminders-badge" hidden>0</span>
@@ -446,6 +448,14 @@
   </div>
 </dialog>
 
+<dialog id="shared-task" class="sheet sheet-sm" aria-labelledby="st-title">
+  <header class="sheet-head">
+    <h2 id="st-title">Shared task</h2>
+    <button type="button" class="icon-btn" data-close aria-label="Close"><svg class="i"><use href="#i-x"/></svg></button>
+  </header>
+  <div class="sheet-body" id="st-body"></div>
+</dialog>
+
 <!-- webcam capture (laptops) -->
 <dialog id="cam-dialog" class="cam-dialog" aria-label="Take a photo">
   <video id="cam-video" autoplay playsinline muted></video>
@@ -501,9 +511,10 @@
   </header>
   <div class="sheet-body">
     <p class="muted" id="share-sum"></p>
-    <div class="seg seg2" role="radiogroup" aria-label="Share options">
+    <div class="seg" role="radiogroup" aria-label="Share options">
       <button type="button" role="radio" data-stab="send" aria-checked="true">Send</button>
       <button type="button" role="radio" data-stab="download" aria-checked="false">Download</button>
+      <button type="button" role="radio" data-stab="people" aria-checked="false">People</button>
     </div>
     <label class="share-opt"><input type="checkbox" id="share-detail" checked> Include checklist and notes</label>
     <div id="share-send">
@@ -516,6 +527,7 @@
         <button type="button" class="btn btn-ghost" id="share-copy">Copy text</button>
       </div>
     </div>
+    <div id="share-people" class="sp" hidden></div>
     <div id="share-dl" class="share-dl" hidden>
       <button type="button" class="share-card" data-dl="pdf"><strong>PDF</strong><span>A clean printable list. Choose &ldquo;Save as PDF&rdquo; in the print window.</span></button>
       <button type="button" class="share-card" data-dl="csv"><strong>Spreadsheet (CSV)</strong><span>Opens in Excel or Google Sheets.</span></button>

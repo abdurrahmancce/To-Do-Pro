@@ -50,3 +50,40 @@ export async function joinGroup(uid, myName, code) { const inv = await previewIn
 export const removeMember = async (gid, uid) => { gm.get(gid).delete(uid); };
 export async function leaveGroup(uid, gid) { gm.get(gid).delete(uid); myIdx.delete(gid); grEmit(); }
 export async function deleteGroup(uid, gid, code) { if (code) invs.delete(code); grp.delete(gid); gm.delete(gid); myIdx.delete(gid); grEmit(); }
+
+/* ---------- shared tasks (in-memory) ---------- */
+const shares = new Map(); const shL = new Set(); const acts = new Map(); const actL = new Map();
+const clone = (x) => JSON.parse(JSON.stringify(x));
+const shEmit = () => shL.forEach((f) => setTimeout(() => f([...shares].filter(([, d]) => d.members.includes('u1')).map(([id, d]) => ({ id, ...clone(d) })), { fromCache: false, hasPendingWrites: false }), 5));
+const actEmit = (id) => (actL.get(id) || new Set()).forEach((f) => setTimeout(() => f([...(acts.get(id) || [])].sort((a, b) => b.at - a.at).map((x, i) => ({ id: 'a' + i, ...x }))), 5));
+const log = (id, uid, name, text) => { if (!acts.has(id)) acts.set(id, []); acts.get(id).push({ uid, name, text, at: Date.now() + acts.get(id).length }); actEmit(id); };
+export const shareFields = (t) => { const o = {}; for (const k of ['title', 'notes', 'date', 'priority', 'completed', 'completedAt', 'subtasks', 'alarm', 'alarmRepeat', 'tags']) o[k] = t[k] === undefined ? null : t[k]; o.subtasks = (t.subtasks || []).map((x) => ({ id: x.id, text: x.text, done: !!x.done })); o.tags = t.tags || []; return clone(o); };
+export const subscribeShares = (u, f) => { shL.add(f); shEmit(); return () => shL.delete(f); };
+export async function createShare(uid, ownerName, task, people, viewers, extra = {}) {
+  const id = 'sh' + (++seq), names = { [uid]: ownerName }, members = [uid];
+  people.forEach((p) => { if (!members.includes(p.uid)) { members.push(p.uid); names[p.uid] = p.name; } });
+  shares.set(id, { ownerUid: uid, ownerName, sourceId: task.id, members, viewers: viewers.filter((v) => members.includes(v)), names, task: shareFields(task), rev: 1, updatedAt: Date.now(), updatedBy: uid, ...(extra.groupId ? { groupId: extra.groupId, groupName: extra.groupName, assignee: extra.assignee || '', ring: extra.ring !== false } : {}) });
+  shEmit(); return id;
+}
+export async function updateShareMembers(id, uid, people, viewers) {
+  const d = shares.get(id); const names = { [uid]: d.names[uid] }, members = [uid];
+  people.forEach((p) => { if (!members.includes(p.uid)) { members.push(p.uid); names[p.uid] = p.name; } });
+  Object.assign(d, { members, names, viewers: viewers.filter((v) => members.includes(v)) }); shEmit(); return { members, names };
+}
+export async function editShare(id, uid, name, mutate, describe) {
+  const d = shares.get(id); if (!d) throw new Error('This shared task no longer exists.');
+  const before = clone(d.task), after = mutate(clone(d.task)); d.task = after; d.rev++; d.updatedBy = uid; d.updatedAt = Date.now();
+  (describe ? describe(before, after) : []).slice(0, 5).forEach((l) => log(id, uid, name, l)); shEmit(); return { before, after, rev: d.rev };
+}
+export const pushShareTask = (id, uid, name, task, describe) => editShare(id, uid, name, () => shareFields(task), describe);
+export const subscribeActivity = (id, f) => { if (!actL.has(id)) actL.set(id, new Set()); actL.get(id).add(f); actEmit(id); return () => actL.get(id).delete(f); };
+export const addActivity = async (id, uid, name, text) => log(id, uid, name, text);
+export async function leaveShare(id, uid) { const d = shares.get(id); d.members = d.members.filter((m) => m !== uid); shEmit(); }
+export async function stopShare(id) { shares.delete(id); acts.delete(id); shEmit(); }
+export const listReminderIds = async () => [];
+window.__shares = {
+  shares, acts,
+  /* somebody else (Rafi, u2) changes a share, or shares something with me */
+  rafiEdit(id, mutate) { const d = shares.get(id); d.task = mutate(clone(d.task)); d.rev++; d.updatedBy = 'u2'; shEmit(); },
+  fromRafi(task, extra = {}, viewer = false) { const id = 'sh' + (++seq); shares.set(id, { ownerUid: 'u2', ownerName: 'Rafi', sourceId: 'r1', members: ['u2', 'u1'], viewers: viewer ? ['u1'] : [], names: { u2: 'Rafi', u1: 'Tester' }, task: shareFields({ title: 'x', notes: '', date: '', priority: 'medium', completed: false, subtasks: [], tags: [], alarm: null, alarmRepeat: 'none', ...task }), rev: 1, updatedAt: Date.now(), updatedBy: 'u2', ...extra }); shEmit(); return id; },
+};

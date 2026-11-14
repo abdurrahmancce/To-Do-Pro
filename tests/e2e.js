@@ -538,6 +538,47 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await fp.context().close();
   }
 
+  // ---------- shared tasks and group tasks ----------
+  {
+    const sp = await newPage(b, { cloud: true, user: true });
+    await sp.waitForTimeout(400);
+    await sp.evaluate(() => { window.__social.fships.set('u1_u2', { members: ['u1', 'u2'], requester: 'u2', status: 'accepted' }); });
+    await sp.fill('#q-title', 'Plan the trip'); await sp.press('#q-title', 'Enter'); await sp.waitForTimeout(300);
+    await T('shared: People tab shares a task with a friend', async () => {
+      await sp.click('#btn-select'); await sp.click('.task .t-title'); await sp.click('#bulk-share'); await sp.waitForSelector('#share[open]');
+      await sp.click('[data-stab=people]'); await sp.waitForSelector('[data-addf]'); await sp.click('[data-addf=u2]'); await sp.click('[data-apply]');
+      await sp.waitForFunction(() => window.__shares.shares.size === 1); await sp.waitForSelector('.chip.sharedc');
+      return /Shared · 1/.test(await sp.textContent('.chip.sharedc'));
+    });
+    await T('shared: a friend\'s edit reaches the owner\'s own task', async () => {
+      await sp.evaluate(() => { const id = [...window.__shares.shares.keys()][0]; window.__shares.rafiEdit(id, (x) => { x.title = 'Plan the big trip'; return x; }); });
+      await sp.waitForFunction(() => /Plan the big trip/.test(document.querySelector('.task .t-title')?.textContent || '')); return true;
+    });
+    await T('shared: stop sharing removes the share', async () => {
+      await sp.click('.chip.sharedc'); await sp.waitForSelector('#share-people [data-stop]'); await sp.click('[data-stop]');
+      await sp.waitForFunction(() => window.__shares.shares.size === 0); return true;
+    });
+    await T('shared: a task shared with me shows in Shared with me and can be edited', async () => {
+      await sp.evaluate(() => { window.__shares.fromRafi({ title: 'Rafi task', subtasks: [{ id: 'a1', text: 'First', done: false }] }); });
+      await sp.click('.sidebar [data-view=shared]'); await sp.waitForSelector('.sh-row'); await sp.click('.sh-row'); await sp.waitForSelector('#shared-task[open] .sh-box');
+      await sp.click('.sh-box'); await sp.fill('#st-newstep', 'Second'); await sp.press('#st-newstep', 'Enter');
+      await sp.waitForFunction(() => { const s = [...window.__shares.shares.values()].find((x) => x.ownerUid === 'u2'); return s.task.subtasks[0].done && s.task.subtasks.length === 2; });
+      await sp.waitForFunction(() => /ticked/.test(document.querySelector('#st-log')?.textContent || '')); return true;
+    });
+    await T('shared: a view-only member cannot edit', async () => {
+      await sp.evaluate(() => { window.__shares.fromRafi({ title: 'Look only' }, {}, true); });
+      await sp.click('#shared-task [data-close]'); await sp.waitForSelector('.sh-row >> nth=1'); await sp.click('.sh-row:has-text("Look only")');
+      await sp.waitForSelector('#shared-task[open] .sh-ttl'); return !(await sp.$('#st-ttl')) && !(await sp.$('#st-newstep'));
+    });
+    await T('shared: alarm of a shared task rings on my phone', async () => {
+      await sp.click('#shared-task [data-close]');
+      await sp.evaluate(() => { const id = [...window.__shares.shares.keys()][0]; window.__shares.rafiEdit(id, (x) => { x.alarm = new Date(Date.now() - 5000).toISOString(); return x; }); });
+      await sp.waitForFunction(() => /Rafi task/.test(document.querySelector('#alarm-title')?.textContent || ''), null, { timeout: 6000 }); return true;
+    });
+    await T('shared: no page errors', async () => sp.errs.length === 0 || sp.errs.join(';'));
+    await sp.context().close();
+  }
+
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
     const root = ROOT; const miss = [];

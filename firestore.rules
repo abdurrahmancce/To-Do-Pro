@@ -172,5 +172,55 @@ service cloud.firestore {
       allow update: if false;
       allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
     }
+
+    // ---------- Shared tasks (sharing, phase 2) ----------
+    // members = everyone who can open the task (the owner included); viewers = the members who may only look.
+    // Note: the app only offers friends and group members. The rules check membership, not friendship.
+    match /shares/{sid} {
+      function taskOk(t) {
+        return t is map && t.title is string && t.title.size() <= 200
+          && (!('notes' in t) || t.notes == null || (t.notes is string && t.notes.size() <= 20000))
+          && (!('subtasks' in t) || (t.subtasks is list && t.subtasks.size() <= 200));
+      }
+      function listsOk(d) {
+        return d.members is list && d.members.size() >= 1 && d.members.size() <= 30
+          && d.viewers is list && d.viewers.size() <= 30;
+      }
+      function isMember() { return signedIn() && request.auth.uid in resource.data.members; }
+      function isOwner() { return signedIn() && resource.data.ownerUid == request.auth.uid; }
+
+      allow read: if isMember();
+      allow create: if signedIn()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.members.hasAll([request.auth.uid])
+        && listsOk(request.resource.data) && taskOk(request.resource.data.task)
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow update: if isMember() && (
+        // the owner manages people and may change anything in the task
+        (isOwner()
+          && request.resource.data.ownerUid == resource.data.ownerUid
+          && request.resource.data.members.hasAll([request.auth.uid])
+          && listsOk(request.resource.data) && taskOk(request.resource.data.task))
+        // a member who can edit changes only the task itself
+        || (!(request.auth.uid in resource.data.viewers)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['task', 'rev', 'updatedAt', 'updatedBy'])
+          && request.resource.data.updatedBy == request.auth.uid
+          && taskOk(request.resource.data.task))
+        // a member may remove only themselves
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'viewers', 'names'])
+          && request.resource.data.members == resource.data.members.removeAll([request.auth.uid]))
+      );
+      allow delete: if isOwner();
+
+      match /activity/{aid} {
+        function parent() { return get(/databases/$(database)/documents/shares/$(sid)).data; }
+        allow read: if signedIn() && request.auth.uid in parent().members;
+        allow create: if signedIn() && request.auth.uid in parent().members
+          && request.resource.data.keys().hasOnly(['uid', 'name', 'text', 'at'])
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.text is string && request.resource.data.text.size() <= 200;
+        allow delete: if signedIn() && parent().ownerUid == request.auth.uid;
+      }
+    }
   }
 }

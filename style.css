@@ -1341,3 +1341,50 @@ img.missing { visibility: hidden; }
 .btn.danger { color: #f87171; }
 .soc-form input { min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; }
 .soc-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* ---------- Shared tasks and group tasks (phase 2) ---------- */
+.sh-h { margin: 14px 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+.sh-l { display: block; margin: 10px 0 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.sh-small { font-size: 12px; margin: 6px 0 0; }
+.sh-av { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; background: var(--accent); color: #fff; }
+.sh-av.sm { width: 24px; height: 24px; font-size: 11px; }
+.sh-person { display: flex; align-items: center; gap: 10px; padding: 6px 0; flex-wrap: wrap; }
+.sh-pname { flex: 1; min-width: 80px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-chips, .sh-filters, .sh-meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sh-chip { min-height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--border); background: var(--surface-2); color: inherit; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.sh-chip.on { background: color-mix(in srgb, var(--accent) 22%, var(--surface)); border-color: var(--accent); }
+.sh-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.sh-log { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; padding: 4px 0; }
+.sh-pill { display: inline-flex; align-items: center; min-height: 24px; padding: 0 10px; border-radius: 12px; font-size: 12px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--border); }
+.sh-pill.ok { background: color-mix(in srgb, #22c55e 18%, transparent); }
+.sh-pill.bad { color: #f87171; }
+.sh-pill.warn { color: #f59e0b; }
+.sh-ttl { margin: 10px 0 0; font-size: 20px; }
+.sh-alarm { margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #f59e0b 16%, transparent); display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.sh-row2 { display: flex; gap: 12px; align-items: flex-end; }
+.sh-row2 > div { flex: 1; min-width: 0; }
+.sh-donecol .btn { width: 100%; }
+.sh-ro { min-height: 44px; display: flex; align-items: center; white-space: pre-wrap; }
+.sh-steps { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-2); padding: 2px 8px; }
+.sh-step { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.sh-step.done .sh-st { color: var(--muted); text-decoration: line-through; }
+.sh-st { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.sh-box { flex: none; width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--border); background: transparent; color: #04201c; font-weight: 800; cursor: pointer; display: grid; place-items: center; }
+.sh-step.done .sh-box { background: #34d399; border-color: #34d399; }
+.sh-box:disabled { cursor: default; opacity: .7; }
+.sh-x { flex: none; width: 44px; height: 44px; border: 0; background: none; color: var(--muted); font-size: 22px; cursor: pointer; }
+.sh-add { margin-top: 8px; }
+#shared-task input[type=text], #shared-task input[type=date], #shared-task input[type=time], #shared-task select, #shared-task textarea, #share-people select { width: 100%; box-sizing: border-box; min-height: 44px; padding: 8px 12px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: inherit; font: inherit; }
+#share-people select { width: auto; min-height: 40px; }
+.sh-prog { padding: 14px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--border); }
+.sh-prog-n { font-size: 18px; margin-top: 4px; }
+.sh-bar { height: 8px; border-radius: 4px; background: var(--border); margin-top: 10px; overflow: hidden; }
+.sh-bar i { display: block; height: 100%; background: #34d399; }
+.sh-filters { margin: 12px 0 6px; }
+.sh-tasks { display: flex; flex-direction: column; gap: 8px; }
+.sh-trow { text-align: left; width: 100%; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface-2); color: inherit; font: inherit; cursor: pointer; min-height: 56px; }
+.sh-tt { display: block; font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
+.sh-tm { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-form { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; }
+.chip.sharedc { cursor: pointer; border: 0; font: inherit; }
+.sh-row.sh-done .tr-title { color: var(--muted); }
