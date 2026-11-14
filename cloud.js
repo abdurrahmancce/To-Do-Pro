@@ -211,10 +211,11 @@ export const acceptFriend = (id) => updateDoc(doc(db, 'friendships', id), { stat
 export const removeFriendship = (id) => deleteDoc(doc(db, 'friendships', id));
 
 export function subscribeGroups(uid, onData, onError) {
-  return onSnapshot(collection(db, 'users', uid, 'groups'), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError);
+  return onSnapshot(collection(db, 'users', uid, 'groups'), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })), { pending: snap.metadata.hasPendingWrites }), onError);
 }
 /* A group I am still allowed to read (false when I was removed or it was deleted) */
-export async function groupReadable(gid) { try { const s = await getDoc(doc(db, 'groups', gid)); return s.exists(); } catch { return false; } }
+/* false only when the group is really gone or I am no longer a member; a network hiccup keeps it */
+export async function groupReadable(gid) { try { const s = await getDoc(doc(db, 'groups', gid)); return s.exists(); } catch (e) { return e && e.code === 'permission-denied' ? false : true; } }
 export const dropGroupIndex = (uid, gid) => deleteDoc(doc(db, 'users', uid, 'groups', gid));
 
 export async function createGroup(uid, myName, name) {

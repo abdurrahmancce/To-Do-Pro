@@ -66,9 +66,11 @@ function onFriendships(list) {
   });
   render();
 }
-function onGroups(list) {
+function onGroups(list, meta) {
   S.groups = list;
   list.forEach((g) => {
+    // wait until the server has confirmed the write: a group I just created or joined is not readable before that
+    if (meta && meta.pending) return;
     if (S.readable.has(g.id)) return;
     S.readable.set(g.id, true);
     C.groupReadable(g.id).then((ok) => { if (!ok) { S.readable.set(g.id, false); C.dropGroupIndex(U.uid, g.id).catch(() => {}); if (S.openGid === g.id) S.openGid = null; } render(); });
