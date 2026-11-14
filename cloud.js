@@ -335,6 +335,7 @@ export async function editShare(id, uid, name, mutate, describe, picIds = []) {
 export const pushShareTask = (id, uid, name, task, describe, picIds = []) => editShare(id, uid, name, () => shareFields(task), describe, picIds);
 /* Pictures of a shared task: shares/{id}/photos/{pid} = { d: dataURL, w, h, t, by } */
 export const saveSharePhoto = (id, uid, pid, rec) => setDoc(doc(db, 'shares', id, 'photos', pid), { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now(), by: uid });
+export const addSharePics = (id, pids) => updateDoc(doc(db, 'shares', id), { pics: arrayUnion(...pids) });
 export async function getSharePhoto(id, pid) { const s = await getDoc(doc(db, 'shares', id, 'photos', pid)); return s.exists() ? s.data() : null; }
 export function subscribeActivity(id, onData, onError) {
   return onSnapshot(query(logRef(id), orderBy('at', 'desc'), limit(30)), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError);

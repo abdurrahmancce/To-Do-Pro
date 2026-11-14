@@ -78,6 +78,7 @@ export async function editShare(id, uid, name, mutate, describe, picIds = []) {
 export const pushShareTask = (id, uid, name, task, describe, picIds = []) => editShare(id, uid, name, () => shareFields(task), describe, picIds);
 const spics = new Map();
 export const saveSharePhoto = async (id, uid, pid, rec) => { spics.set(id + '/' + pid, { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || 1, by: uid }); };
+export const addSharePics = async (id, pids) => { const s = shares.get(id); if (s) { s.pics = [...new Set([...(s.pics || []), ...pids])]; shEmit(); } };
 export const getSharePhoto = async (id, pid) => spics.get(id + '/' + pid) || null;
 export const subscribeActivity = (id, f) => { if (!actL.has(id)) actL.set(id, new Set()); actL.get(id).add(f); actEmit(id); return () => actL.get(id).delete(f); };
 export const addActivity = async (id, uid, name, text) => log(id, uid, name, text);

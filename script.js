@@ -260,6 +260,18 @@ async function pushShare(task) {
   }
   cloud.pushShareTask(task.shareId, me, myName(), task, describeChange, up).then((r) => { task.shareRev = r.rev; }).catch(onCloudError);
 }
+/* Owner side: pictures of a task shared before pictures were supported (or whose upload failed) go into the share once per session */
+const picTried = new Set();
+async function backfillSharePics(sh, t) {
+  const need = photoIdsOf(t).filter((id) => !(sh.pics || []).includes(id) && !picTried.has(sh.id + id) && !picBusy.has('up' + sh.id + id));
+  if (!need.length) return;
+  const up = [];
+  for (const pid of need) {
+    picTried.add(sh.id + pid); picBusy.add('up' + sh.id + pid);
+    try { const d = await ph.photoURL(pid); if (d && ph.validPhotoData(d)) { await cloud.saveSharePhoto(sh.id, state.user.uid, pid, { d }); up.push(pid); } } catch (e) { onCloudError(e); } finally { picBusy.delete('up' + sh.id + pid); }
+  }
+  if (up.length) cloud.addSharePics(sh.id, up).catch(onCloudError);
+}
 function mergeShareTask(t, x) {
   const keep = new Map((t.subtasks || []).map((s) => [s.id, s]));
   return normalize({
@@ -314,6 +326,7 @@ function onShares(docs, meta) {
     if (!t) continue;
     if (sh.updatedBy !== me && (sh.rev || 0) > (t.shareRev || 0)) applyShareToTask(t, sh);
     else if ((sh.rev || 0) > (t.shareRev || 0)) t.shareRev = sh.rev;
+    if (!meta.fromCache) backfillSharePics(sh, t);
   }
   if (!meta.fromCache) { // a task that says "shared" but whose share is gone (deleted elsewhere): back to a normal task
     const ids = new Set(state.shares.map((x) => x.id));
@@ -2259,6 +2272,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
   ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
   ["2026-11-14", "Shared tasks and group tasks", "Share a task with friends or a whole group from Share, People. They can tick steps, add steps and edit it (or only view it), and an activity log shows who did what. Each group has a task board with progress, Mine and Due today filters and an Assign to choice. A reminder on a shared task rings on everyone\u2019s phone. Shared tasks you receive are under Shared with me."],
+  ["2026-11-15", "Shared photos fix", "Photos of tasks you shared earlier now reach the people you shared them with. Open the app on the phone or computer that has the photos once and they upload by themselves."],
   ["2026-11-14", "Shared tasks: photos and Shared by me", "Photos on a shared task and on its steps are now shared too, and people who can edit can add photos. The Shared page now has two lists, Shared with me and Shared by me, so you can see what you shared and with whom. Fixed the shared task window where long notes and steps overlapped, and the notes box can now be scrolled and made taller."],
 ];
 const FUTURE_UPDATES = [ // [status, title, detail]
@@ -2298,7 +2312,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-14-shared-photos', label: 'Latest update: 14 November 2026' };
+const APP_UPDATE = { id: '2026-11-15-shared-photo-fix', label: 'Latest update: 14 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
