@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch, query, where, orderBy, limit, runTransaction, terminate, clearIndexedDbPersistence, waitForPendingWrites,
+  collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch, arrayUnion, query, where, orderBy, limit, runTransaction, terminate, clearIndexedDbPersistence, waitForPendingWrites,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let app, auth, db;
@@ -280,11 +280,13 @@ export async function deleteGroup(uid, gid, inviteCode) {
    shares/{id}/activity/{auto}   { uid, name, text, at }
    members = everyone who can open it (owner included); viewers = the members who can only look.
    ===================================================== */
-const SHARE_KEYS = ['title', 'notes', 'date', 'priority', 'completed', 'completedAt', 'subtasks', 'alarm', 'alarmRepeat', 'tags'];
+const SHARE_KEYS = ['title', 'notes', 'date', 'priority', 'completed', 'completedAt', 'subtasks', 'alarm', 'alarmRepeat', 'tags', 'photos'];
+const picRefs = (l) => (Array.isArray(l) ? l : []).map((p) => ({ id: p.id, cap: String(p.cap || '') }));
 export const shareFields = (t) => {
   const o = {};
   for (const k of SHARE_KEYS) o[k] = t[k] === undefined ? null : t[k];
-  o.subtasks = (t.subtasks || []).map((x) => ({ id: x.id, text: x.text, done: !!x.done }));
+  o.subtasks = (t.subtasks || []).map((x) => ({ id: x.id, text: x.text, done: !!x.done, photos: picRefs(x.photos) }));
+  o.photos = picRefs(t.photos);
   o.tags = t.tags || [];
   return JSON.parse(JSON.stringify(o));
 };
@@ -315,14 +317,14 @@ const logRef = (id) => collection(db, 'shares', id, 'activity');
 export const addActivity = (id, uid, name, text) => addDoc_(logRef(id), { uid, name: cleanName(name), text: String(text).slice(0, 200), at: Date.now() });
 const addDoc_ = (col, data) => setDoc(doc(col), data);
 /* Change a shared task on top of its newest version (so two people ticking different steps do not erase each other). */
-export async function editShare(id, uid, name, mutate, describe) {
+export async function editShare(id, uid, name, mutate, describe, picIds = []) {
   const ref = doc(db, 'shares', id);
   const res = await runTransaction(db, async (tx) => {
     const s = await tx.get(ref);
     if (!s.exists()) throw new Error('This shared task no longer exists.');
     const d = s.data(), before = d.task, after = mutate(JSON.parse(JSON.stringify(before)));
     const rev = (d.rev || 0) + 1;
-    tx.update(ref, { task: after, rev, updatedAt: Date.now(), updatedBy: uid });
+    tx.update(ref, { task: after, rev, updatedAt: Date.now(), updatedBy: uid, ...(picIds.length ? { pics: arrayUnion(...picIds) } : {}) });
     return { before, after, rev };
   });
   const lines = describe ? describe(res.before, res.after) : [];
@@ -330,7 +332,10 @@ export async function editShare(id, uid, name, mutate, describe) {
   return res;
 }
 /* The owner's own edits (made in the normal task editor) flow into the share the same way. */
-export const pushShareTask = (id, uid, name, task, describe) => editShare(id, uid, name, () => shareFields(task), describe);
+export const pushShareTask = (id, uid, name, task, describe, picIds = []) => editShare(id, uid, name, () => shareFields(task), describe, picIds);
+/* Pictures of a shared task: shares/{id}/photos/{pid} = { d: dataURL, w, h, t, by } */
+export const saveSharePhoto = (id, uid, pid, rec) => setDoc(doc(db, 'shares', id, 'photos', pid), { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || Date.now(), by: uid });
+export async function getSharePhoto(id, pid) { const s = await getDoc(doc(db, 'shares', id, 'photos', pid)); return s.exists() ? s.data() : null; }
 export function subscribeActivity(id, onData, onError) {
   return onSnapshot(query(logRef(id), orderBy('at', 'desc'), limit(30)), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() }))), onError);
 }
@@ -341,7 +346,9 @@ export async function leaveShare(id, uid) {
   await updateDoc(ref, { members: d.members.filter((m) => m !== uid), viewers: (d.viewers || []).filter((m) => m !== uid), names });
 }
 export async function stopShare(id) {
-  try { const a = await getDocs(logRef(id)); const b = writeBatch(db); a.docs.forEach((x) => b.delete(x.ref)); await b.commit(); } catch { /* log cleanup is best effort */ }
+  for (const sub of ['activity', 'photos']) { // clean up the log and the pictures, best effort
+    try { const a = await getDocs(collection(db, 'shares', id, sub)); const b = writeBatch(db); a.docs.slice(0, 450).forEach((x) => b.delete(x.ref)); await b.commit(); } catch { /* ignore */ }
+  }
   await deleteDoc(doc(db, 'shares', id));
 }
 export async function listReminderIds(uid) {

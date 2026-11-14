@@ -150,6 +150,15 @@ export function refreshOpen() {
   if (D.mode === 'group' && D.g && D.g.form) return;
   if (D.mode === 'task' && D.id) drawTask(); else if (D.mode === 'group' && !D.formOpenTyping) drawGroup();
 }
+const MAX_PH = 10, MAX_STEP_PH = 3;
+const thumbs = (e, list, owner, can) => (list || []).map((p, i) => `<span class="sh-thw"><button type="button" class="sh-th" data-act="photo" data-owner="${e(owner)}" data-i="${i}" aria-label="Open photo"><img data-pid="${e(p.id)}" alt=""></button>${can ? `<button type="button" class="sh-thx" data-act="delphoto" data-owner="${e(owner)}" data-pid="${e(p.id)}" aria-label="Remove photo">×</button>` : ''}</span>`).join('');
+function hydrate(root) {
+  const sh = D.ctx.getShare(D.id); if (!sh) return;
+  root.querySelectorAll('img[data-pid]:not([src])').forEach(async (img) => {
+    let d = null; try { d = await D.ctx.photo(sh, img.dataset.pid); } catch { /* shows as missing */ }
+    if (d) img.src = d; else img.classList.add('missing');
+  });
+}
 function drawTask() {
   const { ctx } = D, e = ctx.esc, sh = ctx.getShare(D.id), body = $('#st-body');
   if (!sh) { body.innerHTML = '<p class="muted">This shared task is no longer available. The owner may have stopped sharing it.</p>'; $('#st-title').textContent = 'Shared task'; return; }
@@ -157,37 +166,60 @@ function drawTask() {
   const steps = t.subtasks || [], nDone = steps.filter((s) => s.done).length;
   $('#st-title').textContent = sh.groupName || 'Shared task';
   const who = sh.assignee ? ((sh.names && sh.names[sh.assignee]) || 'Someone') + (sh.assignee === me ? ' (you)' : '') : 'Everyone';
+  const others = sh.members.filter((m) => m !== me).map((m) => (sh.names && sh.names[m]) || 'Someone');
+  const pr = ['low', 'medium', 'high'];
   body.innerHTML = `
     ${D.back ? '<button type="button" class="btn btn-ghost sm" data-act="back">← Back to group</button>' : ''}
-    <div class="sh-meta"><span class="sh-pill ${can ? 'ok' : ''}">${owner ? 'You own this task' : can ? 'You can edit' : 'View only'}</span>${owner ? '' : `<span class="muted">Shared by ${e(sh.ownerName || 'a friend')}</span>`}${sh.groupId ? `<span class="muted">Assigned to ${e(who)}</span>` : ''}</div>
-    ${can ? `<label class="sh-l" for="st-ttl">Task</label><input id="st-ttl" type="text" maxlength="200" value="${e(t.title)}">` : `<h3 class="sh-ttl">${e(t.title)}</h3>`}
+    <div class="sh-meta"><span class="sh-pill ${can ? 'ok' : ''}">${owner ? 'You own this task' : can ? 'You can edit' : 'View only'}</span>${owner ? `<span class="muted">Shared with ${e(others.join(', ') || 'nobody')}</span>` : `<span class="muted">Shared by ${e(sh.ownerName || 'a friend')}</span>`}${sh.groupId ? `<span class="muted">Assigned to ${e(who)}</span>` : ''}</div>
+    ${can ? `<div><label class="sh-l" for="st-ttl">Task</label><input id="st-ttl" type="text" maxlength="200" value="${e(t.title)}"></div>` : `<h3 class="sh-ttl">${e(t.title)}</h3>`}
     ${t.alarm && !t.completed ? `<div class="sh-alarm"><strong>Reminder ${e(when(t.alarm))}</strong><span>${sh.ring === false ? 'Only the owner gets this alarm.' : "Rings on everyone's phone."}</span></div>` : ''}
     <div class="sh-row2">
       <div><label class="sh-l" for="st-date">Due date</label>${can ? `<input id="st-date" type="date" value="${e(t.date || '')}">` : `<div class="sh-ro">${t.date ? e(t.date) : 'No date'}</div>`}</div>
-      <div class="sh-donecol">${can ? `<button type="button" class="btn ${t.completed ? 'btn-ghost' : 'btn-primary'}" data-act="done">${t.completed ? 'Reopen task' : 'Mark as done'}</button>` : `<div class="sh-ro">${t.completed ? 'Done' : 'Not done yet'}</div>`}</div>
+      <div><label class="sh-l" for="st-pri">Priority</label>${can ? `<select id="st-pri">${pr.map((x) => `<option value="${x}"${t.priority === x ? ' selected' : ''}>${x[0].toUpperCase() + x.slice(1)}</option>`).join('')}</select>` : `<div class="sh-ro">${e((t.priority || 'medium')[0].toUpperCase() + (t.priority || 'medium').slice(1))}</div>`}</div>
     </div>
-    <h4 class="sh-h">Steps <span class="muted">${steps.length ? `${nDone} of ${steps.length}` : ''}</span></h4>
-    <div class="sh-steps">${steps.map((s) => `<div class="sh-step${s.done ? ' done' : ''}"><button type="button" class="sh-box" role="checkbox" aria-checked="${s.done}" aria-label="${s.done ? 'Mark step as not done' : 'Mark step as done'}" data-act="tick" data-sid="${e(s.id)}" ${can ? '' : 'disabled'}>${s.done ? '✔' : ''}</button><span class="sh-st">${e(s.text)}</span>${can ? `<button type="button" class="sh-x" aria-label="Remove step" data-act="del" data-sid="${e(s.id)}">×</button>` : ''}</div>`).join('') || '<p class="muted">No steps yet.</p>'}</div>
-    ${can ? '<div class="soc-form sh-add"><input id="st-newstep" type="text" maxlength="200" placeholder="Add a step" aria-label="Add a step"><button type="button" class="btn btn-ghost" data-act="addstep">Add</button></div>' : ''}
-    <h4 class="sh-h">Notes</h4>
-    ${can ? `<textarea id="st-notes" rows="3" maxlength="20000" aria-label="Notes">${e(t.notes || '')}</textarea>` : `<div class="sh-ro">${t.notes ? e(t.notes) : 'No notes.'}</div>`}
-    <h4 class="sh-h">Activity</h4><div id="st-log">${logHTML2(D.log)}</div>
+    ${(t.tags || []).length ? `<div class="sh-chips">${t.tags.map((x) => `<span class="sh-pill">#${e(x)}</span>`).join('')}</div>` : ''}
+    <div class="sh-donecol">${can ? `<button type="button" class="btn ${t.completed ? 'btn-ghost' : 'btn-primary'}" data-act="done">${t.completed ? 'Reopen task' : 'Mark as done'}</button>` : `<div class="sh-ro">${t.completed ? 'Done' : 'Not done yet'}</div>`}</div>
+    <div><h4 class="sh-h">Steps <span class="muted">${steps.length ? `${nDone} of ${steps.length}` : ''}</span></h4>
+    <div class="sh-steps">${steps.map((s) => `<div class="sh-stepw"><div class="sh-step${s.done ? ' done' : ''}"><button type="button" class="sh-box" role="checkbox" aria-checked="${s.done}" aria-label="${s.done ? 'Mark step as not done' : 'Mark step as done'}" data-act="tick" data-sid="${e(s.id)}" ${can ? '' : 'disabled'}>${s.done ? '✔' : ''}</button><span class="sh-st">${e(s.text)}</span>${can && (s.photos || []).length < MAX_STEP_PH ? `<button type="button" class="sh-x" aria-label="Add a photo to this step" data-act="addphoto" data-owner="${e(s.id)}">📷</button>` : ''}${can ? `<button type="button" class="sh-x" aria-label="Remove step" data-act="del" data-sid="${e(s.id)}">×</button>` : ''}</div>${(s.photos || []).length ? `<div class="sh-thumbs">${thumbs(e, s.photos, s.id, can)}</div>` : ''}</div>`).join('') || '<p class="muted">No steps yet.</p>'}</div>
+    ${can ? '<div class="soc-form sh-add"><input id="st-newstep" type="text" maxlength="200" placeholder="Add a step" aria-label="Add a step"><button type="button" class="btn btn-ghost" data-act="addstep">Add</button></div>' : ''}</div>
+    <div><h4 class="sh-h">Photos <span class="muted">${(t.photos || []).length ? (t.photos || []).length : ''}</span></h4>
+    ${(t.photos || []).length ? `<div class="sh-thumbs">${thumbs(e, t.photos, 'task', can)}</div>` : '<p class="muted">No photos yet.</p>'}
+    ${can && (t.photos || []).length < MAX_PH ? '<div class="sh-actions" style="margin-top:8px"><button type="button" class="btn btn-ghost sm" data-act="addphoto" data-owner="task">📷 Add photos</button></div>' : ''}
+    <input type="file" id="st-file" accept="image/*" multiple hidden></div>
+    <div><h4 class="sh-h">Notes</h4>
+    ${can ? `<textarea id="st-notes" rows="6" maxlength="20000" aria-label="Notes">${e(t.notes || '')}</textarea>` : `<div class="sh-ro sh-notes">${t.notes ? e(t.notes) : 'No notes.'}</div>`}</div>
+    <div><h4 class="sh-h">Activity</h4><div id="st-log">${logHTML2(D.log)}</div></div>
     <div class="sh-actions">${owner ? '<button type="button" class="btn btn-ghost" data-act="people">Manage people</button>' : '<button type="button" class="btn btn-ghost danger" data-act="leave">Leave this task</button>'}</div>`;
+  hydrate(body);
 }
-function edit(mutate) {
+function edit(mutate, picIds) {
   const { ctx } = D, sh = ctx.getShare(D.id);
   if (!sh) return;
-  Promise.resolve(ctx.edit(sh, mutate)).catch((err) => { ctx.onError(err); ctx.toast(friendly(err)); });
+  Promise.resolve(ctx.edit(sh, mutate, picIds || [])).catch((err) => { ctx.onError(err); ctx.toast(friendly(err)); });
 }
 function addStep() {
   const el = $('#st-newstep'); const v = el && el.value.trim(); if (!v) return;
   el.value = '';
   edit((x) => { x.subtasks = x.subtasks || []; if (x.subtasks.length < 50) x.subtasks.push({ id: rid(), text: v.slice(0, 200), done: false }); return x; });
 }
+async function addPhotos(input) {
+  const { ctx } = D, sh = ctx.getShare(D.id), files = [...input.files]; input.value = '';
+  if (!sh || !files.length) return;
+  const target = D.target || 'task', cur = sh.task, room = target === 'task' ? MAX_PH - (cur.photos || []).length : MAX_STEP_PH - (((cur.subtasks || []).find((x) => x.id === target) || {}).photos || []).length;
+  if (room <= 0) { ctx.toast('No more photos fit here'); return; }
+  const added = [];
+  for (const f of files.slice(0, room)) { try { added.push({ id: await ctx.addPhoto(sh, f), cap: '' }); } catch { ctx.toast('A picture could not be added'); } }
+  if (!added.length) return;
+  edit((x) => { if (target === 'task') x.photos = [...(x.photos || []), ...added].slice(0, MAX_PH); else { const st = (x.subtasks || []).find((y) => y.id === target); if (st) st.photos = [...(st.photos || []), ...added].slice(0, MAX_STEP_PH); } return x; }, added.map((p) => p.id));
+  ctx.toast(added.length === 1 ? 'Photo added' : `${added.length} photos added`);
+}
 async function onClick(e) {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const a = b.dataset.act, { ctx } = D;
-  if (a === 'tick') edit((x) => { const s = (x.subtasks || []).find((y) => y.id === b.dataset.sid); if (s) s.done = !s.done; return x; });
+  if (a === 'photo') { const sh = ctx.getShare(D.id); const t = sh && sh.task; const list = b.dataset.owner === 'task' ? t.photos : ((t.subtasks || []).find((x) => x.id === b.dataset.owner) || {}).photos; ctx.openViewer(list || [], Number(b.dataset.i) || 0); }
+  else if (a === 'addphoto') { D.target = b.dataset.owner; const f = $('#st-file'); if (f) f.click(); }
+  else if (a === 'delphoto') edit((x) => { const pid = b.dataset.pid; if (b.dataset.owner === 'task') x.photos = (x.photos || []).filter((p) => p.id !== pid); else { const st = (x.subtasks || []).find((y) => y.id === b.dataset.owner); if (st) st.photos = (st.photos || []).filter((p) => p.id !== pid); } return x; });
+  else if (a === 'tick') edit((x) => { const s = (x.subtasks || []).find((y) => y.id === b.dataset.sid); if (s) s.done = !s.done; return x; });
   else if (a === 'del') edit((x) => { x.subtasks = (x.subtasks || []).filter((y) => y.id !== b.dataset.sid); return x; });
   else if (a === 'addstep') addStep();
   else if (a === 'done') edit((x) => { x.completed = !x.completed; x.completedAt = x.completed ? new Date().toISOString() : null; return x; });
@@ -202,6 +234,8 @@ function onChange(e) {
   const t = e.target;
   if (t.id === 'st-ttl') { const v = t.value.trim().slice(0, 200); if (v) edit((x) => { x.title = v; return x; }); }
   else if (t.id === 'st-notes') { const v = t.value.slice(0, 20000); edit((x) => { x.notes = v; return x; }); }
+  else if (t.id === 'st-pri') { const v = ['low', 'medium', 'high'].includes(t.value) ? t.value : 'medium'; edit((x) => { x.priority = v; return x; }); }
+  else if (t.id === 'st-file') addPhotos(t);
   else if (t.id === 'st-date') { const v = /^\d{4}-\d{2}-\d{2}$/.test(t.value) ? t.value : ''; edit((x) => { x.date = v; return x; }); }
 }
 

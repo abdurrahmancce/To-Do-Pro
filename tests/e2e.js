@@ -575,6 +575,18 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
       await sp.evaluate(() => { const id = [...window.__shares.shares.keys()][0]; window.__shares.rafiEdit(id, (x) => { x.alarm = new Date(Date.now() - 5000).toISOString(); return x; }); });
       await sp.waitForFunction(() => /Rafi task/.test(document.querySelector('#alarm-title')?.textContent || ''), null, { timeout: 6000 }); return true;
     });
+    await T('shared: photos of a shared task are shown to the member', async () => {
+      const PNG = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+      await sp.evaluate((d) => { const id = window.__shares.fromRafi({ title: 'Pics', photos: [{ id: 'ph1', cap: '' }] }); window.__shares.spics.set(id + '/ph1', { d, w: 1, h: 1, t: 1, by: 'u2' }); }, PNG);
+      await sp.click('.sh-row:has-text("Pics")'); await sp.waitForSelector('#shared-task[open] img[data-pid=ph1][src]'); await sp.click('#shared-task [data-close]'); return true;
+    });
+    await T('shared: long notes do not overlap and the notes box can grow', async () => {
+      const long = ('A long line of text for the notes. ').repeat(120);
+      await sp.evaluate((l) => { window.__shares.fromRafi({ title: 'Long two', notes: l }); }, long);
+      await sp.click('.sh-row:has-text("Long two")'); await sp.waitForSelector('#st-notes');
+      const w = await sp.evaluate(() => { const t = document.querySelector('#st-notes'); return [t.offsetHeight, getComputedStyle(t).resize]; });
+      await sp.click('#shared-task [data-close]'); return (w[0] >= 120 && w[1] === 'vertical') || JSON.stringify(w);
+    });
     await T('shared: no page errors', async () => sp.errs.length === 0 || sp.errs.join(';'));
     await sp.context().close();
   }
