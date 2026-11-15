@@ -1,5 +1,5 @@
 /* To-Do Pro service worker — offline app shell + runtime caching */
-const VERSION = 'v50';
+const VERSION = 'v51';
 const SHELL = `todo-pro-shell-${VERSION}`;
 const RUNTIME = `todo-pro-runtime-${VERSION}`;
 const CFG = 'tp-cfg'; // survives version bumps: holds the reminder worker URL for notification buttons
@@ -116,6 +116,14 @@ self.addEventListener('push', (e) => {
   e.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const visible = wins.filter((c) => c.visibilityState === 'visible');
+    if (kind === 'notice') { // somebody changed or commented on a shared task
+      if (visible.length) { visible.forEach((c) => c.postMessage({ type: 'notice', data: d })); return; } // app is open: a short in-app message
+      await self.registration.showNotification(d.title || 'Shared task', {
+        body: d.body || 'Something changed.', icon: 'icons/icon-192.png', badge: 'icons/favicon-32.png',
+        tag: 'share-' + (d.shareId || 'x'), renotify: true, data: d,
+      });
+      return;
+    }
     if (visible.length) { visible.forEach((c) => c.postMessage({ type: 'reminder', data: d })); return; } // app is open: in-app alarm
     const at = d.alarm ? fmtTime(d.alarm) : '';
     const note = d.body || (kind === 'pre' ? 'Get ready.' : 'Time to get this done!');
@@ -144,6 +152,13 @@ self.addEventListener('notificationclick', (e) => {
     for (const c of list) if ('focus' in c) { if (qs) c.postMessage({ type: 'act', act: qs.act, id: qs.id }); return c.focus(); }
     return self.clients.openWindow(qs ? `./?do=${qs.act}&id=${encodeURIComponent(qs.id)}` : './');
   });
+  if (d.kind === 'notice') { // open the shared task that was talked about
+    e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) if ('focus' in c) { c.postMessage({ type: 'open-share', id: d.shareId }); return c.focus(); }
+      return self.clients.openWindow(`./?share=${encodeURIComponent(d.shareId || '')}`);
+    }));
+    return;
+  }
   if (e.action === 'done' || e.action === 'snooze') {
     e.waitUntil((async () => {
       if (await callWorker(d, e.action, { min: 10 })) {

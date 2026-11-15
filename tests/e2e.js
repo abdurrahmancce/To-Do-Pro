@@ -591,6 +591,46 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await sp.context().close();
   }
 
+  // ---------- comments, notifications, people who join a group later ----------
+  {
+    const cp = await newPage(b, { cloud: true, user: true });
+    await cp.waitForTimeout(400);
+    cp.on('dialog', (d) => d.accept());
+    await cp.click('#nav-friends'); await cp.waitForSelector('#social[open] #soc-gname');
+    await cp.fill('#soc-gname', 'Crew'); await cp.click('[data-act=create-group]'); await cp.waitForSelector('.soc-group .soc-detail');
+    const gid = await cp.evaluate(() => { const s = window.__social; const g = [...s.grp.keys()][0]; s.gm.get(g).set('u2', { name: 'Rafi', role: 'member', joinedAt: 2 }); return g; });
+    const oldId = await cp.evaluate((g) => window.__shares.oldGroupTask(g, 'Crew', { title: 'Old board task' }), gid);
+    await T('group: a person who joins later finds the old group task', async () => {
+      await cp.click('[data-act=open-tasks]'); await cp.waitForSelector('#shared-task[open]');
+      await cp.waitForFunction(() => /Old board task/.test(document.querySelector('#st-body').innerText), null, { timeout: 8000 });
+      return await cp.evaluate((id) => window.__shares.shares.get(id).members.includes('u1'), oldId);
+    });
+    await T('comments: write, see a live reply, notice goes to the others, delete', async () => {
+      await cp.click('#st-body >> text=Old board task'); await cp.waitForSelector('#st-cmt');
+      await cp.fill('#st-cmt', 'Looks good to me'); await cp.press('#st-cmt', 'Enter');
+      await cp.waitForFunction(() => /Looks good/.test(document.querySelector('#st-coms').innerText));
+      await cp.evaluate((id) => window.__shares.rafiComment(id, 'Rafi here'), oldId);
+      await cp.waitForFunction(() => /Rafi here/.test(document.querySelector('#st-coms').innerText));
+      const n = await cp.evaluate(() => [...window.__shares.notices.values()].filter((x) => x.kind === 'comment').map((x) => x.toUid));
+      await cp.click('#st-coms .sh-cx >> nth=0');
+      await cp.waitForFunction(() => !/Looks good/.test(document.querySelector('#st-coms').innerText));
+      return n.length === 1 && n[0] === 'u2';
+    });
+    await T('notices: a change sends one short-delay notice, a burst stays one', async () => {
+      await cp.fill('#st-newstep', 'One'); await cp.press('#st-newstep', 'Enter'); await cp.waitForTimeout(400);
+      await cp.fill('#st-newstep', 'Two'); await cp.press('#st-newstep', 'Enter'); await cp.waitForTimeout(400);
+      const n = await cp.evaluate(() => [...window.__shares.notices.values()].filter((x) => x.kind === 'change'));
+      return n.length === 1 && n[0].toUid === 'u2' && /added the step/.test(n[0].body) && n[0].delay > 0;
+    });
+    await T('notices: the service worker message shows a short in-app message', async () => {
+      await cp.keyboard.press('Escape');
+      await cp.evaluate(() => navigator.serviceWorker.dispatchEvent(new MessageEvent('message', { data: { type: 'notice', data: { shareId: 'zzz', title: 'Ghost task', body: 'Rafi: hi' } } })));
+      await cp.waitForFunction(() => /Ghost task/.test(document.body.innerText)); return true;
+    });
+    await T('comments: no page errors', async () => cp.errs.length === 0 || cp.errs.join(';'));
+    await cp.context().close();
+  }
+
   // ---------- static checks ----------
   await T('all referenced local files exist (html/css/js/manifest/sw)', async () => {
     const root = ROOT; const miss = [];

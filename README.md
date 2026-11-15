@@ -78,7 +78,7 @@ https://github.com/user-attachments/assets/cb3177fe-68b8-49ea-9f75-c5d787bb76d6
 - ✅ **Checklist (subtasks):** break a task into steps, tick each with a ✔ right from the task list, see progress like `3/4`. Paste a list to add one step per line. Up to 50 steps per task.
 - 📷 **Photos:** attach pictures to a task or to a single checklist step. Use the camera, pick several from the gallery or paste a screenshot. Each picture can have a description, opens full screen and syncs across your devices. Pictures are shrunk on your phone before they are stored (up to 10 per task and 3 per step).
 - 👥 **Friends and groups:** add friends with a private code or link, create groups and invite people (Account → Friends and groups).
-- 🤝 **Shared tasks and group tasks:** share a task with friends or a group (Share → People). They can tick steps, add steps, add photos and edit it, or only view it, and an activity log shows who did what. The **Shared** page lists what was shared with you and what you shared. Every group has a task board with progress, an Assign to choice and Mine / Due today filters. A reminder on a shared task rings on everyone's phone. Tasks shared with you are under **Shared with me**. **Friends & groups** is in the sidebar (computer) and the header (phone). Shared tasks save as you type and sync to every device within a moment; **Done** closes the window. A **Share** button sits on every task row and inside the task editor (also on computers). Photos of a task shared earlier upload to the share automatically the next time the owner opens the app.
+- 🤝 **Shared tasks and group tasks:** share a task with friends or a group (Share → People). They can tick steps, add steps, add photos and edit it, or only view it, and an activity log shows who did what. The **Shared** page lists what was shared with you and what you shared. Every group has a task board with progress, an Assign to choice and Mine / Due today filters. A reminder on a shared task rings on everyone's phone. Tasks shared with you are under **Shared with me**. **Friends & groups** is in the sidebar (computer) and the header (phone). Shared tasks have **comments**, and a **notification** reaches the other people's phones when someone changes a shared task or comments (switch it off under Account). People who join a group later find the old tasks on its board. Shared tasks save as you type and sync to every device within a moment; **Done** closes the window. A **Share** button sits on every task row and inside the task editor (also on computers). Photos of a task shared earlier upload to the share automatically the next time the owner opens the app.
 - 🔁 Repeating tasks (daily, weekly) with 🔥 streak tracking
 - 👀 Views: **All · Today · Upcoming · Calendar (month and week) · Completed · Trash · Reminders · Weekly summary**
 - 🔎 Search, 👆 swipe actions, ↕️ drag to reorder, ☑️ bulk select (done, tomorrow, delete) with undo
@@ -167,18 +167,17 @@ What is coming next. Plans can change. The same list is in the app under **Accou
 | # | Status | Update | What it brings |
 |---|---|---|---|
 | 1 | 🔵 Planned | **Shared lists** | Share a list with family or a team using an invite link or code, with view-only or edit access. |
-| 2 | 🔵 Planned | **Comments and notifications** | Discuss a shared task in comments, get push notifications when someone changes it, and add people who join a group later. |
-| 3 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
-| 4 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
-| 5 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
-| 6 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
-| 7 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
-| 8 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
-| 11 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
-| 12 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
-| 13 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
-| 14 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
-| 15 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
+| 2 | 🔵 Planned | **Notices and announcements** | Group admins post notices that reach members by notification and email, with read receipts. |
+| 3 | 🔵 Planned | **More snooze choices** | Snooze from the notification until tomorrow or next week. |
+| 4 | 🔵 Planned | **Flexible repeat schedules** | Repeat on chosen weekdays, monthly or every few days, with an end date. |
+| 5 | 🔵 Planned | **Focus timer** | A built-in Pomodoro timer linked to a task, with a daily focus-time total. |
+| 6 | 🔵 Planned | **Command palette** | Press Ctrl+K to search, jump to a view or run any action from the keyboard. |
+| 7 | 🔵 Planned | **Home screen shortcuts** | Jump straight to Today or a new task from the app icon. |
+| 8 | 💡 Idea | **Calendar sync** | Export tasks with due dates to Google Calendar, Outlook or Apple Calendar (.ics). |
+| 9 | 💡 Idea | **Voice quick add** | Dictate a task and let the quick-add parser pick up the date, time and tags. |
+| 10 | 💡 Idea | **Photo gallery** | A shared photo gallery for a group, with reactions and comments. |
+| 11 | 💡 Idea | **Birthday and event reminders** | A yearly reminder for birthdays and anniversaries, with a gentle heads-up the day before. |
+| 12 | 💡 Idea | **Crash reports dashboard** | See errors from all devices in one place. |
 
 ---
 

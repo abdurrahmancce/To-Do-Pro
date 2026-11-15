@@ -8,6 +8,8 @@
    ===================================================== */
 
 const MAX_PER_RUN = 5; // stay under the free-plan subrequest limit (50 per run)
+const MAX_NOTICES = 6; // shared-task messages per run
+const BUDGET = 40; // stop starting new work after this many Firestore/FCM calls in one run
 
 const ALLOWED_ORIGIN = 'https://abdurrahmancce.github.io'; // the app's origin; the notification buttons call /act from the service worker of this site
 const ID_RE = /^[A-Za-z0-9_-]{1,128}$/; // user ids and task ids end up inside Firestore REST paths, so only plain characters are allowed
@@ -75,11 +77,12 @@ async function makeCtx(env, saIn) {
   const token = await accessToken(sa);
   const fs = `https://firestore.googleapis.com/v1/projects/${pid}/databases/(default)/documents`;
   const auth = { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' };
-  const call = (url, opt = {}) => fetch(url, { ...opt, headers: { ...auth, ...(opt.headers || {}) } });
+  let calls = 0;
+  const call = (url, opt = {}) => { calls++; return fetch(url, { ...opt, headers: { ...auth, ...(opt.headers || {}) } }); };
   const str = (f, k) => f?.[k]?.stringValue ?? '';
   const mask = (names) => names.map((n) => `updateMask.fieldPaths=${n}`).join('&');
   const patch = (url, names, fields) => call(`${url}?${mask(names)}`, { method: 'PATCH', body: JSON.stringify({ fields }) });
-  return { sa, pid, fs, call, str, patch };
+  return { sa, pid, fs, call, str, patch, count: () => calls };
 }
 
 /* when does the next push for an alarm go out? (10 min early if a pre-reminder is on) */
@@ -182,9 +185,53 @@ async function act(req, env) {
   return { ok: true, alarm };
 }
 
+/* ---------- shared-task messages: notices/{id} = { toUid, fromUid, fromName, shareId, kind, title, body, fireAt } ----------
+   The app writes one when somebody changes or comments on a shared task. A change notice has a fixed id and a fireAt a few
+   seconds ahead, so a burst of edits becomes one push. We delete the notice first, then push to the devices of toUid. */
+async function runNotices(c) {
+  const q = await c.call(`${c.fs}:runQuery`, {
+    method: 'POST',
+    body: JSON.stringify({ structuredQuery: {
+      from: [{ collectionId: 'notices' }],
+      where: { fieldFilter: { field: { fieldPath: 'fireAt' }, op: 'LESS_THAN_OR_EQUAL', value: { stringValue: new Date().toISOString() } } },
+      orderBy: [{ field: { fieldPath: 'fireAt' }, direction: 'ASCENDING' }],
+      limit: MAX_NOTICES,
+    } }),
+  });
+  if (!q.ok) { console.error('[notices] query failed', q.status, (await q.text()).slice(0, 200)); return; }
+  const due = (await q.json()).filter((r) => r.document).map((r) => r.document);
+  if (due.length) console.log(`[notices] due: ${due.length}`);
+  for (const d of due) {
+    if (c.count() > BUDGET) break; // the rest goes out next minute
+    try {
+      const f = d.fields || {}, docId = d.name.split('/').pop();
+      const to = c.str(f, 'toUid'), from = c.str(f, 'fromUid'), sid = c.str(f, 'shareId');
+      await c.call(`${c.fs}/notices/${encodeURIComponent(docId)}`, { method: 'DELETE' }); // first, so a crash can never repeat a push
+      if (!ID_RE.test(to) || !ID_RE.test(from) || !ID_RE.test(sid) || to === from) continue;
+      const pr = await c.call(`${c.fs}/users/${to}/settings/prefs`);
+      if (pr.ok && ((await pr.json()).fields || {}).shareNotify?.booleanValue === false) { console.log(`[notice] ${docId} muted by recipient`); continue; }
+      const dRes = await c.call(`${c.fs}/users/${to}/devices?pageSize=20`);
+      const devices = dRes.ok ? ((await dRes.json()).documents || []) : [];
+      const data = { kind: 'notice', shareId: sid, title: c.str(f, 'title').slice(0, 120) || 'Shared task', body: c.str(f, 'body').slice(0, 200), what: c.str(f, 'kind'), from: c.str(f, 'fromName').slice(0, 60) };
+      for (const dev of devices) {
+        const tok = c.str(dev.fields, 'token');
+        if (!tok) continue;
+        const r = await c.call(`https://fcm.googleapis.com/v1/projects/${c.pid}/messages:send`, {
+          method: 'POST', body: JSON.stringify({ message: { token: tok, data, webpush: { headers: { Urgency: 'normal', TTL: '86400' } } } }),
+        });
+        console.log(`[notice] ${docId} device ${dev.name.split('/').pop().slice(0, 8)}... status ${r.status}`);
+        if (r.status === 404 || r.status === 400) await c.call(`${c.fs}/users/${to}/devices/${dev.name.split('/').pop()}`, { method: 'DELETE' }); // dead token
+      }
+    } catch (e) { console.error('[notice] failed', d.name, e); }
+  }
+}
+
 /* ---------- main loop ---------- */
 async function run(env) {
   const c = await makeCtx(env);
+  try { await runReminders(c); } finally { await runNotices(c).catch((e) => console.error('[notices] failed', e)); }
+}
+async function runReminders(c) {
   const { sa, pid, fs, call, str, patch } = c;
   const int = (f, k) => Number(f?.[k]?.integerValue ?? 0);
   const bool = (f, k) => !!f?.[k]?.booleanValue;

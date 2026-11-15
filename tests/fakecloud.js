@@ -63,6 +63,7 @@ export async function createShare(uid, ownerName, task, people, viewers, extra =
   const id = 'sh' + (++seq), names = { [uid]: ownerName }, members = [uid];
   people.forEach((p) => { if (!members.includes(p.uid)) { members.push(p.uid); names[p.uid] = p.name; } });
   shares.set(id, { ownerUid: uid, ownerName, sourceId: task.id, members, viewers: viewers.filter((v) => members.includes(v)), names, task: shareFields(task), rev: 1, updatedAt: Date.now(), updatedBy: uid, ...(extra.groupId ? { groupId: extra.groupId, groupName: extra.groupName, assignee: extra.assignee || '', ring: extra.ring !== false } : {}) });
+  if (extra.groupId) idx(extra.groupId, id, uid, false);
   shEmit(); return id;
 }
 export async function updateShareMembers(id, uid, people, viewers, group) {
@@ -86,9 +87,22 @@ export const subscribeActivity = (id, f) => { if (!actL.has(id)) actL.set(id, ne
 export const addActivity = async (id, uid, name, text) => log(id, uid, name, text);
 export async function leaveShare(id, uid) { const d = shares.get(id); d.members = d.members.filter((m) => m !== uid); shEmit(); }
 export async function stopShare(id) { shares.delete(id); acts.delete(id); shEmit(); }
+const gidx = new Map(), coms = new Map(), comL = new Map(), notices = new Map();
+const idx = (gid, sid, uid, view) => { if (!gidx.has(gid)) gidx.set(gid, new Map()); gidx.get(gid).set(sid, { ownerUid: uid, view: !!view }); };
+export const indexGroupTask = async (gid, sid, uid, view) => idx(gid, sid, uid, view);
+export const listGroupTasks = async (gid) => [...(gidx.get(gid) || [])].map(([id, d]) => ({ id, ...d }));
+export const joinShare = async (sid, uid, name, view) => { const d = shares.get(sid); if (!d || d.members.includes(uid)) return; d.members.push(uid); d.names[uid] = name; if (view) d.viewers.push(uid); shEmit(); };
+const comEmit = (id) => (comL.get(id) || new Set()).forEach((f) => setTimeout(() => f(clone(coms.get(id) || [])), 5));
+export const subscribeComments = (id, f) => { if (!comL.has(id)) comL.set(id, new Set()); comL.get(id).add(f); comEmit(id); return () => comL.get(id).delete(f); };
+export const addComment = async (id, uid, name, text) => { if (!coms.has(id)) coms.set(id, []); coms.get(id).push({ id: 'c' + (++seq), uid, name, text: String(text).trim().slice(0, 1000), at: Date.now() + seq }); comEmit(id); };
+export const deleteComment = async (id, cid) => { coms.set(id, (coms.get(id) || []).filter((c) => c.id !== cid)); comEmit(id); };
+export const sendNotice = async (sid, fromUid, fromName, toUid, kind, title, body, delay = 0) => { notices.set(kind === 'comment' ? toUid + '_' + sid + '_c' + (++seq) : toUid + '_' + sid + '_change', { toUid, fromUid, fromName, shareId: sid, kind, title, body, delay }); };
 export const listReminderIds = async () => [];
 window.__shares = {
-  shares, acts, spics,
+  shares, acts, spics, gidx, coms, notices,
+  rafiComment(id, text) { if (!coms.has(id)) coms.set(id, []); coms.get(id).push({ id: 'c' + (++seq), uid: 'u2', name: 'Rafi', text, at: Date.now() + seq }); comEmit(id); },
+  /* a task on a group board that was created before I joined (I am not a member of it yet) */
+  oldGroupTask(gid, gname, task, view = false) { const id = 'sh' + (++seq); shares.set(id, { ownerUid: 'u2', ownerName: 'Rafi', sourceId: 'r9', members: ['u2'], viewers: [], names: { u2: 'Rafi' }, task: shareFields({ title: 'x', notes: '', date: '', priority: 'medium', completed: false, subtasks: [], tags: [], alarm: null, alarmRepeat: 'none', ...task }), rev: 1, updatedAt: Date.now(), updatedBy: 'u2', groupId: gid, groupName: gname, assignee: '', ring: true, groupView: !!view }); idx(gid, id, 'u2', view); shEmit(); return id; },
   /* somebody else (Rafi, u2) changes a share, or shares something with me */
   rafiEdit(id, mutate) { const d = shares.get(id); d.task = mutate(clone(d.task)); d.rev++; d.updatedBy = 'u2'; shEmit(); },
   fromRafi(task, extra = {}, viewer = false) { const id = 'sh' + (++seq); shares.set(id, { ownerUid: 'u2', ownerName: 'Rafi', sourceId: 'r1', members: ['u2', 'u1'], viewers: viewer ? ['u1'] : [], names: { u2: 'Rafi', u1: 'Tester' }, task: shareFields({ title: 'x', notes: '', date: '', priority: 'medium', completed: false, subtasks: [], tags: [], alarm: null, alarmRepeat: 'none', ...task }), rev: 1, updatedAt: Date.now(), updatedBy: 'u2', ...extra }); shEmit(); return id; },

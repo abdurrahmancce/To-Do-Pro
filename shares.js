@@ -121,7 +121,7 @@ async function onPeopleClick(e) {
 /* ---------------------------------------------------------
    The shared task editor (also used for the owner)
    --------------------------------------------------------- */
-const D = { ctx: null, id: null, gid: null, log: [], off: null, wired: false, mode: 'task', g: null };
+const D = { ctx: null, id: null, gid: null, log: [], coms: [], off: null, offC: null, wired: false, mode: 'task', g: null };
 
 function dlg() { return $('#shared-task'); }
 function wire() {
@@ -131,8 +131,8 @@ function wire() {
   body.addEventListener('change', onChange);
   body.addEventListener('input', (e) => { if (e.target.id === 'st-ttl' || e.target.id === 'st-notes') queueText(); });
   $('#st-done').addEventListener('click', () => { flushText(); dlg().close(); });
-  body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'st-newstep') { e.preventDefault(); addStep(); } });
-  dlg().addEventListener('close', () => { flushText(); if (D.off) { D.off(); D.off = null; } D.id = null; D.gid = null; });
+  body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'st-newstep') { e.preventDefault(); addStep(); } if (e.key === 'Enter' && e.target.id === 'st-cmt') { e.preventDefault(); sendComment(); } });
+  dlg().addEventListener('close', () => { flushText(); if (D.off) { D.off(); D.off = null; } if (D.offC) { D.offC(); D.offC = null; } D.id = null; D.gid = null; });
 }
 /* Title and notes save as you type (a short pause after the last key), on Done and when the window closes */
 let textTimer = null, textDirty = false;
@@ -153,19 +153,37 @@ function watchTaskLog(id) {
   D.log = [];
   D.off = D.ctx.cloud.subscribeActivity(id, (l) => { D.log = l; const box = $('#st-log'); if (box) box.innerHTML = logHTML2(l); }, () => {});
 }
+function watchComments(id) {
+  if (D.offC) { D.offC(); D.offC = null; }
+  D.coms = [];
+  D.offC = D.ctx.cloud.subscribeComments(id, (l) => { D.coms = l; const box = $('#st-coms'); if (box) { const atEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 40; box.innerHTML = comHTML(l); if (atEnd) box.scrollTop = box.scrollHeight; } const n = $('#st-ccount'); if (n) n.textContent = l.length ? String(l.length) : ''; }, () => {});
+}
+const comHTML = (l) => (l.length ? l.map((c) => {
+  const e = D.ctx.esc, sh = D.ctx.getShare(D.id), me = D.ctx.user.uid, mine = c.uid === me, canDel = mine || (sh && sh.ownerUid === me);
+  return `<div class="sh-com${mine ? ' mine' : ''}"><span class="sh-av sm" aria-hidden="true">${e(initial(c.name))}</span><div class="sh-cb"><div class="sh-ch"><strong>${e(c.name)}</strong> <span class="muted">· ${ago(c.at)}</span>${canDel ? `<button type="button" class="sh-cx" data-act="delcom" data-cid="${e(c.id)}" aria-label="Delete this comment">Delete</button>` : ''}</div><div class="sh-ct">${e(c.text)}</div></div></div>`;
+}).join('') : '<p class="muted">No comments yet. Start the conversation.</p>');
+async function sendComment() {
+  const inp = $('#st-cmt'); if (!inp) return;
+  const text = inp.value.trim(); if (!text) return;
+  const sh = D.ctx.getShare(D.id); if (!sh) return;
+  inp.value = ''; inp.focus();
+  try { await D.ctx.comment(sh, text.slice(0, 1000)); } catch (err) { inp.value = text; D.ctx.onError(err); D.ctx.toast(friendly(err)); }
+}
+/* the notification code asks this so it does not pop up a message about the task you are looking at */
+export const isOpen = (id) => !!(dlg() && dlg().open && D.mode === 'task' && D.id === id);
 const logHTML2 = (l) => (l.length ? l.map((x) => `<div class="sh-log"><span class="sh-av sm" aria-hidden="true">${D.ctx.esc(initial(x.name))}</span><div><strong>${D.ctx.esc(x.name)}</strong> ${D.ctx.esc(x.text)} <span class="muted">· ${ago(x.at)}</span></div></div>`).join('') : '<p class="muted">Nothing has happened yet.</p>');
 
 export async function openSharedTask(ctx, id, fromGroup) {
   D.ctx = ctx; D.id = id; D.mode = 'task'; D.back = fromGroup || null;
   wire(); textDirty = false; status('idle', 'Changes save automatically');
   if (!dlg().open) dlg().showModal();
-  watchTaskLog(id);
+  watchTaskLog(id); watchComments(id);
   drawTask();
 }
 export function refreshOpen() {
   if (!D.ctx || !dlg() || !dlg().open) return;
   const a = document.activeElement;
-  if (a && (a.id === 'st-newstep' || a.id === 'st-title' || a.id === 'st-notes' || a.id === 'st-date')) return; // never rebuild under somebody typing
+  if (a && (a.id === 'st-newstep' || a.id === 'st-title' || a.id === 'st-notes' || a.id === 'st-date' || a.id === 'st-cmt')) return; // never rebuild under somebody typing
   if (D.mode === 'group' && D.g && D.g.form) return;
   if (D.mode === 'task' && D.id) drawTask(); else if (D.mode === 'group' && !D.formOpenTyping) drawGroup();
 }
@@ -187,6 +205,7 @@ function drawTask() {
   const who = sh.assignee ? ((sh.names && sh.names[sh.assignee]) || 'Someone') + (sh.assignee === me ? ' (you)' : '') : 'Everyone';
   const others = sh.members.filter((m) => m !== me).map((m) => (sh.names && sh.names[m]) || 'Someone');
   const pr = ['low', 'medium', 'high'];
+  const draft = ($('#st-cmt') || {}).value || '';
   body.innerHTML = `
     ${D.back ? '<button type="button" class="btn btn-ghost sm" data-act="back">← Back to group</button>' : ''}
     <div class="sh-meta"><span class="sh-pill ${can ? 'ok' : ''}">${owner ? 'You own this task' : can ? 'You can edit' : 'View only'}</span>${owner ? `<span class="muted">Shared with ${e(others.join(', ') || 'nobody')}</span>` : `<span class="muted">Shared by ${e(sh.ownerName || 'a friend')}</span>`}${sh.groupId ? `<span class="muted">Assigned to ${e(who)}</span>` : ''}</div>
@@ -207,9 +226,13 @@ function drawTask() {
     <input type="file" id="st-file" accept="image/*" multiple hidden></div>
     <div><h4 class="sh-h">Notes</h4>
     ${can ? `<textarea id="st-notes" rows="6" maxlength="20000" aria-label="Notes">${e(t.notes || '')}</textarea>` : `<div class="sh-ro sh-notes">${t.notes ? e(t.notes) : 'No notes.'}</div>`}</div>
+    <div><h4 class="sh-h">Comments <span class="muted" id="st-ccount">${D.coms.length || ''}</span></h4>
+    <div id="st-coms" class="sh-coms" aria-live="polite">${comHTML(D.coms)}</div>
+    <div class="soc-form sh-add"><input id="st-cmt" type="text" maxlength="1000" placeholder="Write a comment" aria-label="Write a comment" autocomplete="off"><button type="button" class="btn btn-primary" data-act="sendcom">Send</button></div></div>
     <div><h4 class="sh-h">Activity</h4><div id="st-log">${logHTML2(D.log)}</div></div>
     <div class="sh-actions">${owner ? '<button type="button" class="btn btn-ghost" data-act="people">Manage people</button>' : '<button type="button" class="btn btn-ghost danger" data-act="leave">Leave this task</button>'}</div>`;
   hydrate(body);
+  { const c = $('#st-cmt'); if (c && draft) c.value = draft; const box = $('#st-coms'); if (box) box.scrollTop = box.scrollHeight; }
 }
 function edit(mutate, picIds, text) {
   const { ctx } = D, sh = ctx.getShare(D.id);
@@ -242,6 +265,8 @@ async function onClick(e) {
   else if (a === 'tick') edit((x) => { const s = (x.subtasks || []).find((y) => y.id === b.dataset.sid); if (s) s.done = !s.done; return x; });
   else if (a === 'del') edit((x) => { x.subtasks = (x.subtasks || []).filter((y) => y.id !== b.dataset.sid); return x; });
   else if (a === 'addstep') addStep();
+  else if (a === 'sendcom') sendComment();
+  else if (a === 'delcom') { if (confirm('Delete this comment?')) ctx.delComment(ctx.getShare(D.id), b.dataset.cid).catch((err) => ctx.toast(friendly(err))); }
   else if (a === 'done') edit((x) => { x.completed = !x.completed; x.completedAt = x.completed ? new Date().toISOString() : null; return x; });
   else if (a === 'back') openGroup(ctx, D.back);
   else if (a === 'people') { const sh = ctx.getShare(D.id); dlg().close(); if (sh) ctx.managePeople(sh); }

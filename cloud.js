@@ -297,6 +297,11 @@ export function subscribeShares(uid, onData, onError) {
   return onSnapshot(query(collection(db, 'shares'), where('members', 'array-contains', uid)),
     (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })), { fromCache: snap.metadata.fromCache, hasPendingWrites: snap.metadata.hasPendingWrites }), onError);
 }
+const allView = (members, viewers) => members.length > 1 && members.slice(1).every((m) => viewers.includes(m));
+/* The group board's index of shared tasks: people who join the group later find the old tasks here */
+export const indexGroupTask = (gid, shareId, uid, view) => setDoc(doc(db, 'groups', gid, 'tasks', shareId), { ownerUid: uid, view: !!view, at: Date.now() });
+export async function listGroupTasks(gid) { const s = await getDocs(collection(db, 'groups', gid, 'tasks')); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
+export const joinShare = (shareId, uid, name, view) => updateDoc(doc(db, 'shares', shareId), { members: arrayUnion(uid), ['names.' + uid]: cleanName(name), ...(view ? { viewers: arrayUnion(uid) } : {}) });
 export async function createShare(uid, ownerName, task, people, viewers, extra = {}) {
   const ref = doc(collection(db, 'shares')), now = Date.now(), names = { [uid]: cleanName(ownerName, 'Owner') };
   const members = [uid];
@@ -304,8 +309,9 @@ export async function createShare(uid, ownerName, task, people, viewers, extra =
   await setDoc(ref, {
     ownerUid: uid, ownerName: names[uid], sourceId: task.id, members, viewers: viewers.filter((v) => members.includes(v) && v !== uid), names,
     task: shareFields(task), rev: 1, updatedAt: now, updatedBy: uid, createdAt: now,
-    ...(extra.groupId ? { groupId: String(extra.groupId), groupName: cleanName(extra.groupName, 'Group'), assignee: String(extra.assignee || ''), ring: extra.ring !== false } : {}),
+    ...(extra.groupId ? { groupId: String(extra.groupId), groupName: cleanName(extra.groupName, 'Group'), assignee: String(extra.assignee || ''), ring: extra.ring !== false, groupView: allView(members, viewers) } : {}),
   });
+  if (extra.groupId) indexGroupTask(String(extra.groupId), ref.id, uid, allView(members, viewers)).catch(() => {});
   return ref.id;
 }
 export async function updateShareMembers(id, uid, people, viewers, group) {
@@ -314,12 +320,29 @@ export async function updateShareMembers(id, uid, people, viewers, group) {
   const d = s.data(), names = { [uid]: d.names?.[uid] || d.ownerName }, members = [uid];
   for (const p of people) if (p.uid && !members.includes(p.uid)) { members.push(p.uid); names[p.uid] = cleanName(p.name || d.names?.[p.uid]); }
   const gf = group === undefined ? {} : group ? (d.groupId === group.id ? {} : { groupId: String(group.id), groupName: cleanName(group.name, 'Group'), assignee: '', ring: true }) : { groupId: deleteField(), groupName: deleteField(), assignee: deleteField(), ring: deleteField() };
-  await updateDoc(ref, { members, viewers: viewers.filter((v) => members.includes(v) && v !== uid), names, ...gf });
+  const gid = group === undefined ? d.groupId : group ? String(group.id) : '';
+  const removed = (d.members || []).filter((m) => !members.includes(m)), blocked = [...new Set([...(d.blocked || []), ...removed])].filter((m) => !members.includes(m)).slice(-30);
+  const vw = viewers.filter((v) => members.includes(v) && v !== uid);
+  await updateDoc(ref, { members, viewers: vw, names, ...gf, ...(gid ? { groupView: allView(members, vw), blocked } : {}) });
+  if (gid) indexGroupTask(gid, id, uid, allView(members, vw)).catch(() => {});
+  else if (d.groupId) deleteDoc(doc(db, 'groups', d.groupId, 'tasks', id)).catch(() => {});
   return { members, names };
 }
 const logRef = (id) => collection(db, 'shares', id, 'activity');
 export const addActivity = (id, uid, name, text) => addDoc_(logRef(id), { uid, name: cleanName(name), text: String(text).slice(0, 200), at: Date.now() });
 const addDoc_ = (col, data) => setDoc(doc(col), data);
+/* Comments on a shared task: shares/{id}/comments/{auto} = { uid, name, text, at } */
+const comRef = (id) => collection(db, 'shares', id, 'comments');
+export const addComment = (id, uid, name, text) => addDoc_(comRef(id), { uid, name: cleanName(name), text: String(text).trim().slice(0, 1000), at: Date.now() });
+export const deleteComment = (id, cid) => deleteDoc(doc(db, 'shares', id, 'comments', cid));
+export function subscribeComments(id, onData, onError) {
+  return onSnapshot(query(comRef(id), orderBy('at', 'desc'), limit(100)), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })).reverse()), onError);
+}
+/* "Something changed" message for the push worker. A change notice has a fixed id, so a burst of edits becomes one push (the last one wins). */
+export const sendNotice = (shareId, fromUid, fromName, toUid, kind, title, body, delayMs = 0) =>
+  setDoc(doc(db, 'notices', kind === 'comment' ? `${toUid}_${shareId}_c${Date.now().toString(36)}` : `${toUid}_${shareId}_change`), {
+    toUid, fromUid, fromName: cleanName(fromName), shareId, kind, title: String(title || 'Shared task').slice(0, 120), body: String(body || '').slice(0, 200), fireAt: new Date(Date.now() + delayMs).toISOString(),
+  });
 /* Change a shared task on top of its newest version (so two people ticking different steps do not erase each other). */
 export async function editShare(id, uid, name, mutate, describe, picIds = []) {
   const ref = doc(db, 'shares', id);
@@ -351,7 +374,8 @@ export async function leaveShare(id, uid) {
   await updateDoc(ref, { members: d.members.filter((m) => m !== uid), viewers: (d.viewers || []).filter((m) => m !== uid), names });
 }
 export async function stopShare(id) {
-  for (const sub of ['activity', 'photos']) { // clean up the log and the pictures, best effort
+  try { const s = await getDoc(doc(db, 'shares', id)); if (s.exists() && s.data().groupId) await deleteDoc(doc(db, 'groups', s.data().groupId, 'tasks', id)); } catch { /* best effort */ }
+  for (const sub of ['activity', 'photos', 'comments']) { // clean up the log and the pictures, best effort
     try { const a = await getDocs(collection(db, 'shares', id, sub)); const b = writeBatch(db); a.docs.slice(0, 450).forEach((x) => b.delete(x.ref)); await b.commit(); } catch { /* ignore */ }
   }
   await deleteDoc(doc(db, 'shares', id));

@@ -1420,3 +1420,12 @@ div > .sh-thumbs:first-child, h4 + .sh-thumbs { margin-left: 0; }
 .more-menu button:hover, .more-menu button:focus-visible { background: var(--surface-2); }
 .more-menu button.active { color: var(--accent-text); }
 .more-menu .i { width: 18px; height: 18px; color: var(--muted); }
+
+/* ---------- comments on a shared task ---------- */
+.sh-coms { display: flex; flex-direction: column; gap: 10px; max-height: 320px; overflow-y: auto; margin-bottom: 10px; padding-right: 2px; }
+.sh-com { display: flex; gap: 10px; align-items: flex-start; }
+.sh-cb { flex: 1; min-width: 0; padding: 8px 12px; border-radius: 12px; background: var(--surface-2); }
+.sh-ch { display: flex; align-items: center; gap: 6px; font-size: 13px; flex-wrap: wrap; }
+.sh-ct { margin-top: 2px; font-size: 14.5px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sh-cx { margin-left: auto; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; min-height: 32px; padding: 0 6px; cursor: pointer; border-radius: 8px; }
+.sh-cx:hover, .sh-cx:focus-visible { color: var(--p-high); background: var(--surface); }

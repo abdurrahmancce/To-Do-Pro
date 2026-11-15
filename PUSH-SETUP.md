@@ -73,6 +73,8 @@ cd S:\todo-pro\todo-pro\worker
 wrangler deploy
 ```
 
+> **After an app update that changes `worker/index.js`** (for example the shared task notifications), run `wrangler deploy` again in the `worker` folder. Nothing else changes: the secret and the URL stay the same.
+
 If asked, choose a `workers.dev` subdomain name. Then store the service account key as a secret. Use the real path of the JSON file you downloaded:
 
 ```powershell
