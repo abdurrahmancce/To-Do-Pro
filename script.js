@@ -592,6 +592,7 @@ function taskHTML(t, td) {
     </div>
     <div class="t-actions">
       <button class="icon-btn sm edit" type="button" aria-label="Edit task">${icon('pencil')}</button>
+      <button class="icon-btn sm share" type="button" aria-label="Share task" title="Share task">${icon('share')}</button>
       <button class="icon-btn sm del" type="button" aria-label="Delete task">${icon('trash')}</button>
     </div>
   </li>`;
@@ -816,6 +817,7 @@ function onListClick(e) {
   if (li.classList.contains('open')) return closeOpenRow();
   if (e.target.closest('.check')) return toggleComplete(id);
   if (e.target.closest('.del')) return deleteWithUndo(id);
+  if (e.target.closest('.t-actions .share')) return openShare(cloudOn() && state.user ? 'people' : 'send', [id]);
   if (e.target.closest('.grip')) return;
   openEditor(id);
 }
@@ -1008,7 +1010,7 @@ function openEditor(id, preset = {}) {
 
   autoReset();
   $('#editor-title').textContent = t ? 'Edit task' : 'New task';
-  $('#f-delete').hidden = !t;
+  $('#f-delete').hidden = !t; $('#f-share').hidden = !t;
   F.title.value = v.title; F.notes.value = v.notes; F.date.value = v.date; F.heading.value = v.heading; F.tags.value = (v.tags || []).join(', ');
   setPriority(v.priority);
   if (v.alarm) { const d = new Date(v.alarm); F.aDate.value = ymd(d); F.aTime.value = hm(d); } else { F.aDate.value = ''; F.aTime.value = ''; }
@@ -1076,7 +1078,7 @@ function autoSave() {
     const t = normalize({ ...f, id: newId(), order: topOrder(), createdAt: new Date().toISOString(), alarmFired: false });
     upsert(t, { silent: true });
     state.editingId = t.id;
-    $('#editor-title').textContent = 'Edit task'; $('#f-delete').hidden = false;
+    $('#editor-title').textContent = 'Edit task'; $('#f-delete').hidden = false; $('#f-share').hidden = false;
   }
   autoStatus('saved');
 }
@@ -1154,6 +1156,7 @@ $('#editor-form').addEventListener('submit', (e) => {
   if (alarm) ensureNotifyPermission();
   editor.close();
 });
+$('#f-share').addEventListener('click', () => { autoSave(); const id = state.editingId; if (!id) return; editor.close(); openShare(cloudOn() && state.user ? 'people' : 'send', [id]); });
 $('#f-delete').addEventListener('click', () => { const id = state.editingId; clearTimeout(autoTimer); autoTimer = null; autoDirty = false; editor.close(); if (id) deleteWithUndo(id); });
 editor.addEventListener('keydown', (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') $('#editor-form').requestSubmit(); });
 
@@ -2272,6 +2275,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
   ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
   ["2026-11-14", "Shared tasks and group tasks", "Share a task with friends or a whole group from Share, People. They can tick steps, add steps and edit it (or only view it), and an activity log shows who did what. Each group has a task board with progress, Mine and Due today filters and an Assign to choice. A reminder on a shared task rings on everyone\u2019s phone. Shared tasks you receive are under Shared with me."],
+  ["2026-11-15", "Share button and groups", "Every task row now shows a Share button on the computer too, and the task editor has a Share button. The Share window always loads your latest friends and groups, so a group can be added to any task."],
   ["2026-11-15", "Shared photos fix", "Photos of tasks you shared earlier now reach the people you shared them with. Open the app on the phone or computer that has the photos once and they upload by themselves."],
   ["2026-11-14", "Shared tasks: photos and Shared by me", "Photos on a shared task and on its steps are now shared too, and people who can edit can add photos. The Shared page now has two lists, Shared with me and Shared by me, so you can see what you shared and with whom. Fixed the shared task window where long notes and steps overlapped, and the notes box can now be scrolled and made taller."],
 ];
@@ -2312,7 +2316,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-15-shared-photo-fix', label: 'Latest update: 14 November 2026' };
+const APP_UPDATE = { id: '2026-11-15-share-button', label: 'Latest update: 14 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2612,7 +2616,7 @@ function openShare(tab, ids = null) {
   track(tab === 'send' ? 'tasks-share-open' : tab === 'people' ? 'tasks-share-people' : 'tasks-download-open'); shareRefresh();
   const d = $('#share'); if (!d.open) d.showModal();
 }
-$('#bulk-share').addEventListener('click', () => openShare('send'));
+$('#bulk-share').addEventListener('click', () => openShare(cloudOn() && state.user ? 'people' : 'send'));
 $('#bulk-dl').addEventListener('click', () => openShare('download'));
 $$('#share [data-stab]').forEach((b) => b.addEventListener('click', () => { shareState.tab = b.dataset.stab; shareRefresh(); }));
 $('#share-detail').addEventListener('change', shareRefresh);

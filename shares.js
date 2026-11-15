@@ -22,26 +22,26 @@ const friendly = (e) => (e && e.code === 'permission-denied' ? 'Not allowed. Pub
 /* ---------------------------------------------------------
    People tab (inside the Share sheet)
    --------------------------------------------------------- */
-const P = { ctx: null, el: null, uid: null, friends: [], groups: [], people: new Map(), existing: null, msg: null, busy: false, log: [], offLog: null, wired: false };
+const P = { group: null, ctx: null, el: null, uid: null, friends: [], groups: [], people: new Map(), existing: null, msg: null, busy: false, log: [], offLog: null, wired: false };
 
 const once = (sub) => new Promise((res) => { let un = null, done = false; const fin = (v) => { if (done) return; done = true; setTimeout(() => un && un(), 0); res(v); }; un = sub((l) => fin(l), () => fin([])); if (done) un(); });
 
 async function loadPeople(ctx) {
   const me = ctx.user.uid;
-  const fs = await once((ok, bad) => ctx.cloud.subscribeFriendships(me, ok, bad));
+  const fs = await ctx.cloud.listFriendships(me).catch(() => once((ok, bad) => ctx.cloud.subscribeFriendships(me, ok, bad)));
   const ids = fs.filter((f) => f.status === 'accepted').map((f) => f.members.find((m) => m !== me)).filter(Boolean);
   P.friends = await Promise.all(ids.map(async (uid) => { const p = await ctx.cloud.getProfile(uid); return { uid, name: p ? p.name : 'Friend' }; }));
-  P.groups = await once((ok, bad) => ctx.cloud.subscribeGroups(me, ok, bad));
+  P.groups = await ctx.cloud.listGroups(me).catch(() => once((ok, bad) => ctx.cloud.subscribeGroups(me, ok, bad)));
   P.uid = me;
 }
 
 export async function renderPeople(el, ctx) {
   P.ctx = ctx; P.el = el; P.msg = null;
   el.innerHTML = '<p class="muted">Loading…</p>';
-  if (P.uid !== ctx.user.uid || !P.friends.length) await loadPeople(ctx);
+  try { await loadPeople(ctx); } catch (err) { P.msg = { t: friendly(err), ok: false }; }
   const sh = ctx.tasks.length === 1 ? ctx.shareOf(ctx.tasks[0]) : null;
   P.existing = sh || null;
-  P.people = new Map();
+  P.people = new Map(); P.group = sh && sh.groupId ? { id: sh.groupId, name: sh.groupName || 'Group' } : null;
   if (sh) sh.members.filter((m) => m !== ctx.user.uid).forEach((uid) => P.people.set(uid, { name: (sh.names && sh.names[uid]) || 'Friend', view: (sh.viewers || []).includes(uid) }));
   watchLog(sh);
   if (!P.wired) { P.wired = true; el.addEventListener('click', onPeopleClick); el.addEventListener('change', onPeopleChange); }
@@ -68,7 +68,8 @@ function drawPeople() {
     ${rows || '<p class="muted">Nobody yet. Add friends or a group below.</p>'}
     <h4 class="sh-h">Add friends</h4>
     <div class="sh-chips">${fr.length ? fr.map((f) => `<button type="button" class="sh-chip" data-addf="${e(f.uid)}">+ ${e(f.name)}</button>`).join('') : `<span class="muted">${P.friends.length ? 'All your friends are added.' : 'No friends yet. Add them in Account, Friends and groups.'}</span>`}</div>
-    ${gr.length ? `<h4 class="sh-h">Add a group</h4><div class="sh-chips">${gr.map((g) => `<button type="button" class="sh-chip" data-addg="${e(g.id)}" data-gname="${e(g.name)}">+ ${e(g.name)}</button>`).join('')}</div><p class="muted sh-small">A group adds the people who are in it today. People who join later are not added automatically.</p>` : ''}
+    ${P.group ? `<div class="sh-ongroup"><span>On the task board of <strong>${e(P.group.name)}</strong></span><button type="button" class="btn btn-ghost sm" data-rmg="1">Remove from board</button></div>` : ''}
+    ${gr.length ? `<h4 class="sh-h">Add a group</h4><div class="sh-chips">${gr.map((g) => `<button type="button" class="sh-chip" data-addg="${e(g.id)}" data-gname="${e(g.name)}">+ ${e(g.name)}</button>`).join('')}</div><p class="muted sh-small">A group adds the people who are in it today and puts the task on that group\u2019s task board. People who join later are not added automatically.</p>` : ''}
     <div class="sh-actions">
       <button type="button" class="btn btn-primary" data-apply="1" ${P.busy ? 'disabled' : ''}>${ex ? 'Save changes' : `Share ${n} task${n === 1 ? '' : 's'}`}</button>
       ${ex ? '<button type="button" class="btn btn-ghost danger" data-stop="1">Stop sharing</button>' : ''}
@@ -84,7 +85,9 @@ async function onPeopleClick(e) {
   const { ctx } = P, me = ctx.user.uid;
   if (b.dataset.addf) { const f = P.friends.find((x) => x.uid === b.dataset.addf); if (f) P.people.set(f.uid, { name: f.name, view: false }); P.msg = null; return drawPeople(); }
   if (b.dataset.rm) { P.people.delete(b.dataset.rm); return drawPeople(); }
+  if (b.dataset.rmg) { P.group = null; return drawPeople(); }
   if (b.dataset.addg) {
+    P.group = { id: b.dataset.addg, name: b.dataset.gname || 'Group' };
     try {
       const ms = await ctx.cloud.groupMembers(b.dataset.addg);
       ms.filter((m) => m.uid !== me).forEach((m) => { if (!P.people.has(m.uid)) P.people.set(m.uid, { name: m.name, view: false }); });
@@ -102,8 +105,8 @@ async function onPeopleClick(e) {
         if (!arr.length) throw new Error('Add at least one person first.');
         for (const t of ctx.tasks) {
           const cur = ctx.shareOf(t);
-          if (cur) await ctx.cloud.updateShareMembers(cur.id, me, arr, viewers);
-          else { const id = await ctx.cloud.createShare(me, ctx.myName, t, arr, viewers); ctx.attach(t, id); }
+          if (cur) await ctx.cloud.updateShareMembers(cur.id, me, arr, viewers, P.group);
+          else { const id = await ctx.cloud.createShare(me, ctx.myName, t, arr, viewers, P.group ? { groupId: P.group.id, groupName: P.group.name } : {}); ctx.attach(t, id); }
         }
         ctx.toast(`Shared with ${arr.length} ${arr.length === 1 ? 'person' : 'people'}`); ctx.track('share-people');
       }

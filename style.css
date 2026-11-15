@@ -300,8 +300,9 @@ kbd { font: 600 11px/1 var(--font); padding: 3px 6px; border-radius: 6px; backgr
 .chip.today { color: var(--p-low); }
 .chip.alarm { color: var(--accent-text); border-color: color-mix(in srgb, var(--accent) 30%, transparent); background: var(--accent-soft); }
 
-.t-actions { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
-.task:hover .t-actions, .task:focus-within .t-actions { opacity: 1; }
+.t-actions { display: flex; gap: 2px; }
+.t-actions .edit, .t-actions .del { opacity: 0; transition: opacity .15s; }
+.task:hover .t-actions .edit, .task:hover .t-actions .del, .task:focus-within .t-actions .edit, .task:focus-within .t-actions .del { opacity: 1; }
 .t-actions .icon-btn.del:hover { color: var(--danger); }
 
 .empty { text-align: center; padding: 56px 16px; }
@@ -1406,3 +1407,6 @@ div > .sh-thumbs:first-child, h4 + .sh-thumbs { margin-left: 0; }
 .sh-thx { position: absolute; top: -6px; right: -6px; width: 24px; height: 24px; border-radius: 50%; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 16px; line-height: 1; cursor: pointer; }
 .sh-sect { margin: 18px 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
 .shared-list { margin-bottom: 4px; }
+
+/* share sheet: the group the task is on */
+.sh-ongroup { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, rgba(127,127,127,.12)); border: 1px solid var(--border); overflow-wrap: anywhere; }

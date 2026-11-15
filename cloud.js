@@ -11,7 +11,7 @@ import {
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js';
 import {
   initializeFirestore, getFirestore, persistentLocalCache, persistentMultipleTabManager,
-  collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch, arrayUnion, query, where, orderBy, limit, runTransaction, terminate, clearIndexedDbPersistence, waitForPendingWrites,
+  collection, doc, setDoc, getDoc, getDocs, updateDoc, deleteDoc, onSnapshot, writeBatch, arrayUnion, deleteField, query, where, orderBy, limit, runTransaction, terminate, clearIndexedDbPersistence, waitForPendingWrites,
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 let app, auth, db;
@@ -213,6 +213,9 @@ export const removeFriendship = (id) => deleteDoc(doc(db, 'friendships', id));
 export function subscribeGroups(uid, onData, onError) {
   return onSnapshot(collection(db, 'users', uid, 'groups'), (snap) => onData(snap.docs.map((d) => ({ id: d.id, ...d.data() })), { pending: snap.metadata.hasPendingWrites }), onError);
 }
+/* One-time reads for the Share sheet: ask the server, so an empty offline cache never hides my groups or friends */
+export async function listGroups(uid) { const s = await getDocs(collection(db, 'users', uid, 'groups')); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
+export async function listFriendships(uid) { const s = await getDocs(query(collection(db, 'friendships'), where('members', 'array-contains', uid))); return s.docs.map((d) => ({ id: d.id, ...d.data() })); }
 /* A group I am still allowed to read (false when I was removed or it was deleted) */
 /* false only when the group is really gone or I am no longer a member; a network hiccup keeps it */
 export async function groupReadable(gid) { try { const s = await getDoc(doc(db, 'groups', gid)); return s.exists(); } catch (e) { return e && e.code === 'permission-denied' ? false : true; } }
@@ -305,12 +308,13 @@ export async function createShare(uid, ownerName, task, people, viewers, extra =
   });
   return ref.id;
 }
-export async function updateShareMembers(id, uid, people, viewers) {
+export async function updateShareMembers(id, uid, people, viewers, group) {
   const ref = doc(db, 'shares', id), s = await getDoc(ref);
   if (!s.exists()) throw new Error('This shared task no longer exists.');
   const d = s.data(), names = { [uid]: d.names?.[uid] || d.ownerName }, members = [uid];
   for (const p of people) if (p.uid && !members.includes(p.uid)) { members.push(p.uid); names[p.uid] = cleanName(p.name || d.names?.[p.uid]); }
-  await updateDoc(ref, { members, viewers: viewers.filter((v) => members.includes(v) && v !== uid), names });
+  const gf = group === undefined ? {} : group ? (d.groupId === group.id ? {} : { groupId: String(group.id), groupName: cleanName(group.name, 'Group'), assignee: '', ring: true }) : { groupId: deleteField(), groupName: deleteField(), assignee: deleteField(), ring: deleteField() };
+  await updateDoc(ref, { members, viewers: viewers.filter((v) => members.includes(v) && v !== uid), names, ...gf });
   return { members, names };
 }
 const logRef = (id) => collection(db, 'shares', id, 'activity');

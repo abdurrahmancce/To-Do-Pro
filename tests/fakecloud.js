@@ -65,10 +65,10 @@ export async function createShare(uid, ownerName, task, people, viewers, extra =
   shares.set(id, { ownerUid: uid, ownerName, sourceId: task.id, members, viewers: viewers.filter((v) => members.includes(v)), names, task: shareFields(task), rev: 1, updatedAt: Date.now(), updatedBy: uid, ...(extra.groupId ? { groupId: extra.groupId, groupName: extra.groupName, assignee: extra.assignee || '', ring: extra.ring !== false } : {}) });
   shEmit(); return id;
 }
-export async function updateShareMembers(id, uid, people, viewers) {
+export async function updateShareMembers(id, uid, people, viewers, group) {
   const d = shares.get(id); const names = { [uid]: d.names[uid] }, members = [uid];
   people.forEach((p) => { if (!members.includes(p.uid)) { members.push(p.uid); names[p.uid] = p.name; } });
-  Object.assign(d, { members, names, viewers: viewers.filter((v) => members.includes(v)) }); shEmit(); return { members, names };
+  Object.assign(d, { members, names, viewers: viewers.filter((v) => members.includes(v)) }); if (group) { if (d.groupId !== group.id) Object.assign(d, { groupId: group.id, groupName: group.name, assignee: '', ring: true }); } else if (group === null) { delete d.groupId; delete d.groupName; delete d.assignee; delete d.ring; } shEmit(); return { members, names };
 }
 export async function editShare(id, uid, name, mutate, describe, picIds = []) {
   const d = shares.get(id); if (!d) throw new Error('This shared task no longer exists.');
@@ -80,6 +80,8 @@ const spics = new Map();
 export const saveSharePhoto = async (id, uid, pid, rec) => { spics.set(id + '/' + pid, { d: rec.d, w: rec.w || 0, h: rec.h || 0, t: rec.t || 1, by: uid }); };
 export const addSharePics = async (id, pids) => { const s = shares.get(id); if (s) { s.pics = [...new Set([...(s.pics || []), ...pids])]; shEmit(); } };
 export const getSharePhoto = async (id, pid) => spics.get(id + '/' + pid) || null;
+export const listGroups = async () => [...myIdx].map(([id, d]) => ({ id, ...d }));
+export const listFriendships = async () => [...fships].map(([id, d]) => ({ id, ...d }));
 export const subscribeActivity = (id, f) => { if (!actL.has(id)) actL.set(id, new Set()); actL.get(id).add(f); actEmit(id); return () => actL.get(id).delete(f); };
 export const addActivity = async (id, uid, name, text) => log(id, uid, name, text);
 export async function leaveShare(id, uid) { const d = shares.get(id); d.members = d.members.filter((m) => m !== uid); shEmit(); }
