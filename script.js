@@ -473,6 +473,17 @@ function applyAppearance() {
   $$('#f-accent button').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.accentPick === prefAccent())));
 }
 const shareLook = () => { try { if (cloudOn()) cloud.savePrefs(state.user.uid, { accent: prefAccent(), theme: prefTheme() }).catch(() => {}); } catch { /* not signed in */ } };
+/* Phone header: the less used pages live in a small More menu */
+(function moreMenu() {
+  const btn = $('#btn-more'), menu = $('#more-menu');
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  btn.addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; btn.setAttribute('aria-expanded', String(!menu.hidden)); });
+  menu.addEventListener('click', close);
+  document.addEventListener('click', (e) => { if (!menu.hidden && !e.target.closest('.more-wrap')) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !menu.hidden) { close(); btn.focus(); } });
+  $('#more-theme').addEventListener('click', () => $('#btn-theme').click());
+  $('#more-summary').addEventListener('click', () => openSummary());
+})();
 $('#btn-theme').addEventListener('click', () => {
   lsSet(LS.theme, resolveTheme() === 'dark' ? 'light' : 'dark');
   applyAppearance(); shareLook();
@@ -2284,6 +2295,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
   ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
   ["2026-11-14", "Shared tasks and group tasks", "Share a task with friends or a whole group from Share, People. They can tick steps, add steps and edit it (or only view it), and an activity log shows who did what. Each group has a task board with progress, Mine and Due today filters and an Assign to choice. A reminder on a shared task rings on everyone\u2019s phone. Shared tasks you receive are under Shared with me."],
+  ["2026-11-15", "Friends and groups in the menu", "Friends and groups now has its own place: a Friends & groups item in the sidebar on computers and an icon in the header on phones. Calendar, Trash, Weekly summary and the theme switch are in a small More menu on phones."],
   ["2026-11-15", "Shared tasks save as you type", "Shared tasks now save a moment after you stop typing, so the other phones and computers follow almost at once. A Done button and a Saved status are at the bottom of the window."],
   ["2026-11-15", "Share button and groups", "Every task row now shows a Share button on the computer too, and the task editor has a Share button. The Share window always loads your latest friends and groups, so a group can be added to any task."],
   ["2026-11-15", "Shared photos fix", "Photos of tasks you shared earlier now reach the people you shared them with. Open the app on the phone or computer that has the photos once and they upload by themselves."],
@@ -2326,7 +2338,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-15-live-typing', label: 'Latest update: 14 November 2026' };
+const APP_UPDATE = { id: '2026-11-15-friends-nav', label: 'Latest update: 14 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
@@ -2471,7 +2483,7 @@ async function openSocial() {
     await m.openSocial({ cloud, user: state.user, toast, track, openGroup: (gid, name) => { $('#social').close(); openGroupTasks(gid, name); } });
   } catch (e) { console.error(e); toast('Could not open friends and groups.'); }
 }
-$('#btn-social').addEventListener('click', openSocial);
+['#nav-friends', '#btn-friends-top'].forEach((q) => $(q).addEventListener('click', openSocial));
 /* ?friend=CODE and ?join=CODE links: remember them, open the panel once signed in */
 (function captureDeepLink() {
   try {

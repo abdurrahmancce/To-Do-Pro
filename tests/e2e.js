@@ -501,7 +501,7 @@ const stored = (p, k = 'tasks-pro') => p.evaluate((k) => JSON.parse(localStorage
     await fp.waitForTimeout(400);
     await T('social: opens from Account and shows my friend code', async () => {
       await fp.evaluate(() => document.querySelector('#account').showModal());
-      await fp.click('#btn-social'); await fp.waitForSelector('#social[open] .soc-code');
+      await fp.click('#nav-friends'); await fp.waitForSelector('#social[open] .soc-code');
       return /^TEST-[A-Z0-9]{4}$/.test(await fp.textContent('.soc-code'));
     });
     await T('social: add a friend by code, then they accept', async () => {

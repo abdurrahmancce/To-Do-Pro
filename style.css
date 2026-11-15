@@ -1410,3 +1410,13 @@ div > .sh-thumbs:first-child, h4 + .sh-thumbs { margin-left: 0; }
 
 /* share sheet: the group the task is on */
 .sh-ongroup { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-2, rgba(127,127,127,.12)); border: 1px solid var(--border); overflow-wrap: anywhere; }
+
+/* ---------- phone header: More menu ---------- */
+@media (max-width: 760px) { #btn-theme { display: none; } }
+.more-wrap { position: relative; place-items: center; }
+.more-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 40; min-width: 210px; padding: 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 14px 40px rgba(0,0,0,.35); display: flex; flex-direction: column; }
+.more-menu[hidden] { display: none; }
+.more-menu button { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent; color: var(--text); font: inherit; font-size: 14.5px; text-align: left; cursor: pointer; }
+.more-menu button:hover, .more-menu button:focus-visible { background: var(--surface-2); }
+.more-menu button.active { color: var(--accent-text); }
+.more-menu .i { width: 18px; height: 18px; color: var(--muted); }

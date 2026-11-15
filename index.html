@@ -44,6 +44,8 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="i-logo" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5"/><path d="m8.5 12.5 2.5 2.5 4.5-5"/></symbol>
+    <symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+    <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
     <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
     <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></symbol>
@@ -98,6 +100,7 @@
       <button class="nav-item" data-view="upcoming" type="button"><svg class="i"><use href="#i-calendar"/></svg><span>Upcoming</span><em data-count="upcoming">0</em></button>
       <button class="nav-item" data-view="calendar" type="button"><svg class="i"><use href="#i-calgrid"/></svg><span>Calendar</span></button>
       <button class="nav-item" data-view="shared" id="nav-shared" type="button"><svg class="i"><use href="#i-share"/></svg><span>Shared</span><em data-count="shared">0</em></button>
+      <button class="nav-item" id="nav-friends" type="button"><svg class="i"><use href="#i-users"/></svg><span>Friends &amp; groups</span></button>
       <button class="nav-item" data-view="done" type="button"><svg class="i"><use href="#i-done"/></svg><span>Completed</span><em data-count="done">0</em></button>
       <button class="nav-item" data-view="trash" type="button"><svg class="i"><use href="#i-trash"/></svg><span>Trash</span><em data-count="trash">0</em></button>
     </nav>
@@ -134,13 +137,21 @@
       </div>
 
       <div class="topbar-actions">
-        <button class="icon-btn mobile-only" data-view="trash" type="button" aria-label="Trash"><svg class="i"><use href="#i-trash"/></svg></button>
         <button class="icon-btn mobile-only" data-view="shared" type="button" aria-label="Shared tasks"><svg class="i"><use href="#i-share"/></svg><span class="badge" data-count="shared-badge" hidden>0</span></button>
-        <button class="icon-btn mobile-only" data-view="calendar" type="button" aria-label="Calendar view"><svg class="i"><use href="#i-calgrid"/></svg></button>
+        <button class="icon-btn mobile-only" id="btn-friends-top" type="button" aria-label="Friends and groups"><svg class="i"><use href="#i-users"/></svg></button>
         <button class="icon-btn mobile-only" id="btn-reminders-top" type="button" aria-label="Reminders">
           <svg class="i"><use href="#i-bell"/></svg><span class="badge" data-count="reminders-badge" hidden>0</span>
         </button>
         <button class="icon-btn" id="btn-theme" type="button" aria-label="Toggle theme"><svg class="i" id="theme-icon"><use href="#i-sun"/></svg></button>
+        <div class="more-wrap mobile-only">
+          <button class="icon-btn" id="btn-more" type="button" aria-label="More" aria-haspopup="true" aria-expanded="false"><svg class="i"><use href="#i-more"/></svg></button>
+          <div class="more-menu" id="more-menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-view="calendar"><svg class="i"><use href="#i-calgrid"/></svg>Calendar</button>
+            <button type="button" role="menuitem" data-view="trash"><svg class="i"><use href="#i-trash"/></svg>Trash</button>
+            <button type="button" role="menuitem" id="more-summary"><svg class="i"><use href="#i-chart"/></svg>Weekly summary</button>
+            <button type="button" role="menuitem" id="more-theme"><svg class="i"><use href="#i-moon"/></svg>Switch theme</button>
+          </div>
+        </div>
         <button class="icon-btn mobile-only account-mini" data-open-account type="button" aria-label="Account and sync">
           <span class="avatar sm" data-avatar><svg class="i"><use href="#i-user"/></svg></span>
           <span class="sync-dot corner" data-sync-dot></span>
@@ -396,11 +407,6 @@
       <a class="btn btn-ghost" href="help.html" target="_blank" rel="noopener">Open user guide / ব্যবহার নির্দেশিকা</a>
     </div>
 
-    <div class="acc-section" id="social-section">
-      <h3>Friends and groups</h3>
-      <p class="muted">Add friends with a code and create groups. This is the first step towards sharing tasks.</p>
-      <button type="button" class="btn btn-ghost" id="btn-social">Friends and groups</button>
-    </div>
 
     <div class="acc-section">
       <h3>What&rsquo;s new</h3>
