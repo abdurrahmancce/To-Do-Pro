@@ -129,8 +129,24 @@ function wire() {
   const body = $('#st-body');
   body.addEventListener('click', onClick);
   body.addEventListener('change', onChange);
+  body.addEventListener('input', (e) => { if (e.target.id === 'st-ttl' || e.target.id === 'st-notes') queueText(); });
+  $('#st-done').addEventListener('click', () => { flushText(); dlg().close(); });
   body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'st-newstep') { e.preventDefault(); addStep(); } });
-  dlg().addEventListener('close', () => { if (D.off) { D.off(); D.off = null; } D.id = null; D.gid = null; });
+  dlg().addEventListener('close', () => { flushText(); if (D.off) { D.off(); D.off = null; } D.id = null; D.gid = null; });
+}
+/* Title and notes save as you type (a short pause after the last key), on Done and when the window closes */
+let textTimer = null, textDirty = false;
+const status = (s, t) => { const el = $('#st-status'); if (el) { el.dataset.s = s; el.textContent = t; } };
+function queueText() {
+  textDirty = true; status('saving', 'Saving…');
+  clearTimeout(textTimer); textTimer = setTimeout(flushText, 700);
+}
+function flushText() {
+  clearTimeout(textTimer); textTimer = null;
+  if (!textDirty || !D.id || D.mode !== 'task') { textDirty = false; return; }
+  textDirty = false;
+  const ttl = $('#st-ttl'), nt = $('#st-notes'), title = ttl ? ttl.value.trim().slice(0, 200) : null, notes = nt ? nt.value.slice(0, 20000) : null;
+  edit((x) => { if (title) x.title = title; if (notes !== null) x.notes = notes; return x; }, [], true);
 }
 function watchTaskLog(id) {
   if (D.off) { D.off(); D.off = null; }
@@ -141,7 +157,7 @@ const logHTML2 = (l) => (l.length ? l.map((x) => `<div class="sh-log"><span clas
 
 export async function openSharedTask(ctx, id, fromGroup) {
   D.ctx = ctx; D.id = id; D.mode = 'task'; D.back = fromGroup || null;
-  wire();
+  wire(); textDirty = false; status('idle', 'Changes save automatically');
   if (!dlg().open) dlg().showModal();
   watchTaskLog(id);
   drawTask();
@@ -195,10 +211,11 @@ function drawTask() {
     <div class="sh-actions">${owner ? '<button type="button" class="btn btn-ghost" data-act="people">Manage people</button>' : '<button type="button" class="btn btn-ghost danger" data-act="leave">Leave this task</button>'}</div>`;
   hydrate(body);
 }
-function edit(mutate, picIds) {
+function edit(mutate, picIds, text) {
   const { ctx } = D, sh = ctx.getShare(D.id);
   if (!sh) return;
-  Promise.resolve(ctx.edit(sh, mutate, picIds || [])).catch((err) => { ctx.onError(err); ctx.toast(friendly(err)); });
+  status('saving', 'Saving…');
+  Promise.resolve(ctx.edit(sh, mutate, picIds || [])).then(() => { if (!textDirty) status('saved', 'All changes saved'); }).catch((err) => { status('idle', 'Could not save'); ctx.onError(err); ctx.toast(friendly(err)); });
 }
 function addStep() {
   const el = $('#st-newstep'); const v = el && el.value.trim(); if (!v) return;
@@ -235,8 +252,7 @@ async function onClick(e) {
 }
 function onChange(e) {
   const t = e.target;
-  if (t.id === 'st-ttl') { const v = t.value.trim().slice(0, 200); if (v) edit((x) => { x.title = v; return x; }); }
-  else if (t.id === 'st-notes') { const v = t.value.slice(0, 20000); edit((x) => { x.notes = v; return x; }); }
+  if (t.id === 'st-ttl' || t.id === 'st-notes') { textDirty = true; flushText(); }
   else if (t.id === 'st-pri') { const v = ['low', 'medium', 'high'].includes(t.value) ? t.value : 'medium'; edit((x) => { x.priority = v; return x; }); }
   else if (t.id === 'st-file') addPhotos(t);
   else if (t.id === 'st-date') { const v = /^\d{4}-\d{2}-\d{2}$/.test(t.value) ? t.value : ''; edit((x) => { x.date = v; return x; }); }

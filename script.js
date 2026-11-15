@@ -246,6 +246,15 @@ function describeChange(a = {}, b = {}) {
   for (const [id, x] of old) if (!now.has(id)) out.push('removed the step ' + qt(x.text));
   return out;
 }
+/* While somebody types, the task saves every moment: the activity log keeps one line for such a burst, not one per save */
+const burst = new Map();
+const quiet = (id) => (a, b) => describeChange(a, b).filter((l) => {
+  const k = /^renamed the task to/.test(l) ? id + 'rn' : l === 'edited the notes' ? id + 'nt' : null;
+  if (!k) return true;
+  const key = k + state.user.uid, now = Date.now();
+  if (now - (burst.get(key) || 0) < 180000) { burst.set(key, now); return false; }
+  burst.set(key, now); return true;
+});
 /* Owner side: send this task's current content into its share */
 async function pushShare(task) {
   const sh = shareOf(task);
@@ -258,7 +267,7 @@ async function pushShare(task) {
     picBusy.add('up' + sh.id + pid);
     try { const d = await ph.photoURL(pid); if (d && ph.validPhotoData(d)) { await cloud.saveSharePhoto(sh.id, me, pid, { d }); up.push(pid); } } catch (e) { onCloudError(e); } finally { picBusy.delete('up' + sh.id + pid); }
   }
-  cloud.pushShareTask(task.shareId, me, myName(), task, describeChange, up).then((r) => { task.shareRev = r.rev; }).catch(onCloudError);
+  cloud.pushShareTask(task.shareId, me, myName(), task, quiet(task.shareId), up).then((r) => { task.shareRev = r.rev; }).catch(onCloudError);
 }
 /* Owner side: pictures of a task shared before pictures were supported (or whose upload failed) go into the share once per session */
 const picTried = new Set();
@@ -306,7 +315,7 @@ function shareEdit(sh, mutate, picIds = []) {
     upsert(mergeShareTask(t, mutate(cloud.shareFields(t))));
     return Promise.resolve();
   }
-  return cloud.editShare(sh.id, state.user.uid, myName(), mutate, describeChange, picIds);
+  return cloud.editShare(sh.id, state.user.uid, myName(), mutate, quiet(sh.id), picIds);
 }
 async function createGroupTask(o) {
   if (!cloudOn()) throw new Error('Sign in first.');
@@ -2275,6 +2284,7 @@ const UPDATE_HISTORY = [ // [date, title, detail], oldest first
   ["2026-11-12", "Labelled sidebar and screenshots", "On laptops and desktops every sidebar icon now shows its name (All tasks, Today, Upcoming, Calendar, Completed, Trash, Reminders, Weekly summary), just like the phone tab bar. The README now includes screenshots of the app."],
   ["2026-11-13", "Friends and groups", "Add friends with a private friend code or invite link, accept or decline requests, create groups and invite people with a link you can turn off at any time. Find it under Account, Friends and groups. Sharing tasks with them comes next."],
   ["2026-11-14", "Shared tasks and group tasks", "Share a task with friends or a whole group from Share, People. They can tick steps, add steps and edit it (or only view it), and an activity log shows who did what. Each group has a task board with progress, Mine and Due today filters and an Assign to choice. A reminder on a shared task rings on everyone\u2019s phone. Shared tasks you receive are under Shared with me."],
+  ["2026-11-15", "Shared tasks save as you type", "Shared tasks now save a moment after you stop typing, so the other phones and computers follow almost at once. A Done button and a Saved status are at the bottom of the window."],
   ["2026-11-15", "Share button and groups", "Every task row now shows a Share button on the computer too, and the task editor has a Share button. The Share window always loads your latest friends and groups, so a group can be added to any task."],
   ["2026-11-15", "Shared photos fix", "Photos of tasks you shared earlier now reach the people you shared them with. Open the app on the phone or computer that has the photos once and they upload by themselves."],
   ["2026-11-14", "Shared tasks: photos and Shared by me", "Photos on a shared task and on its steps are now shared too, and people who can edit can add photos. The Shared page now has two lists, Shared with me and Shared by me, so you can see what you shared and with whom. Fixed the shared task window where long notes and steps overlapped, and the notes box can now be scrolled and made taller."],
@@ -2316,7 +2326,7 @@ $$('#history [data-htab]').forEach((b) => b.addEventListener('click', () => rend
 $('#hist-ok').addEventListener('click', () => $('#history').close());
 
 /* ---------- What's new (announcement shown once per update) ---------- */
-const APP_UPDATE = { id: '2026-11-15-share-button', label: 'Latest update: 14 November 2026' };
+const APP_UPDATE = { id: '2026-11-15-live-typing', label: 'Latest update: 14 November 2026' };
 function renderWhatsNew() {
   $('#wn-ver').textContent = APP_UPDATE.label;
   const since = '2026-10-15', days = new Map();
